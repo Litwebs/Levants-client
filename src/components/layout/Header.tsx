@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Search, User, Heart, ShoppingBag, Menu, X } from 'lucide-react';
+import { Search, Heart, ShoppingBag, Menu, X } from 'lucide-react';
 import { useCart } from '@/context/CartContext';
 
 const Header: React.FC = () => {
@@ -12,7 +12,6 @@ const Header: React.FC = () => {
   const navLinks = [
     { name: 'Home', path: '/' },
     { name: 'Shop', path: '/shop' },
-    { name: 'Subscriptions', path: '/subscriptions' },
     { name: 'About', path: '/about' },
     { name: 'Delivery & FAQs', path: '/delivery' },
     { name: 'Contact', path: '/contact' },
@@ -77,15 +76,6 @@ const Header: React.FC = () => {
                 <Search className="w-5 h-5" />
               </button>
 
-              {/* Account */}
-              <Link
-                to="/account"
-                className="hidden sm:flex p-2 text-foreground hover:text-primary transition-colors"
-                aria-label="Account"
-              >
-                <User className="w-5 h-5" />
-              </Link>
-
               {/* Wishlist */}
               <button
                 className="hidden sm:flex p-2 text-foreground hover:text-primary transition-colors"
@@ -144,14 +134,6 @@ const Header: React.FC = () => {
                   {link.name}
                 </Link>
               ))}
-              <Link
-                to="/account"
-                onClick={() => setIsMenuOpen(false)}
-                className="py-3 px-4 rounded-lg text-base font-medium text-foreground hover:bg-secondary flex items-center gap-3"
-              >
-                <User className="w-5 h-5" />
-                Account
-              </Link>
             </nav>
           </div>
         )}
