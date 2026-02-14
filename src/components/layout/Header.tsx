@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { Search, Heart, ShoppingBag, Menu, X } from 'lucide-react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Search, ShoppingBag, Menu, X } from 'lucide-react';
 import { useCart } from '@/context/CartContext';
 
 const Header: React.FC = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const { itemCount, openCart } = useCart();
   const location = useLocation();
+  const navigate = useNavigate();
 
   const navLinks = [
     { name: 'Home', path: '/' },
@@ -19,20 +21,26 @@ const Header: React.FC = () => {
 
   const isActive = (path: string) => location.pathname === path;
 
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (searchQuery.trim()) {
+      navigate(`/shop?q=${encodeURIComponent(searchQuery.trim())}`);
+      setIsSearchOpen(false);
+      setSearchQuery('');
+    }
+  };
+
   return (
     <>
-      {/* Announcement Bar */}
       <div className="announcement-bar">
         <p className="container-custom">
           🚚 Next-day local delivery available • Farm-fresh quality guaranteed
         </p>
       </div>
 
-      {/* Main Header */}
       <header className="sticky top-0 z-50 bg-card/95 backdrop-blur-md border-b border-border">
         <div className="container-custom">
           <div className="flex items-center justify-between h-16 lg:h-20">
-            {/* Mobile Menu Button */}
             <button
               className="lg:hidden p-2 -ml-2 text-foreground hover:text-primary transition-colors"
               onClick={() => setIsMenuOpen(!isMenuOpen)}
@@ -41,23 +49,17 @@ const Header: React.FC = () => {
               {isMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
             </button>
 
-            {/* Logo */}
             <Link to="/" className="flex items-center">
-              <h1 className="font-heading text-xl lg:text-2xl font-semibold text-primary">
-                Levants Dairy
-              </h1>
+              <h1 className="font-heading text-xl lg:text-2xl font-semibold text-primary">Levants Dairy</h1>
             </Link>
 
-            {/* Desktop Navigation */}
             <nav className="hidden lg:flex items-center gap-8">
               {navLinks.map((link) => (
                 <Link
                   key={link.path}
                   to={link.path}
                   className={`text-sm font-medium transition-colors link-underline ${
-                    isActive(link.path)
-                      ? 'text-primary'
-                      : 'text-foreground hover:text-primary'
+                    isActive(link.path) ? 'text-primary' : 'text-foreground hover:text-primary'
                   }`}
                 >
                   {link.name}
@@ -65,9 +67,7 @@ const Header: React.FC = () => {
               ))}
             </nav>
 
-            {/* Right Icons */}
             <div className="flex items-center gap-2 lg:gap-4">
-              {/* Search */}
               <button
                 onClick={() => setIsSearchOpen(!isSearchOpen)}
                 className="p-2 text-foreground hover:text-primary transition-colors"
@@ -76,15 +76,6 @@ const Header: React.FC = () => {
                 <Search className="w-5 h-5" />
               </button>
 
-              {/* Wishlist */}
-              <button
-                className="hidden sm:flex p-2 text-foreground hover:text-primary transition-colors"
-                aria-label="Wishlist"
-              >
-                <Heart className="w-5 h-5" />
-              </button>
-
-              {/* Cart */}
               <button
                 onClick={openCart}
                 className="relative p-2 text-foreground hover:text-primary transition-colors"
@@ -100,23 +91,23 @@ const Header: React.FC = () => {
             </div>
           </div>
 
-          {/* Search Bar (Expandable) */}
           {isSearchOpen && (
-            <div className="pb-4 animate-fade-in">
+            <form onSubmit={handleSearch} className="pb-4 animate-fade-in">
               <div className="relative">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
                 <input
                   type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search for products..."
                   className="input-field pl-12"
                   autoFocus
                 />
               </div>
-            </div>
+            </form>
           )}
         </div>
 
-        {/* Mobile Navigation */}
         {isMenuOpen && (
           <div className="lg:hidden border-t border-border animate-fade-in">
             <nav className="container-custom py-4 flex flex-col gap-2">
@@ -126,9 +117,7 @@ const Header: React.FC = () => {
                   to={link.path}
                   onClick={() => setIsMenuOpen(false)}
                   className={`py-3 px-4 rounded-lg text-base font-medium transition-colors ${
-                    isActive(link.path)
-                      ? 'bg-primary/10 text-primary'
-                      : 'text-foreground hover:bg-secondary'
+                    isActive(link.path) ? 'bg-primary/10 text-primary' : 'text-foreground hover:bg-secondary'
                   }`}
                 >
                   {link.name}

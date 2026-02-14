@@ -12,7 +12,8 @@ import ShopPage from "./pages/ShopPage";
 import ProductPage from "./pages/ProductPage";
 import CartPage from "./pages/CartPage";
 import CheckoutPage from "./pages/CheckoutPage";
-import OrderConfirmationPage from "./pages/OrderConfirmationPage";
+import PaymentSuccessPage from "./pages/PaymentSuccessPage";
+import PaymentFailedPage from "./pages/PaymentFailedPage";
 import AboutPage from "./pages/AboutPage";
 import DeliveryPage from "./pages/DeliveryPage";
 import ContactPage from "./pages/ContactPage";
@@ -35,8 +36,8 @@ const App = () => (
                 <Route path="/product/:id" element={<Layout><ProductPage /></Layout>} />
                 <Route path="/cart" element={<Layout><CartPage /></Layout>} />
                 <Route path="/checkout" element={<CheckoutPage />} />
-                <Route path="/order-confirmation" element={<Layout><OrderConfirmationPage /></Layout>} />
-                <Route path="/checkout/success" element={<Layout><OrderConfirmationPage /></Layout>} />
+                <Route path="/checkout/success" element={<Layout><PaymentSuccessPage /></Layout>} />
+                <Route path="/checkout/cancel" element={<Layout><PaymentFailedPage /></Layout>} />
                 <Route path="/about" element={<Layout><AboutPage /></Layout>} />
                 <Route path="/delivery" element={<Layout><DeliveryPage /></Layout>} />
                 <Route path="/contact" element={<Layout><ContactPage /></Layout>} />
