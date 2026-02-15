@@ -1,7 +1,7 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
-import { X, Plus, Minus, ShoppingBag, Trash2 } from 'lucide-react';
-import { useCart } from '@/context/CartContext';
+import React from "react";
+import { Link } from "react-router-dom";
+import { X, Plus, Minus, ShoppingBag, Trash2 } from "lucide-react";
+import { useCart } from "@/context/CartContext";
 
 const CartDrawer: React.FC = () => {
   const {
@@ -49,14 +49,13 @@ const CartDrawer: React.FC = () => {
           {items.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-center py-12">
               <ShoppingBag className="w-16 h-16 text-muted-foreground/30 mb-4" />
-              <h3 className="font-heading text-lg font-medium mb-2">Your cart is empty</h3>
+              <h3 className="font-heading text-lg font-medium mb-2">
+                Your cart is empty
+              </h3>
               <p className="text-muted-foreground text-sm mb-6">
                 Add some farm-fresh products to get started.
               </p>
-              <button
-                onClick={closeCart}
-                className="btn-primary"
-              >
+              <button onClick={closeCart} className="btn-primary">
                 <Link to="/shop">Start Shopping</Link>
               </button>
             </div>
@@ -68,6 +67,10 @@ const CartDrawer: React.FC = () => {
                   : item.product.id;
                 const price = item.variant?.price ?? item.product.price;
                 const variantName = item.variant?.name;
+                const maxStock =
+                  typeof (item.variant as any)?.stockQuantity === "number"
+                    ? Math.max(0, (item.variant as any).stockQuantity)
+                    : undefined;
 
                 return (
                   <div
@@ -105,7 +108,7 @@ const CartDrawer: React.FC = () => {
                               updateQuantity(
                                 item.product.id,
                                 item.quantity - 1,
-                                item.variant?.id
+                                item.variant?.id,
                               )
                             }
                             className="p-1.5 hover:bg-secondary rounded-l-lg transition-colors"
@@ -121,8 +124,13 @@ const CartDrawer: React.FC = () => {
                               updateQuantity(
                                 item.product.id,
                                 item.quantity + 1,
-                                item.variant?.id
+                                item.variant?.id,
                               )
+                            }
+                            disabled={
+                              typeof maxStock === "number"
+                                ? item.quantity >= maxStock
+                                : false
                             }
                             className="p-1.5 hover:bg-secondary rounded-r-lg transition-colors"
                             aria-label="Increase quantity"
@@ -153,19 +161,6 @@ const CartDrawer: React.FC = () => {
         {items.length > 0 && (
           <div className="border-t border-border px-6 py-4 space-y-4">
             {/* Free Delivery Notice */}
-            {subtotal < 25 && (
-              <div className="bg-accent/10 rounded-lg px-4 py-3">
-                <p className="text-sm text-accent-foreground">
-                  Add <span className="font-semibold">£{(25 - subtotal).toFixed(2)}</span> more for free delivery!
-                </p>
-                <div className="mt-2 h-2 bg-accent/20 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-accent rounded-full transition-all duration-300"
-                    style={{ width: `${Math.min((subtotal / 25) * 100, 100)}%` }}
-                  />
-                </div>
-              </div>
-            )}
 
             {/* Order Summary */}
             <div className="space-y-2 text-sm">
@@ -176,11 +171,7 @@ const CartDrawer: React.FC = () => {
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Delivery</span>
                 <span>
-                  {deliveryFee === 0 ? (
-                    <span className="text-primary font-medium">FREE</span>
-                  ) : (
-                    `£${deliveryFee.toFixed(2)}`
-                  )}
+                  <span className="text-primary font-medium">FREE</span>
                 </span>
               </div>
               <div className="flex justify-between font-semibold text-base pt-2 border-t border-border">

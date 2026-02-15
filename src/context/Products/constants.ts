@@ -9,6 +9,7 @@ export interface ProductVariant {
   currency: string;
   stockQuantity: number;
   lowStock: boolean;
+  thumbnailImage?: ProductImageRef;
 }
 
 export interface ProductPricing {
@@ -17,14 +18,21 @@ export interface ProductPricing {
   currency: string;
 }
 
+export interface ProductImage {
+  url?: string;
+  [key: string]: unknown;
+}
+
+export type ProductImageRef = string | ProductImage;
+
 export interface Product {
   id: string;
   name: string;
   slug: string;
   category: string;
   description: string;
-  thumbnailImage: string;
-  galleryImages: string[];
+  thumbnailImage: ProductImageRef;
+  galleryImages: ProductImageRef[];
   variants: ProductVariant[];
   pricing: ProductPricing;
 }

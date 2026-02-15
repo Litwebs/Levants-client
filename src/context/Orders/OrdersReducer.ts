@@ -9,6 +9,7 @@ export const ORDER_FAILURE = 'ORDER_FAILURE';
 export const CUSTOMER_SUCCESS = 'CUSTOMER_SUCCESS';
 export const CHECKOUT_SUCCESS = 'CHECKOUT_SUCCESS';
 export const ORDER_RESET = 'ORDER_RESET';
+export const ORDER_IDLE = 'ORDER_IDLE';
 
 /* ========================
    ACTIONS
@@ -19,6 +20,7 @@ export type OrderAction =
   | { type: typeof ORDER_FAILURE; payload: string }
   | { type: typeof CUSTOMER_SUCCESS; payload: Customer }
   | { type: typeof CHECKOUT_SUCCESS; payload: string }
+  | { type: typeof ORDER_IDLE }
   | { type: typeof ORDER_RESET };
 
 /* ========================
@@ -41,6 +43,9 @@ export default function OrdersReducer(
 
     case CHECKOUT_SUCCESS:
       return { ...state, loading: false, checkoutUrl: action.payload, error: null };
+
+    case ORDER_IDLE:
+      return { ...state, loading: false, error: null };
 
     case ORDER_RESET:
       return { customer: null, loading: false, error: null, checkoutUrl: null };

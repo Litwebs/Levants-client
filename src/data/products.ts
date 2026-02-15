@@ -28,6 +28,10 @@ export interface ProductVariant {
   name: string;
   price: number;
   stockStatus: 'in-stock' | 'low-stock' | 'out-of-stock';
+  stockQuantity?: number;
+  thumbnailImage?: unknown;
+  image?: unknown;
+  imageUrl?: string;
 }
 
 export interface Category {

@@ -1,8 +1,8 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
-import { Trash2, ArrowRight, ShoppingBag, Tag } from 'lucide-react';
-import { useCart } from '@/context/CartContext';
-import QuantityStepper from '@/components/ui/QuantityStepper';
+import React from "react";
+import { Link } from "react-router-dom";
+import { Trash2, ArrowRight, ShoppingBag, Tag } from "lucide-react";
+import { useCart } from "@/context/CartContext";
+import QuantityStepper from "@/components/ui/QuantityStepper";
 
 const CartPage: React.FC = () => {
   const {
@@ -25,10 +25,13 @@ const CartPage: React.FC = () => {
               Your Cart is Empty
             </h1>
             <p className="text-muted-foreground mb-8">
-              Looks like you haven't added any products to your cart yet.
-              Start shopping our farm-fresh collection!
+              Looks like you haven't added any products to your cart yet. Start
+              shopping our farm-fresh collection!
             </p>
-            <Link to="/shop" className="btn-primary inline-flex items-center gap-2">
+            <Link
+              to="/shop"
+              className="btn-primary inline-flex items-center gap-2"
+            >
               Start Shopping
               <ArrowRight className="w-4 h-4" />
             </Link>
@@ -47,7 +50,7 @@ const CartPage: React.FC = () => {
             Your Cart
           </h1>
           <p className="text-muted-foreground">
-            {items.length} {items.length === 1 ? 'item' : 'items'} in your cart
+            {items.length} {items.length === 1 ? "item" : "items"} in your cart
           </p>
         </div>
       </div>
@@ -110,10 +113,17 @@ const CartPage: React.FC = () => {
                         onQuantityChange={(qty) =>
                           updateQuantity(item.product.id, qty, item.variant?.id)
                         }
+                        max={
+                          typeof item.variant?.stockQuantity === "number"
+                            ? Math.max(0, item.variant.stockQuantity)
+                            : 99
+                        }
                         size="sm"
                       />
                       <button
-                        onClick={() => removeItem(item.product.id, item.variant?.id)}
+                        onClick={() =>
+                          removeItem(item.product.id, item.variant?.id)
+                        }
                         className="p-2 text-muted-foreground hover:text-destructive transition-colors"
                         aria-label="Remove item"
                       >

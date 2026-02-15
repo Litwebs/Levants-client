@@ -1,22 +1,96 @@
-import React, { useState } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Search, ShoppingBag, Menu, X } from 'lucide-react';
-import { useCart } from '@/context/CartContext';
+import React, { useEffect, useMemo, useState } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Search, ShoppingBag, Menu, X } from "lucide-react";
+import { useCart } from "@/context/CartContext";
+import api from "@/api/client";
+
+type ActiveDiscount = {
+  code: string;
+  kind: "percent" | "amount";
+  percentOff?: number;
+  amountOff?: number;
+  currency?: string;
+  variants?: string[];
+};
 
 const Header: React.FC = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
+  const [activeDiscount, setActiveDiscount] = useState<ActiveDiscount | null>(
+    null,
+  );
   const { itemCount, openCart } = useCart();
   const location = useLocation();
   const navigate = useNavigate();
 
+  useEffect(() => {
+    let isMounted = true;
+    (async () => {
+      try {
+        const res = await api.get<{
+          success: boolean;
+          data?: { items?: ActiveDiscount[] };
+        }>("/discounts/active");
+
+        if (!isMounted) return;
+        if (!res?.success) return;
+
+        const items = Array.isArray(res.data?.items) ? res.data?.items : [];
+        if (items.length === 0) {
+          setActiveDiscount(null);
+          return;
+        }
+
+        // Prefer sitewide discounts (no variants specified), else use the first one.
+        const sitewide = items.find((d) => !d.variants?.length);
+        setActiveDiscount(sitewide ?? items[0]);
+      } catch {
+        // Ignore banner errors; keep default message.
+      }
+    })();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const announcementText = useMemo(() => {
+    if (!activeDiscount) return "";
+
+    const code = String(activeDiscount.code || "").trim();
+    const variants = Array.isArray(activeDiscount.variants)
+      ? activeDiscount.variants.filter(Boolean)
+      : [];
+
+    const scopeText =
+      variants.length > 0 ? `Applies to: ${variants.join(", ")}` : "Sitewide";
+
+    if (activeDiscount.kind === "percent") {
+      const percent = Number(activeDiscount.percentOff || 0);
+      const percentText =
+        Number.isFinite(percent) && percent > 0 ? `${percent}%` : "%";
+      return `🏷️ Discount: ${code} • ${percentText} off • ${scopeText}`;
+    }
+
+    if (activeDiscount.kind === "amount") {
+      const amount = Number(activeDiscount.amountOff || 0);
+      const currency = String(activeDiscount.currency || "GBP").toUpperCase();
+      const symbol = currency === "GBP" ? "£" : currency === "USD" ? "$" : "";
+      const amountText =
+        Number.isFinite(amount) && amount > 0 ? `${symbol}${amount}` : "Amount";
+      return `🏷️ Discount: ${code} • ${amountText} off • ${scopeText}`;
+    }
+
+    return `🏷️ Discount: ${code} • ${scopeText}`;
+  }, [activeDiscount]);
+
   const navLinks = [
-    { name: 'Home', path: '/' },
-    { name: 'Shop', path: '/shop' },
-    { name: 'About', path: '/about' },
-    { name: 'Delivery & FAQs', path: '/delivery' },
-    { name: 'Contact', path: '/contact' },
+    { name: "Home", path: "/" },
+    { name: "Shop", path: "/shop" },
+    { name: "About", path: "/about" },
+    { name: "Delivery & FAQs", path: "/delivery" },
+    { name: "Contact", path: "/contact" },
   ];
 
   const isActive = (path: string) => location.pathname === path;
@@ -26,17 +100,17 @@ const Header: React.FC = () => {
     if (searchQuery.trim()) {
       navigate(`/shop?q=${encodeURIComponent(searchQuery.trim())}`);
       setIsSearchOpen(false);
-      setSearchQuery('');
+      setSearchQuery("");
     }
   };
 
   return (
     <>
-      <div className="announcement-bar">
-        <p className="container-custom">
-          🚚 Next-day local delivery available • Farm-fresh quality guaranteed
-        </p>
-      </div>
+      {activeDiscount && (
+        <div className="announcement-bar">
+          <p className="container-custom">{announcementText}</p>
+        </div>
+      )}
 
       <header className="sticky top-0 z-50 bg-card/95 backdrop-blur-md border-b border-border">
         <div className="container-custom">
@@ -46,11 +120,22 @@ const Header: React.FC = () => {
               onClick={() => setIsMenuOpen(!isMenuOpen)}
               aria-label="Toggle menu"
             >
-              {isMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+              {isMenuOpen ? (
+                <X className="w-6 h-6" />
+              ) : (
+                <Menu className="w-6 h-6" />
+              )}
             </button>
 
-            <Link to="/" className="flex items-center">
-              <h1 className="font-heading text-xl lg:text-2xl font-semibold text-primary">Levants Dairy</h1>
+            <Link to="/" className="flex items-center gap-2">
+              <img
+                src="/Logo.jpg"
+                alt="Levants logo"
+                className="w-7 h-7 lg:w-8 lg:h-8 rounded-full object-cover"
+              />
+              <h1 className="font-heading text-xl lg:text-2xl font-semibold text-primary">
+                Levants Dairy
+              </h1>
             </Link>
 
             <nav className="hidden lg:flex items-center gap-8">
@@ -59,7 +144,9 @@ const Header: React.FC = () => {
                   key={link.path}
                   to={link.path}
                   className={`text-sm font-medium transition-colors link-underline ${
-                    isActive(link.path) ? 'text-primary' : 'text-foreground hover:text-primary'
+                    isActive(link.path)
+                      ? "text-primary"
+                      : "text-foreground hover:text-primary"
                   }`}
                 >
                   {link.name}
@@ -117,7 +204,9 @@ const Header: React.FC = () => {
                   to={link.path}
                   onClick={() => setIsMenuOpen(false)}
                   className={`py-3 px-4 rounded-lg text-base font-medium transition-colors ${
-                    isActive(link.path) ? 'bg-primary/10 text-primary' : 'text-foreground hover:bg-secondary'
+                    isActive(link.path)
+                      ? "bg-primary/10 text-primary"
+                      : "text-foreground hover:bg-secondary"
                   }`}
                 >
                   {link.name}

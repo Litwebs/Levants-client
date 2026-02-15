@@ -1,4 +1,4 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5001';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5001/api';
 
 interface RequestOptions extends RequestInit {
   params?: Record<string, string | number | boolean | undefined>;
@@ -79,4 +79,48 @@ export default api;
  */
 export function getFileUrl(fileId: string): string {
   return `${API_BASE_URL}/files/${fileId}`;
+}
+
+type ImageRef =
+  | string
+  | {
+      url?: string | null;
+      _id?: string;
+      id?: string;
+    }
+  | null
+  | undefined;
+
+/**
+ * Resolve an image reference coming from the API into a usable URL.
+ *
+ * Supports:
+ * - Cloudinary-style objects: { url: "https://..." }
+ * - Direct URLs ("https://..." / "data:..." / "blob:...")
+ * - Backend file IDs (falls back to getFileUrl)
+ */
+export function resolveImageUrl(ref: ImageRef): string | undefined {
+  if (!ref) return undefined;
+
+  if (typeof ref === 'string') {
+    const trimmed = ref.trim();
+    if (!trimmed) return undefined;
+    if (
+      trimmed.startsWith('http://') ||
+      trimmed.startsWith('https://') ||
+      trimmed.startsWith('data:') ||
+      trimmed.startsWith('blob:')
+    ) {
+      return trimmed;
+    }
+    return getFileUrl(trimmed);
+  }
+
+  if (typeof ref === 'object') {
+    if (typeof ref.url === 'string' && ref.url.trim()) return ref.url.trim();
+    if (typeof ref._id === 'string' && ref._id.trim()) return getFileUrl(ref._id.trim());
+    if (typeof ref.id === 'string' && ref.id.trim()) return getFileUrl(ref.id.trim());
+  }
+
+  return undefined;
 }
