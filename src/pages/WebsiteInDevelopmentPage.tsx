@@ -16,7 +16,7 @@ const WebsiteInDevelopmentPage = () => {
             thank you for your patience!
           </p>
           <p className="text-muted-foreground text-base sm:text-lg">
-            In the mean time contact us
+            In the mean time contact us at
             <div className="whats-app">
               <a
                 href="https://api.whatsapp.com/send?phone=447494927688"
@@ -26,7 +26,7 @@ const WebsiteInDevelopmentPage = () => {
                 <strong>+44 7494 927688</strong>
               </a>
             </div>
-            at to place an order or for any enquiries:
+             to place an order or for any enquiries:
           </p>
         </div>
       </div>
