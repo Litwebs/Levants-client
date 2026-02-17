@@ -1,10 +1,11 @@
 {
+  "homepage": "https://hesamhmousavi.github.io/",
   "name": "vite_react_shadcn_ts",
   "private": true,
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-     "dev": "vite",
+    "dev": "vite",
     "build": "vite build",
     "predeploy": "npm run build",
     "postbuild": "cp dist/index.html dist/404.html || copy dist\\index.html dist\\404.html",
