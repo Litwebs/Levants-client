@@ -4,8 +4,11 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+     "dev": "vite",
     "build": "vite build",
+    "predeploy": "npm run build",
+    "postbuild": "cp dist/index.html dist/404.html || copy dist\\index.html dist\\404.html",
+    "deploy": "gh-pages -d dist",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
     "preview": "vite preview"
