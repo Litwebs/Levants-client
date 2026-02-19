@@ -1,4 +1,14 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5001/api';
+function getDefaultApiBaseUrl(): string {
+  // Dev: use same-origin `/api` so Vite can proxy to the backend (avoids CORS).
+  // If you want a different backend in dev (e.g. localhost), set VITE_API_BASE_URL.
+  if (!import.meta.env.PROD) return '/api';
+
+  // Prod: default to the API subdomain. If your prod site reverse-proxies
+  // `/api` under the same origin, set VITE_API_BASE_URL accordingly.
+  return 'https://api.levantsdairy.co.uk/api';
+}
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || getDefaultApiBaseUrl();
 
 interface RequestOptions extends RequestInit {
   params?: Record<string, string | number | boolean | undefined>;
@@ -20,21 +30,42 @@ async function request<T>(endpoint: string, options: RequestOptions = {}): Promi
     if (qs) url += `?${qs}`;
   }
 
+  const headers = new Headers(fetchOptions.headers);
+  if (!headers.has('Accept')) headers.set('Accept', 'application/json');
+
+  const hasBody = fetchOptions.body !== undefined && fetchOptions.body !== null;
+  if (hasBody && !headers.has('Content-Type')) {
+    headers.set('Content-Type', 'application/json');
+  }
+
   const response = await fetch(url, {
     ...fetchOptions,
-    headers: {
-      'Content-Type': 'application/json',
-      ...fetchOptions.headers,
-    },
+    headers,
   });
-
   if (!response.ok) {
-    const errorBody = await response.json().catch(() => ({}));
+    const contentType = response.headers.get('content-type') || '';
+    const errorBody = contentType.includes('application/json')
+      ? await response.json().catch(() => ({}))
+      : await response.text().catch(() => '');
+
+    const errorMessage =
+      typeof (errorBody as any)?.message === 'string'
+        ? (errorBody as any).message
+        : typeof errorBody === 'string' && errorBody
+          ? errorBody
+          : `Request failed with status ${response.status}`;
+
     throw new ApiError(
-      errorBody.message || `Request failed with status ${response.status}`,
+      errorMessage,
       response.status,
       errorBody,
     );
+  }
+
+  const responseContentType = response.headers.get('content-type') || '';
+  if (!responseContentType.includes('application/json')) {
+    // Consumers expect JSON; return an empty object for non-JSON/empty bodies.
+    return {} as T;
   }
 
   return response.json();
