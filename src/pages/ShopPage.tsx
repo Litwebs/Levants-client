@@ -233,7 +233,7 @@ const ShopPage: React.FC = () => {
                 {mappedProducts.map((product, index) => (
                   <div
                     key={product.id}
-                    className="opacity-0 animate-fade-in-up"
+                    className="h-full opacity-0 animate-fade-in-up"
                     style={{ animationDelay: `${index * 0.05}s` }}
                   >
                     <ProductCard product={product} />

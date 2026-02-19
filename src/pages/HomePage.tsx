@@ -158,7 +158,7 @@ const HomePage: React.FC = () => {
               {featuredProducts.map((product, index) => (
                 <div
                   key={product.id}
-                  className="opacity-0 animate-fade-in-up"
+                  className="h-full opacity-0 animate-fade-in-up"
                   style={{ animationDelay: `${index * 0.1}s` }}
                 >
                   <ProductCard product={product} />

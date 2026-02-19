@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
-import { Plus, ShoppingBag } from 'lucide-react';
-import { Product, ProductVariant } from '@/data/products';
-import { useCart } from '@/context/CartContext';
-import QuantityStepper from '@/components/ui/QuantityStepper';
-import { toast } from 'sonner';
+import React, { useState } from "react";
+import { Link } from "react-router-dom";
+import { Plus, ShoppingBag } from "lucide-react";
+import { Product, ProductVariant } from "@/data/products";
+import { useCart } from "@/context/CartContext";
+import QuantityStepper from "@/components/ui/QuantityStepper";
+import { toast } from "sonner";
 
 interface ProductCardProps {
   product: Product;
@@ -12,9 +12,9 @@ interface ProductCardProps {
 
 const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
   const [quantity, setQuantity] = useState(1);
-  const [selectedVariant, setSelectedVariant] = useState<ProductVariant | undefined>(
-    product.variants?.[0]
-  );
+  const [selectedVariant, setSelectedVariant] = useState<
+    ProductVariant | undefined
+  >(product.variants?.[0]);
   const { addItem } = useCart();
 
   const currentPrice = selectedVariant?.price ?? product.price;
@@ -23,27 +23,29 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
     e.preventDefault();
     addItem(product, selectedVariant, quantity);
     toast.success(`${product.name} added to cart`, {
-      description: selectedVariant ? `${selectedVariant.name} × ${quantity}` : `× ${quantity}`,
+      description: selectedVariant
+        ? `${selectedVariant.name} × ${quantity}`
+        : `× ${quantity}`,
     });
     setQuantity(1);
   };
 
   const getBadgeClass = (badge: string) => {
     switch (badge.toLowerCase()) {
-      case 'bestseller':
-      case 'award winning':
-        return 'badge-bestseller';
-      case 'limited':
-      case 'local':
-      case 'raw':
-        return 'badge-gold';
+      case "bestseller":
+      case "award winning":
+        return "badge-bestseller";
+      case "limited":
+      case "local":
+      case "raw":
+        return "badge-gold";
       default:
-        return 'badge-fresh';
+        return "badge-fresh";
     }
   };
 
   return (
-    <div className="card-product group">
+    <div className="card-product group flex h-full flex-col">
       <Link to={`/product/${product.id}`} className="block">
         {/* Image Container */}
         <div className="relative aspect-square overflow-hidden bg-muted">
@@ -63,12 +65,10 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
             </div>
           )}
           {/* Stock Status */}
-          {product.stockStatus === 'low-stock' && (
-            <span className="absolute top-3 right-3 badge-gold">
-              Low Stock
-            </span>
+          {product.stockStatus === "low-stock" && (
+            <span className="absolute top-3 right-3 badge-gold">Low Stock</span>
           )}
-          {product.stockStatus === 'out-of-stock' && (
+          {product.stockStatus === "out-of-stock" && (
             <span className="absolute top-3 right-3 badge-bestseller">
               Out of Stock
             </span>
@@ -100,14 +100,16 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
       </Link>
 
       {/* Add to Cart Section */}
-      <div className="px-4 pb-4 pt-0">
+      <div className="mt-auto px-4 pb-4 pt-0">
         {/* Variant Selector */}
         {product.variants && product.variants.length > 1 && (
           <div className="mb-3">
             <select
-              value={selectedVariant?.id || ''}
+              value={selectedVariant?.id || ""}
               onChange={(e) => {
-                const variant = product.variants?.find((v) => v.id === e.target.value);
+                const variant = product.variants?.find(
+                  (v) => v.id === e.target.value,
+                );
                 setSelectedVariant(variant);
               }}
               className="w-full input-field text-sm py-2"
@@ -130,7 +132,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
           />
           <button
             onClick={handleAddToCart}
-            disabled={product.stockStatus === 'out-of-stock'}
+            disabled={product.stockStatus === "out-of-stock"}
             className="flex-1 btn-primary flex items-center justify-center gap-2 py-2.5 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <ShoppingBag className="w-4 h-4" />
