@@ -4,18 +4,6 @@
 
 **URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
 
-## API Base URL
-
-The app reads the API base URL from `VITE_API_BASE_URL`.
-
-- If `VITE_API_BASE_URL` is not set:
-  - In development, it defaults to `https://api.levantsdairy.co.uk/api`.
-  - In production, it also defaults to `https://api.levantsdairy.co.uk/api`.
-
-If your deployment reverse-proxies the API under the same origin (e.g. `https://levantsdairy.co.uk/api`), set:
-
-- `VITE_API_BASE_URL=https://levantsdairy.co.uk/api`
-
 ## How can I edit this code?
 
 There are several ways of editing your application.

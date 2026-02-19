@@ -126,15 +126,6 @@ export const ProductsProvider = ({ children }: { children: ReactNode }) => {
         payload: { items: res.data.items, meta: res.meta },
       });
     } catch (err: any) {
-      // eslint-disable-next-line no-console
-      console.log("fetchProducts error:", err);
-      // eslint-disable-next-line no-console
-      console.log("fetchProducts error details:", {
-        name: err?.name,
-        message: err?.message,
-        status: err?.status,
-        body: err?.body,
-      });
       dispatch({
         type: PRODUCTS_FAILURE,
         payload: err.message || "Failed to fetch products",

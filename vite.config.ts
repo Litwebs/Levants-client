@@ -12,7 +12,7 @@ export default defineConfig(({ mode }) => ({
       "/api": {
         target: "https://api.levantsdairy.co.uk",
         changeOrigin: true,
-        secure: true,
+        secure: false,
       },
     },
   },

@@ -68,7 +68,7 @@ const App = () => {
   if (checking) {
     return null;
   }
-  //  eslint-disable-next-line no-console
+
   if (!isLive) {
     return (
       <BrowserRouter>

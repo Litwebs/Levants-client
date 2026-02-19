@@ -223,6 +223,14 @@ const CheckoutPage: React.FC = () => {
       const checkoutUrl = await createOrder({
         customerId: ensuredCustomer._id,
         items: orderItems,
+        deliveryAddress: {
+          line1: formData.address1,
+          line2: formData.address2 || undefined,
+          city: formData.city,
+          postcode: formData.postcode,
+          country: "UK",
+        },
+        deliveryInstructions: formData.deliveryInstructions || undefined,
         discountCode:
           validatedDiscount?.code || discountCode.trim() || undefined,
       });

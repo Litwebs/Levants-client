@@ -37,6 +37,8 @@ export interface OrderItemPayload {
 export interface CreateOrderPayload {
   customerId: string;
   items: OrderItemPayload[];
+  deliveryAddress: CustomerAddress;
+  deliveryInstructions?: string;
   discountCode?: string;
 }
 
