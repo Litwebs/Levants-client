@@ -69,7 +69,7 @@ const App = () => {
     return null;
   }
 
-  if (!isLive) {
+  if (isLive) {
     return (
       <BrowserRouter>
         <Routes>

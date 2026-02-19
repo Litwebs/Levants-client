@@ -228,7 +228,7 @@ const ProductPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background overflow-x-hidden">
       {/* Breadcrumb */}
       <div className="bg-secondary/30 py-4">
         <div className="container-custom">
@@ -262,7 +262,7 @@ const ProductPage: React.FC = () => {
 
         <div className="grid lg:grid-cols-2 gap-8 lg:gap-12 mb-16">
           {/* Images */}
-          <div className="space-y-4">
+          <div className="space-y-4 min-w-0">
             <div className="aspect-square rounded-2xl overflow-hidden bg-muted">
               <img
                 src={mainImageUrl ?? ""}
@@ -271,7 +271,7 @@ const ProductPage: React.FC = () => {
               />
             </div>
             {images.length > 1 && (
-              <div className="flex gap-3">
+              <div className="w-full flex flex-wrap sm:flex-nowrap gap-2 sm:gap-3 sm:overflow-x-auto pb-1 max-w-full">
                 {images.map((image, index) => (
                   <button
                     key={index}
@@ -279,7 +279,7 @@ const ProductPage: React.FC = () => {
                       setShowVariantImage(false);
                       setActiveImage(index);
                     }}
-                    className={`w-20 h-20 rounded-lg overflow-hidden border-2 transition-colors ${activeImage === index ? "border-primary" : "border-transparent hover:border-border"}`}
+                    className={`w-14 h-14 sm:w-20 sm:h-20 shrink-0 rounded-lg overflow-hidden border-2 transition-colors ${activeImage === index ? "border-primary" : "border-transparent hover:border-border"}`}
                   >
                     <img
                       src={image}
@@ -293,7 +293,7 @@ const ProductPage: React.FC = () => {
           </div>
 
           {/* Info */}
-          <div>
+          <div className="min-w-0">
             <h1 className="font-heading text-3xl lg:text-4xl font-semibold mb-2">
               {product.name}
             </h1>
@@ -349,7 +349,7 @@ const ProductPage: React.FC = () => {
                         selectedVariant?.id === variant.id
                           ? "border-primary bg-primary/5 text-primary"
                           : "border-border hover:border-primary/50"
-                      }`}
+                      } max-w-full text-left whitespace-normal break-words`}
                     >
                       {variant.name} – £{variant.price.toFixed(2)}
                       {variant.lowStock && variant.stockQuantity > 0 && (
@@ -364,31 +364,35 @@ const ProductPage: React.FC = () => {
             )}
 
             {/* Quantity & Add to Cart */}
-            <div className="flex items-center gap-4 mb-6">
-              <QuantityStepper
-                quantity={quantity}
-                onQuantityChange={(q) => {
-                  if (
+            <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-6">
+              <div className="self-start sm:self-auto">
+                <QuantityStepper
+                  quantity={quantity}
+                  onQuantityChange={(q) => {
+                    if (
+                      typeof maxAvailableQuantity === "number" &&
+                      maxAvailableQuantity > 0
+                    ) {
+                      setQuantity(
+                        Math.min(Math.max(1, q), maxAvailableQuantity),
+                      );
+                      return;
+                    }
+                    setQuantity(Math.max(1, q));
+                  }}
+                  max={
                     typeof maxAvailableQuantity === "number" &&
                     maxAvailableQuantity > 0
-                  ) {
-                    setQuantity(Math.min(Math.max(1, q), maxAvailableQuantity));
-                    return;
+                      ? maxAvailableQuantity
+                      : 99
                   }
-                  setQuantity(Math.max(1, q));
-                }}
-                max={
-                  typeof maxAvailableQuantity === "number" &&
-                  maxAvailableQuantity > 0
-                    ? maxAvailableQuantity
-                    : 99
-                }
-                size="lg"
-              />
+                  size="lg"
+                />
+              </div>
               <button
                 onClick={handleAddToCart}
                 disabled={isOutOfStock}
-                className="flex-1 btn-primary flex items-center justify-center gap-2 py-3.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full sm:flex-1 btn-primary flex items-center justify-center gap-2 py-3.5 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <ShoppingBag className="w-5 h-5" /> Add to Cart
               </button>
@@ -455,7 +459,9 @@ const ProductPage: React.FC = () => {
           </div>
           <div className="max-w-3xl">
             {activeTab === "description" && (
-              <p className="text-foreground leading-relaxed">{description}</p>
+              <p className="text-foreground leading-relaxed break-words">
+                {description}
+              </p>
             )}
             {activeTab === "reviews" && (
               <div className="space-y-6">
