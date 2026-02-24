@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Search, ShoppingBag, Menu, X } from "lucide-react";
+import { Link, useLocation } from "react-router-dom";
+import { ShoppingBag, Menu, X } from "lucide-react";
 import { useCart } from "@/context/CartContext";
 import api from "@/api/client";
 
@@ -15,14 +15,11 @@ type ActiveDiscount = {
 
 const Header: React.FC = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
   const [activeDiscount, setActiveDiscount] = useState<ActiveDiscount | null>(
     null,
   );
   const { itemCount, openCart } = useCart();
   const location = useLocation();
-  const navigate = useNavigate();
 
   useEffect(() => {
     let isMounted = true;
@@ -95,15 +92,6 @@ const Header: React.FC = () => {
 
   const isActive = (path: string) => location.pathname === path;
 
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (searchQuery.trim()) {
-      navigate(`/shop?q=${encodeURIComponent(searchQuery.trim())}`);
-      setIsSearchOpen(false);
-      setSearchQuery("");
-    }
-  };
-
   return (
     <>
       {activeDiscount && (
@@ -156,14 +144,6 @@ const Header: React.FC = () => {
 
             <div className="flex items-center gap-2 lg:gap-4">
               <button
-                onClick={() => setIsSearchOpen(!isSearchOpen)}
-                className="p-2 text-foreground hover:text-primary transition-colors"
-                aria-label="Search"
-              >
-                <Search className="w-5 h-5" />
-              </button>
-
-              <button
                 onClick={openCart}
                 className="relative p-2 text-foreground hover:text-primary transition-colors"
                 aria-label="Cart"
@@ -177,22 +157,6 @@ const Header: React.FC = () => {
               </button>
             </div>
           </div>
-
-          {isSearchOpen && (
-            <form onSubmit={handleSearch} className="pb-4 animate-fade-in">
-              <div className="relative">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search for products..."
-                  className="input-field pl-12"
-                  autoFocus
-                />
-              </div>
-            </form>
-          )}
         </div>
 
         {isMenuOpen && (

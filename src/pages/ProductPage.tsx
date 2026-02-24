@@ -4,7 +4,6 @@ import {
   ChevronLeft,
   Truck,
   Snowflake,
-  Star,
   ShoppingBag,
   Share2,
   Check,
@@ -26,9 +25,6 @@ const ProductPage: React.FC = () => {
   const { addItem } = useCart();
 
   const [quantity, setQuantity] = useState(1);
-  const [activeTab, setActiveTab] = useState<"description" | "reviews">(
-    "description",
-  );
   const [activeImage, setActiveImage] = useState(0);
   const [showVariantImage, setShowVariantImage] = useState(true);
 
@@ -435,55 +431,11 @@ const ProductPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Tabs */}
-        <div className="mb-16">
-          <div className="border-b border-border mb-6">
-            <div className="flex gap-8 overflow-x-auto">
-              {[
-                { id: "description", label: "Description" },
-                { id: "reviews", label: "Reviews" },
-              ].map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id as typeof activeTab)}
-                  className={`py-4 text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap ${
-                    activeTab === tab.id
-                      ? "border-primary text-primary"
-                      : "border-transparent text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  {tab.label}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div className="max-w-3xl">
-            {activeTab === "description" && (
-              <p className="text-foreground leading-relaxed break-words">
-                {description}
-              </p>
-            )}
-            {activeTab === "reviews" && (
-              <div className="space-y-6">
-                <div className="flex items-center gap-4">
-                  <div className="flex gap-1">
-                    {[...Array(5)].map((_, i) => (
-                      <Star key={i} className="w-5 h-5 fill-gold text-gold" />
-                    ))}
-                  </div>
-                  <span className="text-sm text-muted-foreground">
-                    Based on 24 reviews
-                  </span>
-                </div>
-                <div className="bg-secondary/30 rounded-xl p-6 text-center">
-                  <p className="text-muted-foreground mb-4">
-                    Be the first to share your thoughts!
-                  </p>
-                  <button className="btn-outline">Write a Review</button>
-                </div>
-              </div>
-            )}
-          </div>
+        {/* Description */}
+        <div className="mb-16 max-w-3xl">
+          <p className="text-foreground leading-relaxed break-words">
+            {description}
+          </p>
         </div>
 
         {/* Related Products */}

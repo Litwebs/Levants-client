@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   ArrowRight,
@@ -14,9 +14,16 @@ import { useProducts } from "@/context/Products/ProductsContext";
 import { resolveImageUrl } from "@/api/client";
 import ProductCard from "@/components/products/ProductCard";
 import heroImage from "@/assets/hero-farm.jpg";
+import { checkDeliveryPostcode } from "@/api/delivery";
 
 const HomePage: React.FC = () => {
   const { products, fetchProducts } = useProducts();
+  const [postcode, setPostcode] = useState("");
+  const [checkingPostcode, setCheckingPostcode] = useState(false);
+  const [postcodeResult, setPostcodeResult] = useState<{
+    type: "success" | "error";
+    message: string;
+  } | null>(null);
 
   useEffect(() => {
     if (products.length === 0) fetchProducts({});
@@ -246,17 +253,73 @@ const HomePage: React.FC = () => {
               We deliver locally with chilled packaging to keep your dairy
               perfectly fresh.
             </p>
-            <div className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto">
+            <form
+              className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto"
+              onSubmit={async (e) => {
+                e.preventDefault();
+                setPostcodeResult(null);
+                if (!postcode.trim()) {
+                  setPostcodeResult({
+                    type: "error",
+                    message: "Please enter your postcode.",
+                  });
+                  return;
+                }
+
+                setCheckingPostcode(true);
+                try {
+                  const res = await checkDeliveryPostcode(postcode);
+                  if (res.deliverable) {
+                    setPostcodeResult({
+                      type: "success",
+                      message:
+                        res.message || "Great news — we deliver to your area.",
+                    });
+                  } else {
+                    setPostcodeResult({
+                      type: "error",
+                      message:
+                        res.message ||
+                        "Sorry — we don’t currently deliver to this postcode.",
+                    });
+                  }
+                } catch (err: unknown) {
+                  const message =
+                    err instanceof Error && err.message
+                      ? err.message
+                      : "Failed to check postcode. Please try again.";
+                  setPostcodeResult({ type: "error", message });
+                } finally {
+                  setCheckingPostcode(false);
+                }
+              }}
+            >
               <input
                 type="text"
                 placeholder="Enter your postcode"
                 className="flex-1 px-4 py-3 rounded-xl bg-primary-foreground/10 border border-primary-foreground/20 text-primary-foreground placeholder:text-primary-foreground/50 focus:outline-none focus:border-primary-foreground/50 transition-colors"
+                value={postcode}
+                onChange={(e) => setPostcode(e.target.value)}
+                disabled={checkingPostcode}
               />
-              <button className="btn-gold">Check Availability</button>
-            </div>
-            <p className="text-sm text-primary-foreground/60 mt-4">
-              Free delivery on orders over £25
-            </p>
+              <button
+                className="btn-gold"
+                type="submit"
+                disabled={checkingPostcode}
+              >
+                {checkingPostcode ? "Checking..." : "Check Availability"}
+              </button>
+            </form>
+
+            {postcodeResult && (
+              <div
+                className="mt-4 text-lg font-semibold text-primary-foreground bg-primary-foreground/10 border border-primary-foreground/20 rounded-xl px-4 py-3"
+                role="status"
+                aria-live="polite"
+              >
+                {postcodeResult.message}
+              </div>
+            )}
           </div>
         </div>
       </section>

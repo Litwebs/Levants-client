@@ -4,6 +4,7 @@ import { Check, ChevronLeft, Lock, Truck, Loader2 } from "lucide-react";
 import { useCart } from "@/context/CartContext";
 import { useOrders } from "@/context/Orders/OrdersContext";
 import { toast } from "sonner";
+import { checkDeliveryPostcode } from "@/api/delivery";
 
 type CheckoutStep = 1 | 2 | 3;
 
@@ -19,6 +20,7 @@ const CheckoutPage: React.FC = () => {
     error,
   } = useOrders();
   const [currentStep, setCurrentStep] = useState<CheckoutStep>(1);
+  const [checkingPostcode, setCheckingPostcode] = useState(false);
 
   const [discountCode, setDiscountCode] = useState("");
   const [validatedDiscount, setValidatedDiscount] = useState<{
@@ -139,7 +141,7 @@ const CheckoutPage: React.FC = () => {
   };
 
   const handleNext = async () => {
-    if (loading) return;
+    if (loading || checkingPostcode) return;
     if (!validateStep(currentStep)) return;
 
     if (currentStep === 1) {
@@ -148,6 +150,27 @@ const CheckoutPage: React.FC = () => {
     }
 
     if (currentStep === 2) {
+      setCheckingPostcode(true);
+      try {
+        const res = await checkDeliveryPostcode(formData.postcode);
+        if (!res.deliverable) {
+          toast.error(
+            res.message ||
+              "Sorry — we don’t currently deliver to this postcode.",
+          );
+          return;
+        }
+      } catch (err: unknown) {
+        const message =
+          err instanceof Error && err.message
+            ? err.message
+            : "Failed to check postcode. Please try again.";
+        toast.error(message);
+        return;
+      } finally {
+        setCheckingPostcode(false);
+      }
+
       // Create guest customer here (we have full address now) so we can validate discounts before payment.
       const created =
         customer ??
@@ -528,7 +551,7 @@ const CheckoutPage: React.FC = () => {
                 <button
                   onClick={handleBack}
                   className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
-                  disabled={loading}
+                  disabled={loading || checkingPostcode}
                 >
                   <ChevronLeft className="w-4 h-4" />
                   Back
@@ -547,15 +570,22 @@ const CheckoutPage: React.FC = () => {
                 <button
                   onClick={handleNext}
                   className="btn-primary"
-                  disabled={loading}
+                  disabled={loading || checkingPostcode}
                 >
-                  Continue
+                  {checkingPostcode ? (
+                    <span className="inline-flex items-center gap-2">
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Checking postcode...
+                    </span>
+                  ) : (
+                    "Continue"
+                  )}
                 </button>
               ) : (
                 <button
                   onClick={handlePlaceOrder}
                   className="btn-primary flex items-center gap-2"
-                  disabled={loading}
+                  disabled={loading || checkingPostcode}
                 >
                   {loading ? (
                     <>
