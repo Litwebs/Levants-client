@@ -22,6 +22,7 @@ import {
   CreateOrderResponse,
   initialOrderState,
 } from "./constants";
+import { ApiError } from "@/api/client";
 
 /* ========================
    CONTEXT TYPE
@@ -102,10 +103,57 @@ export const OrdersProvider = ({ children }: { children: ReactNode }) => {
 
         dispatch({ type: CHECKOUT_SUCCESS, payload: res.data.checkoutUrl });
         return res.data.checkoutUrl;
-      } catch (err: any) {
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : "";
+
+        const isCustomerInstructionsNotAllowed =
+          (err instanceof ApiError &&
+            err.status === 400 &&
+            message.includes("customerInstructions") &&
+            message.includes("not allowed")) ||
+          (typeof message === "string" &&
+            message.includes("customerInstructions") &&
+            message.includes("not allowed"));
+
+        if (isCustomerInstructionsNotAllowed) {
+          try {
+            const { customerInstructions, ...rest } = payload;
+            const legacyPayload: CreateOrderPayload = {
+              ...rest,
+              customerInstructions,
+            };
+
+            const res = await api.post<{
+              success: boolean;
+              data: CreateOrderResponse;
+              message?: string;
+            }>("/orders", legacyPayload);
+
+            if (!res.success) {
+              dispatch({
+                type: ORDER_FAILURE,
+                payload: res.message || "Failed to create order",
+              });
+              return null;
+            }
+
+            dispatch({ type: CHECKOUT_SUCCESS, payload: res.data.checkoutUrl });
+            return res.data.checkoutUrl;
+          } catch (retryErr: any) {
+            dispatch({
+              type: ORDER_FAILURE,
+              payload: retryErr?.message || "Failed to create order",
+            });
+            return null;
+          }
+        }
+
         dispatch({
           type: ORDER_FAILURE,
-          payload: err.message || "Failed to create order",
+          payload:
+            err instanceof Error && err.message
+              ? err.message
+              : "Failed to create order",
         });
         return null;
       }

@@ -1,29 +1,33 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
-import { Leaf, Heart, Award, Truck, ArrowRight } from 'lucide-react';
-import heroImage from '@/assets/hero-farm.jpg';
+import React from "react";
+import { Link } from "react-router-dom";
+import { Leaf, Heart, Award, Truck, ArrowRight } from "lucide-react";
+import heroImage from "@/assets/hero-farm.jpg";
 
 const AboutPage: React.FC = () => {
   const values = [
     {
       icon: Leaf,
-      title: 'Farm Fresh',
-      description: 'All our products are made from milk produced by our own herd of grass-fed cows, ensuring the freshest quality.',
+      title: "Unbeatable Freshness",
+      description:
+        "We pride ourselves on delivering milk the very same day it's milked, ensuring ultimate freshness.",
     },
     {
       icon: Heart,
-      title: 'Animal Welfare',
-      description: "Our cows live happy lives on open pastures. We believe happy cows produce the best milk, and we're committed to their well-being.",
+      title: "Supporting Local Farmers",
+      description:
+        "Our mission is to offer top-quality goods sourced exclusively from local Yorkshire family-run farms.",
     },
     {
       icon: Award,
-      title: 'Traditional Methods',
-      description: 'We combine time-honoured dairy techniques with modern food safety standards to create products of exceptional quality.',
+      title: "100% Natural",
+      description:
+        "Enjoy pure, wholesome products with no chemicals, additives, preservatives, or hormones.",
     },
     {
       icon: Truck,
-      title: 'Local Delivery',
-      description: 'We deliver locally in refrigerated packaging, reducing food miles and ensuring products arrive perfectly fresh.',
+      title: "Convenient Delivery",
+      description:
+        "Get fresh milk delivered twice a week, right to your doorstep, in our temperature-controlled refrigerated vans.",
     },
   ];
 
@@ -42,10 +46,12 @@ const AboutPage: React.FC = () => {
         <div className="container-custom relative z-10">
           <div className="max-w-2xl">
             <h1 className="font-heading text-4xl lg:text-5xl font-semibold text-card mb-6">
-              Our Story
+              About Us
             </h1>
             <p className="text-lg text-card/90">
-              From our family farm to your family table—discover the passion and care behind every Levants Dairy product.
+              We're a small, dedicated team passionate about bringing the finest
+              milk, dairy, and more directly from local Yorkshire family-run
+              farms to your doorstep.
             </p>
           </div>
         </div>
@@ -57,17 +63,26 @@ const AboutPage: React.FC = () => {
           <div className="grid lg:grid-cols-2 gap-12 items-center">
             <div>
               <h2 className="font-heading text-3xl lg:text-4xl font-semibold mb-6">
-                A Family Tradition Since 1952
+                Our Mission
               </h2>
               <div className="space-y-4 text-muted-foreground">
                 <p>
-                  Levants Dairy began over 70 years ago when the Levant family started selling fresh milk to their neighbours. What started as a small operation with just a handful of cows has grown into a beloved local dairy, serving thousands of households.
-                </p>
-                <p>
-                  Today, we're proud to continue the family tradition, now in our third generation. While we've grown, our commitment to quality remains unchanged. Every bottle of milk, every wedge of cheese, and every pat of butter is made with the same care and attention to detail that defined our grandparents' dairy.
-                </p>
-                <p>
-                  We believe that food should be simple, honest, and delicious. That's why we use only the freshest ingredients, traditional methods, and a whole lot of love in everything we make.
+                  We're a small, dedicated team passionate about bringing the
+                  finest milk, dairy, and more directly from local Yorkshire
+                  family-run farms to your doorstep. Our mission is to make
+                  top-quality, farm-fresh goods accessible and affordable for
+                  everyone. Our journey began when we noticed natural,
+                  farm-fresh products were becoming harder to find, while
+                  supermarket alternatives, often full of additives, grew in
+                  popularity. We wanted to bring back the tradition of milk
+                  deliveries, just like in the old days, with the same milk and
+                  the same process. By choosing us, you're not only receiving
+                  the best essentials for your daily needs, but you're also
+                  supporting our community and its farmers. Starting with small
+                  communities, our commitment to service and quality has allowed
+                  us to grow and now serve thousands of homes. Experience the
+                  taste of freshness and support local farms with every
+                  delivery!
                 </p>
               </div>
             </div>
@@ -80,8 +95,10 @@ const AboutPage: React.FC = () => {
                 />
               </div>
               <div className="absolute -bottom-6 -left-6 bg-card rounded-xl p-6 shadow-large border border-border">
-                <p className="font-heading text-4xl font-semibold text-primary mb-1">70+</p>
-                <p className="text-sm text-muted-foreground">Years of dairy excellence</p>
+                <p className="font-heading text-4xl font-semibold text-primary mb-1">
+                  1000s
+                </p>
+                <p className="text-sm text-muted-foreground">Homes served</p>
               </div>
             </div>
           </div>
@@ -96,7 +113,8 @@ const AboutPage: React.FC = () => {
               What We Stand For
             </h2>
             <p className="text-muted-foreground max-w-2xl mx-auto">
-              Our values guide everything we do, from how we care for our cows to how we deliver to your door.
+              Quality, service, and supporting Yorkshire farms guide everything
+              we do.
             </p>
           </div>
 
@@ -110,8 +128,12 @@ const AboutPage: React.FC = () => {
                 <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center mb-4">
                   <value.icon className="w-6 h-6 text-primary" />
                 </div>
-                <h3 className="font-heading text-lg font-semibold mb-2">{value.title}</h3>
-                <p className="text-sm text-muted-foreground">{value.description}</p>
+                <h3 className="font-heading text-lg font-semibold mb-2">
+                  {value.title}
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  {value.description}
+                </p>
               </div>
             ))}
           </div>
@@ -123,16 +145,20 @@ const AboutPage: React.FC = () => {
         <div className="container-custom">
           <div className="text-center mb-12">
             <h2 className="font-heading text-3xl lg:text-4xl font-semibold mb-4">
-              Life on the Farm
+              From Farm to Door
             </h2>
             <p className="text-muted-foreground max-w-2xl mx-auto">
-              Take a glimpse into daily life at Levants Farm, where our cows graze freely on lush pastures.
+              We source from local Yorkshire family-run farms and deliver in
+              refrigerated vans to keep your order in optimal condition.
             </p>
           </div>
 
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="aspect-square rounded-2xl overflow-hidden bg-muted">
+              <div
+                key={i}
+                className="aspect-square rounded-2xl overflow-hidden bg-muted"
+              >
                 <img
                   src={heroImage}
                   alt={`Farm life ${i}`}
@@ -151,12 +177,10 @@ const AboutPage: React.FC = () => {
             Taste the Difference
           </h2>
           <p className="text-primary-foreground/80 max-w-xl mx-auto mb-8">
-            Experience the freshness of farm-to-door dairy. Order today and discover why our customers keep coming back.
+            Experience the taste of freshness today and support local farms with
+            every delivery.
           </p>
-          <Link
-            to="/shop"
-            className="btn-gold inline-flex items-center gap-2"
-          >
+          <Link to="/shop" className="btn-gold inline-flex items-center gap-2">
             Shop Our Products
             <ArrowRight className="w-4 h-4" />
           </Link>

@@ -38,7 +38,7 @@ const CheckoutPage: React.FC = () => {
     address2: "",
     city: "",
     postcode: "",
-    deliveryInstructions: "",
+    customerInstructions: "",
   });
 
   const steps = [
@@ -253,7 +253,7 @@ const CheckoutPage: React.FC = () => {
           postcode: formData.postcode,
           country: "UK",
         },
-        deliveryInstructions: formData.deliveryInstructions || undefined,
+        customerInstructions: formData.customerInstructions || undefined,
         discountCode:
           validatedDiscount?.code || discountCode.trim() || undefined,
       });
@@ -484,8 +484,8 @@ const CheckoutPage: React.FC = () => {
                       Delivery Instructions (Optional)
                     </label>
                     <textarea
-                      name="deliveryInstructions"
-                      value={formData.deliveryInstructions}
+                      name="customerInstructions"
+                      value={formData.customerInstructions}
                       onChange={handleInputChange}
                       className="input-field min-h-[100px]"
                       placeholder="Leave at door, ring bell, etc."

@@ -64,21 +64,21 @@ const HomePage: React.FC = () => {
     {
       id: 1,
       name: "Sarah Mitchell",
-      location: "Cambridge",
+      location: "Bradford",
       rating: 5,
       text: "The freshest milk I've ever tasted! You can really tell the difference compared to supermarket brands. Our whole family loves it.",
     },
     {
       id: 2,
       name: "James Thompson",
-      location: "Oxford",
+      location: "Leeds",
       rating: 5,
       text: "The mature cheddar is absolutely divine. Perfectly aged with incredible depth of flavour. Will be ordering again!",
     },
     {
       id: 3,
       name: "Emma Wilson",
-      location: "Norwich",
+      location: "Wakefield",
       rating: 5,
       text: "So convenient having fresh dairy delivered to my door. The milkshakes are a particular favourite with my kids!",
     },
@@ -99,11 +99,16 @@ const HomePage: React.FC = () => {
         <div className="container-custom relative z-10 py-20">
           <div className="max-w-2xl">
             <h1 className="font-heading text-4xl sm:text-5xl lg:text-6xl font-semibold text-card mb-6 opacity-0 animate-fade-in-up">
-              Farm-fresh dairy, delivered to your door.
+              Farm-fresh milk, dairy, and more—delivered to your doorstep.
             </h1>
             <p className="text-lg sm:text-xl text-card/90 mb-8 opacity-0 animate-fade-in-up stagger-1">
-              Milk, milkshakes, double cream, butter, and artisan cheeses—fresh
-              and local from our farm to your table.
+              We are a committed small team fuelled by our passion for
+              delivering the finest freshest milk, dairy and more straight from
+              the farm to your doorstep. Our mission is to offer top-quality
+              goods sourced exclusively from local Yorkshire family-run farms.
+              By choosing us, you're not only receiving the best essentials for
+              your daily needs, but you're also supporting our community and its
+              farmers. Experience the taste of freshness today!
             </p>
             <div className="flex flex-wrap gap-4 mb-10 opacity-0 animate-fade-in-up stagger-2">
               <Link
@@ -250,8 +255,8 @@ const HomePage: React.FC = () => {
               Do We Deliver to You?
             </h2>
             <p className="text-primary-foreground/80 mb-8 max-w-xl mx-auto">
-              We deliver locally with chilled packaging to keep your dairy
-              perfectly fresh.
+              We currently deliver to Bradford and surrounding areas. Enter your
+              postcode to confirm we deliver to your area.
             </p>
             <form
               className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto"
@@ -371,8 +376,8 @@ const HomePage: React.FC = () => {
               Ready to Taste the Difference?
             </h2>
             <p className="text-muted-foreground max-w-xl mx-auto mb-8">
-              Experience the freshness of farm-to-door dairy. Order today and
-              enjoy free delivery on your first order over £25.
+              Experience the taste of freshness and support local farms with
+              every delivery.
             </p>
             <Link
               to="/shop"

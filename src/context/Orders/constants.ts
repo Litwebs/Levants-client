@@ -38,7 +38,14 @@ export interface CreateOrderPayload {
   customerId: string;
   items: OrderItemPayload[];
   deliveryAddress: CustomerAddress;
-  deliveryInstructions?: string;
+  /**
+   * New field name (backend Order schema).
+   */
+  customerInstructions?: string;
+  /**
+   * Legacy field name kept for backwards compatibility with older API validators.
+   */
+  // deliveryInstructions?: string;
   discountCode?: string;
 }
 

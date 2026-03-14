@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import { Facebook, Instagram, Twitter, Mail } from "lucide-react";
+import img from "@/assets/mark.jpeg";
 import { checkDeliveryPostcode } from "@/api/delivery";
 
 const Footer: React.FC = () => {
@@ -134,6 +135,18 @@ const Footer: React.FC = () => {
               )}
             </div>
 
+            <div className="mb-6 max-w-xs">
+              <img
+                src={img}
+                alt="Red Tractor Certified Standards — Traceable, safe & farmed with care"
+                className="h-14 w-auto opacity-90 object-contain"
+                loading="lazy"
+                onError={(e) => {
+                  e.currentTarget.style.display = "none";
+                }}
+              />
+            </div>
+
             <div className="flex items-center gap-4">
               <a
                 href="#"
@@ -251,7 +264,7 @@ const Footer: React.FC = () => {
             <p className="text-primary-foreground/60 text-sm">
               © {currentYear} Levants Dairy. All rights reserved.
             </p>
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-4 flex-wrap justify-center sm:justify-end">
               <img
                 src="/placeholder.svg"
                 alt="Visa"

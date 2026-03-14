@@ -6,7 +6,6 @@ import {
   MapPin,
   Package,
   RefreshCw,
-  ChevronDown,
 } from "lucide-react";
 import {
   Accordion,
@@ -65,27 +64,27 @@ const DeliveryPage: React.FC = () => {
   const deliveryFeatures = [
     {
       icon: Truck,
-      title: "Local Delivery",
+      title: "Sunday & Wednesday Delivery",
       description:
-        "We deliver to selected postcodes within our local area, ensuring freshness and reducing food miles.",
-    },
-    {
-      icon: Snowflake,
-      title: "Chilled Packaging",
-      description:
-        "All orders are packed in insulated, recyclable packaging with ice packs to keep products fresh.",
+        "We deliver every Sunday and Wednesday, straight from local Yorkshire family-run farms.",
     },
     {
       icon: Clock,
-      title: "Next-Day Delivery",
+      title: "Order Deadlines",
       description:
-        "Order before 2pm for next-day delivery. Select your preferred time slot at checkout.",
+        "Order by Friday at 10pm for Sunday delivery, or by Monday at 10pm for Wednesday delivery.",
     },
     {
       icon: Package,
-      title: "Free Over £25",
+      title: "Delivery Window",
       description:
-        "Enjoy free delivery on all orders over £25. Otherwise, a £3.99 delivery fee applies.",
+        "Deliveries arrive between 9am and 6pm. You'll receive an email when your order is out for delivery and a follow-up confirmation.",
+    },
+    {
+      icon: Snowflake,
+      title: "Refrigerated Vans",
+      description:
+        "Our temperature-controlled refrigerated vans help ensure your order arrives in optimal condition.",
     },
   ];
 
@@ -93,42 +92,54 @@ const DeliveryPage: React.FC = () => {
     {
       question: "What areas do you deliver to?",
       answer:
-        "We currently deliver to postcodes within a 30-mile radius of our farm, including Cambridge, Oxford, Norwich, and surrounding areas. Enter your postcode at checkout to confirm availability.",
+        "We currently deliver to Bradford and surrounding areas. Enter your postcode to confirm we deliver to your area.",
     },
     {
-      question: "How is my order kept fresh during delivery?",
-      answer:
-        "All orders are packed in insulated, recyclable boxes with food-grade ice packs. This keeps products chilled for up to 48 hours, ensuring they arrive fresh and safe to consume.",
+      question: "Are your cows grass fed?",
+      answer: "Yes — our cows are grass fed, free range, and pasture raised.",
     },
     {
-      question: "Can I choose a delivery time slot?",
+      question: "Are your eggs free range?",
       answer:
-        "Yes! At checkout, you can select from available delivery dates and choose between morning (8am-12pm), afternoon (12pm-4pm), or evening (4pm-8pm) slots.",
+        "Yes — our hens roam freely both indoors and outdoors under natural conditions.",
     },
     {
-      question: "What if I'm not home when my order arrives?",
-      answer:
-        "You can add delivery instructions at checkout for a safe place to leave your order. Our packaging keeps products chilled, so they'll be fine for a few hours.",
+      question: "Do you use Bovaer?",
+      answer: "No, we do not use the Bovaer feed additive.",
     },
     {
-      question: "Can I change or cancel my order?",
+      question: "Do you use any hormones?",
       answer:
-        "Orders can be modified or cancelled up to 24 hours before your scheduled delivery. Contact us by phone or email, and we'll be happy to help.",
+        "No — we do not use any hormones, or any chemicals, additives, or preservatives.",
+    },
+    {
+      question: "What times do you deliver?",
+      answer:
+        "We deliver between 9am and 6pm. You will receive an email when your order is out on delivery and a follow up email with confirmation of delivery.",
+    },
+    {
+      question: "Can I leave delivery instructions?",
+      answer:
+        'Absolutely! You can add delivery instructions at checkout. Whether it\'s "leave at side gate" or "ring doorbell twice", we\'ll follow your preferences.',
+    },
+    {
+      question: "How long do products stay fresh?",
+      answer: "All products come with clearly marked use-by dates.",
+    },
+    {
+      question: "Can I cancel my order?",
+      answer:
+        "If you wish to cancel your order, please do so before the order deadline (Friday 10pm for Sunday deliveries and Monday 10pm for Wednesday deliveries).",
     },
     {
       question: "Do you offer subscriptions?",
       answer:
-        "Yes! Our subscription service lets you schedule regular deliveries of your favourite products at a frequency that suits you—weekly, fortnightly, or monthly. You'll also save 10% on subscription orders.",
+        "Our weekly subscription is super easy! Just WhatsApp us your order for delivery every Wednesday, Sunday, or both. Any changes are simple — tell us by Friday at 10pm for Sunday's delivery, or by Monday at 10pm for Wednesday's. It's contract free!",
     },
     {
-      question: "What is your returns policy?",
+      question: "What if I’m not at home?",
       answer:
-        "Due to the perishable nature of our products, we cannot accept returns. However, if you receive a damaged or unsatisfactory product, please contact us within 24 hours with photos, and we'll arrange a replacement or refund.",
-    },
-    {
-      question: "How do I track my order?",
-      answer:
-        "Once your order is dispatched, you'll receive an email with tracking information. On delivery day, you'll get real-time updates about your driver's estimated arrival time.",
+        "If you're not home at the time of delivery, we'll ensure your order is left in a secure location. To give you peace of mind, we'll also send you an email with a photo confirming its placement.",
     },
   ];
 
@@ -142,8 +153,8 @@ const DeliveryPage: React.FC = () => {
               Delivery & FAQs
             </h1>
             <p className="text-primary-foreground/80">
-              Everything you need to know about getting farm-fresh dairy
-              delivered to your door.
+              Everything you need to know about our delivery schedule, weekly
+              subscriptions, and FAQs.
             </p>
           </div>
         </div>
@@ -219,9 +230,81 @@ const DeliveryPage: React.FC = () => {
               </div>
             )}
             <p className="text-sm text-muted-foreground mt-4">
-              We currently deliver to Bradford, Leeds, Wakefield, and
-              surrounding areas.
+              We currently deliver to Bradford and surrounding areas.
             </p>
+          </div>
+        </div>
+      </section>
+
+      {/* Weekly Subscription */}
+      <section className="py-16 lg:py-24">
+        <div className="container-custom">
+          <div className="max-w-3xl mx-auto">
+            <div className="flex items-start gap-4 mb-8">
+              <RefreshCw className="w-8 h-8 text-primary flex-shrink-0" />
+              <div>
+                <h2 className="font-heading text-2xl lg:text-3xl font-semibold mb-4">
+                  Weekly Subscription
+                </h2>
+                <p className="text-muted-foreground">
+                  Want a regular delivery? Our weekly subscription is super
+                  easy! Just WhatsApp us your order for delivery every
+                  Wednesday, Sunday, or both.
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-card rounded-2xl border border-border p-6 lg:p-8 space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Any changes to your order are simple — tell us by Friday at 10pm
+                for Sunday's delivery, or by Monday at 10pm for Wednesday's.
+              </p>
+              <p className="text-sm text-muted-foreground">
+                It’s contract free!
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Why Choose Us */}
+      <section className="py-16 lg:py-24 bg-secondary/30">
+        <div className="container-custom">
+          <div className="max-w-3xl mx-auto">
+            <h2 className="font-heading text-2xl lg:text-3xl font-semibold mb-8 text-center">
+              Why Choose Us
+            </h2>
+            <div className="bg-card rounded-2xl border border-border p-6 lg:p-8 space-y-3">
+              <p className="text-sm text-muted-foreground">
+                Unbeatable Freshness: We deliver milk that's milked, bottled,
+                and to your door within 12 hours. Taste the difference freshness
+                makes!
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Convenient Delivery: Get fresh milk delivered twice a week,
+                right to your doorstep.
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Reputable & Trusted: We're a company known for our reliability
+                and commitment to customer satisfaction.
+              </p>
+              <p className="text-sm text-muted-foreground">
+                100% Natural: Enjoy pure, wholesome milk, free from artificial
+                additives.
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Supporting Local Farmers: By choosing us, you're directly
+                supporting local farmers and sustainable agriculture.
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Affordable: Get the best quality and freshness at a price that's
+                friendly to your wallet.
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Quality & Efficiency: From our farm to your fridge, we
+                prioritize quality and ensure a seamless delivery experience.
+              </p>
+            </div>
           </div>
         </div>
       </section>
@@ -234,48 +317,44 @@ const DeliveryPage: React.FC = () => {
               <RefreshCw className="w-8 h-8 text-primary flex-shrink-0" />
               <div>
                 <h2 className="font-heading text-2xl lg:text-3xl font-semibold mb-4">
-                  Returns & Refunds
+                  Policy
                 </h2>
                 <p className="text-muted-foreground mb-4">
-                  We take great care in preparing and delivering your order.
-                  However, if something isn't right, we're here to help.
+                  Due to the perishable nature of our dairy products we do not
+                  accept returns. Refunds are only issued in cases where items
+                  arrive damaged, spoiled, or incorrect, and must be reported to
+                  us within 24 hours of delivery.
                 </p>
               </div>
             </div>
 
             <div className="bg-card rounded-2xl border border-border p-6 lg:p-8 space-y-6">
               <div>
-                <h3 className="font-medium mb-2">
-                  Damaged or Defective Products
-                </h3>
+                <h3 className="font-medium mb-2">Refunds</h3>
                 <p className="text-sm text-muted-foreground">
-                  If your products arrive damaged or are not of satisfactory
-                  quality, please contact us within 24 hours of delivery.
-                  Include photos of the product and packaging, and we'll arrange
-                  a replacement or full refund.
-                </p>
-              </div>
-              <div>
-                <h3 className="font-medium mb-2">Missing Items</h3>
-                <p className="text-sm text-muted-foreground">
-                  If any items are missing from your order, contact us within 24
-                  hours. We'll either include them in your next delivery or
-                  issue a refund.
+                  If items arrive damaged, spoiled, or incorrect, please report
+                  it to us within 24 hours of delivery so we can help.
                 </p>
               </div>
               <div>
                 <h3 className="font-medium mb-2">Cancellations</h3>
                 <p className="text-sm text-muted-foreground">
-                  Orders can be cancelled up to 24 hours before your scheduled
-                  delivery for a full refund. Cancellations made less than 24
-                  hours before delivery may incur a 50% charge.
+                  If you wish to cancel your order, please do so before the
+                  order deadline (Friday 10pm for Sunday deliveries and Monday
+                  10pm for Wednesday deliveries).
                 </p>
               </div>
               <div className="bg-accent/10 rounded-xl p-4">
                 <p className="text-sm">
                   <strong>Note:</strong> Due to the perishable nature of our
-                  products, we cannot accept returns of goods once delivered.
-                  Your statutory rights are not affected.
+                  products, we cannot accept returns of goods once delivered. We
+                  pride ourselves on delivering milk the very same day it's
+                  milked, ensuring ultimate freshness. Our
+                  temperature-controlled refrigerated vans help ensure your
+                  order arrives in optimal condition. While we take every
+                  precaution to maintain freshness from our farm to your
+                  doorstep, once the delivery is made, factors beyond our
+                  control can influence the milk's shelf life.
                 </p>
               </div>
             </div>
