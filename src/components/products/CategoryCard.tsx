@@ -1,7 +1,7 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
-import { ArrowRight } from 'lucide-react';
-import { Category } from '@/data/products';
+import React from "react";
+import { Link } from "react-router-dom";
+import { ArrowRight } from "lucide-react";
+import { Category } from "@/data/products";
 
 interface CategoryCardProps {
   category: Category;
@@ -22,15 +22,13 @@ const CategoryCard: React.FC<CategoryCardProps> = ({ category }) => {
         />
         {/* Overlay */}
         <div className="absolute inset-0 bg-gradient-to-t from-foreground/60 via-foreground/20 to-transparent" />
-        
+
         {/* Content */}
         <div className="absolute bottom-0 left-0 right-0 p-5">
           <h3 className="font-heading text-xl font-semibold text-card mb-1">
             {category.name}
           </h3>
-          <p className="text-sm text-card/80 mb-3">
-            {category.productCount} {category.productCount === 1 ? 'product' : 'products'}
-          </p>
+          <p className="text-sm text-card/80 mb-3">{category.description}</p>
           <span className="inline-flex items-center gap-1.5 text-sm font-medium text-card group-hover:gap-2.5 transition-all">
             Shop Now
             <ArrowRight className="w-4 h-4" />

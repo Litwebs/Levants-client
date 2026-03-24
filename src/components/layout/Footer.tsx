@@ -1,17 +1,10 @@
-import React, { useState } from "react";
+import React from "react";
 import { Link } from "react-router-dom";
-import { Facebook, Instagram, Twitter, Mail } from "lucide-react";
+import { Facebook, Instagram, MessageCircle, Music2, Mail } from "lucide-react";
 import img from "@/assets/mark.jpeg";
-import { checkDeliveryPostcode } from "@/api/delivery";
 
 const Footer: React.FC = () => {
   const currentYear = new Date().getFullYear();
-  const [postcode, setPostcode] = useState("");
-  const [checkingPostcode, setCheckingPostcode] = useState(false);
-  const [postcodeResult, setPostcodeResult] = useState<{
-    type: "success" | "error";
-    message: string;
-  } | null>(null);
 
   const footerLinks = {
     shop: [
@@ -41,7 +34,7 @@ const Footer: React.FC = () => {
   };
 
   return (
-    <footer className="bg-primary text-primary-foreground overflow-x-hidden">
+    <footer className="bg-border text-foreground overflow-x-hidden">
       {/* Main Footer Links */}
       <div className="container-custom py-12 lg:py-16">
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-8 lg:gap-12">
@@ -52,88 +45,9 @@ const Footer: React.FC = () => {
                 Levants Dairy
               </h2>
             </Link>
-            <p className="text-primary-foreground/80 text-sm mb-6 max-w-xs">
-              Fresh farm food delivered to your door. Quality dairy products
-              from local farms.
+            <p className="text-muted-foreground text-sm mb-6 max-w-xs">
+              Farm fresh delivered to your door
             </p>
-
-            <div className="mb-6 max-w-xs">
-              <h4 className="font-medium text-sm uppercase tracking-wider mb-3">
-                Check Delivery Area
-              </h4>
-              <form
-                className="flex flex-col sm:flex-row gap-2"
-                onSubmit={async (e) => {
-                  e.preventDefault();
-                  setPostcodeResult(null);
-                  if (!postcode.trim()) {
-                    setPostcodeResult({
-                      type: "error",
-                      message: "Please enter your postcode.",
-                    });
-                    return;
-                  }
-
-                  setCheckingPostcode(true);
-                  try {
-                    const res = await checkDeliveryPostcode(postcode);
-                    if (res.deliverable) {
-                      setPostcodeResult({
-                        type: "success",
-                        message:
-                          res.message ||
-                          "Great news — we deliver to your area.",
-                      });
-                    } else {
-                      setPostcodeResult({
-                        type: "error",
-                        message:
-                          res.message ||
-                          "Sorry — we don’t currently deliver to this postcode.",
-                      });
-                    }
-                  } catch (err: unknown) {
-                    const message =
-                      err instanceof Error && err.message
-                        ? err.message
-                        : "Failed to check postcode. Please try again.";
-                    setPostcodeResult({ type: "error", message });
-                  } finally {
-                    setCheckingPostcode(false);
-                  }
-                }}
-              >
-                <input
-                  type="text"
-                  placeholder="Postcode"
-                  value={postcode}
-                  onChange={(e) => setPostcode(e.target.value)}
-                  disabled={checkingPostcode}
-                  className="min-w-0 w-full flex-1 px-4 py-3 rounded-xl bg-primary-foreground/10 border border-primary-foreground/20 text-primary-foreground placeholder:text-primary-foreground/50 focus:outline-none focus:border-primary-foreground/50 transition-colors"
-                />
-                <button
-                  type="submit"
-                  disabled={checkingPostcode}
-                  className="w-full sm:w-auto shrink-0 px-4 py-3 rounded-xl bg-accent text-accent-foreground font-medium hover:bg-gold-dark transition-colors"
-                >
-                  {checkingPostcode ? "Checking…" : "Check"}
-                </button>
-              </form>
-
-              {postcodeResult && (
-                <div
-                  className={
-                    postcodeResult.type === "success"
-                      ? "mt-3 text-base font-semibold text-primary-foreground"
-                      : "mt-3 text-base font-semibold text-primary-foreground"
-                  }
-                  role="status"
-                  aria-live="polite"
-                >
-                  <span className="break-words">{postcodeResult.message}</span>
-                </div>
-              )}
-            </div>
 
             <div className="mb-6 max-w-xs">
               <img
@@ -150,28 +64,35 @@ const Footer: React.FC = () => {
             <div className="flex items-center gap-4">
               <a
                 href="#"
-                className="p-2 rounded-full bg-primary-foreground/10 hover:bg-primary-foreground/20 transition-colors"
+                className="p-2 rounded-full bg-foreground/10 hover:bg-foreground/15 transition-colors"
                 aria-label="Facebook"
               >
                 <Facebook className="w-5 h-5" />
               </a>
               <a
                 href="#"
-                className="p-2 rounded-full bg-primary-foreground/10 hover:bg-primary-foreground/20 transition-colors"
+                className="p-2 rounded-full bg-foreground/10 hover:bg-foreground/15 transition-colors"
+                aria-label="TikTok"
+              >
+                <Music2 className="w-5 h-5" />
+              </a>
+              <a
+                href="#"
+                className="p-2 rounded-full bg-foreground/10 hover:bg-foreground/15 transition-colors"
                 aria-label="Instagram"
               >
                 <Instagram className="w-5 h-5" />
               </a>
               <a
                 href="#"
-                className="p-2 rounded-full bg-primary-foreground/10 hover:bg-primary-foreground/20 transition-colors"
-                aria-label="Twitter"
+                className="p-2 rounded-full bg-foreground/10 hover:bg-foreground/15 transition-colors"
+                aria-label="WhatsApp"
               >
-                <Twitter className="w-5 h-5" />
+                <MessageCircle className="w-5 h-5" />
               </a>
               <a
                 href="mailto:hello@levantsdairy.com"
-                className="p-2 rounded-full bg-primary-foreground/10 hover:bg-primary-foreground/20 transition-colors"
+                className="p-2 rounded-full bg-foreground/10 hover:bg-foreground/15 transition-colors"
                 aria-label="Email"
               >
                 <Mail className="w-5 h-5" />
@@ -189,7 +110,7 @@ const Footer: React.FC = () => {
                 <li key={link.path}>
                   <Link
                     to={link.path}
-                    className="text-primary-foreground/80 hover:text-primary-foreground text-sm transition-colors"
+                    className="text-muted-foreground hover:text-foreground text-sm transition-colors"
                   >
                     {link.name}
                   </Link>
@@ -208,7 +129,7 @@ const Footer: React.FC = () => {
                 <li key={link.path}>
                   <Link
                     to={link.path}
-                    className="text-primary-foreground/80 hover:text-primary-foreground text-sm transition-colors"
+                    className="text-muted-foreground hover:text-foreground text-sm transition-colors"
                   >
                     {link.name}
                   </Link>
@@ -227,7 +148,7 @@ const Footer: React.FC = () => {
                 <li key={link.path}>
                   <Link
                     to={link.path}
-                    className="text-primary-foreground/80 hover:text-primary-foreground text-sm transition-colors"
+                    className="text-muted-foreground hover:text-foreground text-sm transition-colors"
                   >
                     {link.name}
                   </Link>
@@ -246,7 +167,7 @@ const Footer: React.FC = () => {
                 <li key={link.path}>
                   <Link
                     to={link.path}
-                    className="text-primary-foreground/80 hover:text-primary-foreground text-sm transition-colors"
+                    className="text-muted-foreground hover:text-foreground text-sm transition-colors"
                   >
                     {link.name}
                   </Link>
@@ -258,10 +179,10 @@ const Footer: React.FC = () => {
       </div>
 
       {/* Bottom Bar */}
-      <div className="border-t border-primary-foreground/20">
+      <div className="border-t border-foreground/10">
         <div className="container-custom py-6">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-            <p className="text-primary-foreground/60 text-sm">
+            <p className="text-muted-foreground text-sm">
               © {currentYear} Levants Dairy. All rights reserved.
             </p>
             <div className="flex items-center gap-4 flex-wrap justify-center sm:justify-end">

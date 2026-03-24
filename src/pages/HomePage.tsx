@@ -13,8 +13,78 @@ import {
 import { useProducts } from "@/context/Products/ProductsContext";
 import { resolveImageUrl } from "@/api/client";
 import ProductCard from "@/components/products/ProductCard";
+import CategoryCard from "@/components/products/CategoryCard";
 import heroImage from "@/assets/hero-farm.jpg";
+import productMilk from "@/assets/product-milk.jpg";
+import productCream from "@/assets/product-cream.jpg";
+import productMilkshake from "@/assets/product-milkshake.jpg";
+import productButter from "@/assets/product-butter.jpg";
+import productCheddar from "@/assets/product-cheddar.jpg";
+import productHoney from "@/assets/product-honey.jpg";
 import { checkDeliveryPostcode } from "@/api/delivery";
+
+const SHOP_BY_CATEGORY = [
+  {
+    slug: "milk",
+    name: "Milk",
+    description: "Farm fresh, unhomogenised",
+    image: productMilk,
+  },
+  {
+    slug: "cream",
+    name: "Cream",
+    description: "Rich cream for cooking and desserts",
+    image: productCream,
+  },
+  {
+    slug: "milkshakes",
+    name: "Milkshakes",
+    description: "Fresh, no additives or preservatives",
+    image: productMilkshake,
+  },
+  {
+    slug: "eggs",
+    name: "Eggs",
+    description: "Free range, golden yolks",
+    image: heroImage,
+  },
+  {
+    slug: "butter",
+    name: "Butter",
+    description: "Grass fed, farmhouse",
+    image: productButter,
+  },
+  {
+    slug: "ghee",
+    name: "Ghee",
+    description: "Clarified butter for cooking",
+    image: productButter,
+  },
+  {
+    slug: "cheese",
+    name: "Cheese",
+    description: "Award winning, traditional",
+    image: productCheddar,
+  },
+  {
+    slug: "honey",
+    name: "Honey",
+    description: "Raw, local, award winning",
+    image: productHoney,
+  },
+  {
+    slug: "juices",
+    name: "Juices",
+    description: "Fresh juices",
+    image: heroImage,
+  },
+  {
+    slug: "bread",
+    name: "Bread",
+    description: "Freshly baked, artisanal",
+    image: heroImage,
+  },
+] as const;
 
 const HomePage: React.FC = () => {
   const { products, fetchProducts } = useProducts();
@@ -25,12 +95,65 @@ const HomePage: React.FC = () => {
     message: string;
   } | null>(null);
 
+  const handleCheckPostcode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPostcodeResult(null);
+    if (!postcode.trim()) {
+      setPostcodeResult({
+        type: "error",
+        message: "Please enter your postcode.",
+      });
+      return;
+    }
+
+    setCheckingPostcode(true);
+    try {
+      const res = await checkDeliveryPostcode(postcode);
+      if (res.deliverable) {
+        setPostcodeResult({
+          type: "success",
+          message: res.message || "Great news — we deliver to your area.",
+        });
+      } else {
+        setPostcodeResult({
+          type: "error",
+          message:
+            res.message ||
+            "Sorry — we don’t currently deliver to this postcode.",
+        });
+      }
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error && err.message
+          ? err.message
+          : "Failed to check postcode. Please try again.";
+      setPostcodeResult({ type: "error", message });
+    } finally {
+      setCheckingPostcode(false);
+    }
+  };
+
   useEffect(() => {
     if (products.length === 0) fetchProducts({});
   }, []);
 
-  const featuredProducts = useMemo(() => {
-    return products.slice(0, 6).map((p) => ({
+  const bestSellerProducts = useMemo(() => {
+    const bestSellerCategories = new Set([
+      "milk",
+      "eggs",
+      "butter",
+      "honey",
+      "bread",
+    ]);
+
+    const filtered = products.filter((p) => {
+      const category = String(p.category || "")
+        .trim()
+        .toLowerCase();
+      return bestSellerCategories.has(category);
+    });
+
+    return filtered.slice(0, 6).map((p) => ({
       id: p.id,
       name: p.name,
       category: p.category,
@@ -60,27 +183,53 @@ const HomePage: React.FC = () => {
     }));
   }, [products]);
 
+  const shopByCategoryItems = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const product of products) {
+      const key = String(product.category || "")
+        .trim()
+        .toLowerCase();
+      if (!key) continue;
+      counts.set(key, (counts.get(key) || 0) + 1);
+    }
+
+    return SHOP_BY_CATEGORY.map((c) => ({
+      id: c.slug,
+      name: c.name,
+      slug: c.slug,
+      description: c.description,
+      image: c.image,
+      productCount: counts.get(c.slug) ?? 0,
+    }));
+  }, [products]);
+
   const testimonials = [
     {
       id: 1,
-      name: "Sarah Mitchell",
+      name: "Sarah Mitchen",
       location: "Bradford",
       rating: 5,
-      text: "The freshest milk I've ever tasted! You can really tell the difference compared to supermarket brands. Our whole family loves it.",
+      text: "Great products and amazing service. Would highly recommend.",
+      imageSrc: "/reviews/sarah.jpg",
+      imageAlt: "Levants delivery at the doorstep",
     },
     {
       id: 2,
-      name: "James Thompson",
+      name: "Craig",
       location: "Leeds",
       rating: 5,
-      text: "The mature cheddar is absolutely divine. Perfectly aged with incredible depth of flavour. Will be ordering again!",
+      text: "The freshest best tasting milk I’ve ever had with cream on top just like the good old days. In glass bottle too. Would highly recommend!",
+      imageSrc: "/reviews/craig.jpg",
+      imageAlt: "Glass bottles of milk outside a door",
     },
     {
       id: 3,
-      name: "Emma Wilson",
-      location: "Wakefield",
+      name: "Fatima",
+      location: "Dewsbury",
       rating: 5,
-      text: "So convenient having fresh dairy delivered to my door. The milkshakes are a particular favourite with my kids!",
+      text: "Best tasting milkshakes. Kids loved them. The eggs have a beautiful goldy yolk. Quality products and does not break the bank.",
+      imageSrc: "/reviews/fatima.jpg",
+      imageAlt: "Milk, milkshakes, and eggs delivered",
     },
   ];
 
@@ -99,31 +248,64 @@ const HomePage: React.FC = () => {
         <div className="container-custom relative z-10 py-20">
           <div className="max-w-2xl">
             <h1 className="font-heading text-4xl sm:text-5xl lg:text-6xl font-semibold text-card mb-6 opacity-0 animate-fade-in-up">
-              Farm-fresh milk, dairy, and more—delivered to your doorstep.
+              Farm-fresh milk, dairy, and more—delivered to your doorstep. 🥛 🚪
             </h1>
             <p className="text-lg sm:text-xl text-card/90 mb-8 opacity-0 animate-fade-in-up stagger-1">
-              We are a committed small team fuelled by our passion for
-              delivering the finest freshest milk, dairy and more straight from
-              the farm to your doorstep. Our mission is to offer top-quality
-              goods sourced exclusively from local Yorkshire family-run farms.
-              By choosing us, you're not only receiving the best essentials for
-              your daily needs, but you're also supporting our community and its
-              farmers. Experience the taste of freshness today!
+              Milk, Milkshakes, Cream, Butter, Eggs and more - Fresh and Local
             </p>
-            <div className="flex flex-wrap gap-4 mb-10 opacity-0 animate-fade-in-up stagger-2">
-              <Link
-                to="/shop"
-                className="btn-primary inline-flex items-center gap-2"
-              >
-                Shop Now <ArrowRight className="w-4 h-4" />
-              </Link>
-              <Link
-                to="/delivery"
-                className="btn-secondary inline-flex items-center gap-2"
-              >
-                How Delivery Works
-              </Link>
+            <div className="flex flex-col gap-4 mb-6 opacity-0 animate-fade-in-up stagger-2">
+              <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-4">
+                <Link
+                  to="/shop"
+                  className="btn-primary inline-flex items-center gap-2"
+                >
+                  Shop Now <ArrowRight className="w-4 h-4" />
+                </Link>
+
+                <form
+                  className="w-full sm:w-auto"
+                  onSubmit={handleCheckPostcode}
+                >
+                  <div className="flex flex-col sm:flex-row sm:items-stretch rounded-xl overflow-hidden border border-card/20 bg-card/15 backdrop-blur-sm">
+                    <div className="relative flex-1 sm:w-72">
+                      <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-card/80" />
+                      <input
+                        type="text"
+                        placeholder="Enter your postcode"
+                        className="w-full h-12 pl-10 pr-4 bg-transparent text-card placeholder:text-card/70 focus:outline-none"
+                        value={postcode}
+                        onChange={(e) => setPostcode(e.target.value)}
+                        disabled={checkingPostcode}
+                      />
+                    </div>
+                    <button
+                      className="btn-gold whitespace-nowrap rounded-none"
+                      type="submit"
+                      disabled={checkingPostcode}
+                    >
+                      {checkingPostcode ? "Checking..." : "Check My Postcode"}
+                    </button>
+                  </div>
+                </form>
+
+                <Link
+                  to="/delivery"
+                  className="btn-secondary inline-flex items-center gap-2 whitespace-nowrap"
+                >
+                  How Delivery Works
+                </Link>
+              </div>
             </div>
+
+            {postcodeResult && (
+              <div
+                className="mb-4 text-base font-semibold text-card bg-card/10 border border-card/20 rounded-xl px-4 py-3 opacity-0 animate-fade-in-up"
+                role="status"
+                aria-live="polite"
+              >
+                {postcodeResult.message}
+              </div>
+            )}
             <div className="flex flex-wrap gap-6 opacity-0 animate-fade-in-up stagger-3">
               <div className="trust-badge text-card/80">
                 <Leaf className="w-5 h-5 text-gold" />
@@ -146,17 +328,36 @@ const HomePage: React.FC = () => {
         </div>
       </section>
 
+      {/* Shop by Category */}
+      <section className="py-16 lg:py-24 bg-background">
+        <div className="container-custom">
+          <div className="text-center mb-12">
+            <h2 className="font-heading text-3xl lg:text-4xl font-semibold mb-4">
+              Shop by Category
+            </h2>
+            <p className="text-muted-foreground max-w-2xl mx-auto">
+              Browse our range by category.
+            </p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
+            {shopByCategoryItems.map((category) => (
+              <CategoryCard key={category.slug} category={category} />
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* Best Sellers */}
-      {featuredProducts.length > 0 && (
+      {bestSellerProducts.length > 0 && (
         <section className="py-16 lg:py-24 bg-secondary/30">
           <div className="container-custom">
             <div className="flex items-end justify-between mb-12">
               <div>
                 <h2 className="font-heading text-3xl lg:text-4xl font-semibold mb-4">
-                  Our Products
+                  Best Sellers
                 </h2>
                 <p className="text-muted-foreground max-w-xl">
-                  Our most loved products, handpicked by our customers.
+                  Our most loved products: milk, eggs, butter, honey, and bread.
                 </p>
               </div>
               <Link
@@ -167,7 +368,7 @@ const HomePage: React.FC = () => {
               </Link>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {featuredProducts.map((product, index) => (
+              {bestSellerProducts.map((product, index) => (
                 <div
                   key={product.id}
                   className="h-full opacity-0 animate-fade-in-up"
@@ -214,14 +415,14 @@ const HomePage: React.FC = () => {
                 step: "02",
                 title: "Checkout Securely",
                 description:
-                  "Enter your delivery details and pay securely via Stripe.",
+                  "Enter your delivery details and pay securely via Apple Pay, Google Pay, or credit card.",
                 icon: "💳",
               },
               {
                 step: "03",
                 title: "Receive Fresh & Chilled",
                 description:
-                  "Your order arrives in insulated packaging to keep everything perfectly fresh.",
+                  "Your order arrives in temperature controlled refrigerated vans to keep everything perfectly fresh.",
                 icon: "❄️",
               },
             ].map((item, index) => (
@@ -247,7 +448,10 @@ const HomePage: React.FC = () => {
       </section>
 
       {/* Delivery Area */}
-      <section className="py-16 lg:py-24 bg-primary text-primary-foreground">
+      <section
+        id="postcode-check"
+        className="py-16 lg:py-24 bg-primary text-primary-foreground"
+      >
         <div className="container-custom">
           <div className="max-w-3xl mx-auto text-center">
             <Truck className="w-12 h-12 mx-auto mb-6 opacity-80" />
@@ -258,73 +462,10 @@ const HomePage: React.FC = () => {
               We currently deliver to Bradford and surrounding areas. Enter your
               postcode to confirm we deliver to your area.
             </p>
-            <form
-              className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto"
-              onSubmit={async (e) => {
-                e.preventDefault();
-                setPostcodeResult(null);
-                if (!postcode.trim()) {
-                  setPostcodeResult({
-                    type: "error",
-                    message: "Please enter your postcode.",
-                  });
-                  return;
-                }
-
-                setCheckingPostcode(true);
-                try {
-                  const res = await checkDeliveryPostcode(postcode);
-                  if (res.deliverable) {
-                    setPostcodeResult({
-                      type: "success",
-                      message:
-                        res.message || "Great news — we deliver to your area.",
-                    });
-                  } else {
-                    setPostcodeResult({
-                      type: "error",
-                      message:
-                        res.message ||
-                        "Sorry — we don’t currently deliver to this postcode.",
-                    });
-                  }
-                } catch (err: unknown) {
-                  const message =
-                    err instanceof Error && err.message
-                      ? err.message
-                      : "Failed to check postcode. Please try again.";
-                  setPostcodeResult({ type: "error", message });
-                } finally {
-                  setCheckingPostcode(false);
-                }
-              }}
-            >
-              <input
-                type="text"
-                placeholder="Enter your postcode"
-                className="flex-1 px-4 py-3 rounded-xl bg-primary-foreground/10 border border-primary-foreground/20 text-primary-foreground placeholder:text-primary-foreground/50 focus:outline-none focus:border-primary-foreground/50 transition-colors"
-                value={postcode}
-                onChange={(e) => setPostcode(e.target.value)}
-                disabled={checkingPostcode}
-              />
-              <button
-                className="btn-gold"
-                type="submit"
-                disabled={checkingPostcode}
-              >
-                {checkingPostcode ? "Checking..." : "Check Availability"}
-              </button>
-            </form>
-
-            {postcodeResult && (
-              <div
-                className="mt-4 text-lg font-semibold text-primary-foreground bg-primary-foreground/10 border border-primary-foreground/20 rounded-xl px-4 py-3"
-                role="status"
-                aria-live="polite"
-              >
-                {postcodeResult.message}
-              </div>
-            )}
+            <div className="max-w-xl mx-auto text-primary-foreground/80">
+              Use the postcode checker at the top of the page to confirm
+              delivery availability instantly.
+            </div>
           </div>
         </div>
       </section>
@@ -348,6 +489,16 @@ const HomePage: React.FC = () => {
                 style={{ animationDelay: `${index * 0.15}s` }}
               >
                 <Quote className="w-8 h-8 text-primary/20 mb-4" />
+                {testimonial.imageSrc ? (
+                  <div className="mb-4 overflow-hidden rounded-xl border border-border bg-muted">
+                    <img
+                      src={testimonial.imageSrc}
+                      alt={testimonial.imageAlt || testimonial.name}
+                      className="w-full aspect-[4/3] object-cover"
+                      loading="lazy"
+                    />
+                  </div>
+                ) : null}
                 <div className="flex gap-1 mb-4">
                   {[...Array(testimonial.rating)].map((_, i) => (
                     <Star key={i} className="w-4 h-4 fill-gold text-gold" />

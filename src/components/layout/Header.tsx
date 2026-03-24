@@ -3,6 +3,7 @@ import { Link, useLocation } from "react-router-dom";
 import { ShoppingBag, Menu, X } from "lucide-react";
 import { useCart } from "@/context/CartContext";
 import api from "@/api/client";
+import { ORDER_DEADLINES_TEXT } from "@/lib/orderDeadlines";
 
 type ActiveDiscount = {
   code: string;
@@ -52,8 +53,8 @@ const Header: React.FC = () => {
     };
   }, []);
 
-  const announcementText = useMemo(() => {
-    if (!activeDiscount) return "";
+  const discountAnnouncement = useMemo(() => {
+    if (!activeDiscount) return null;
 
     const code = String(activeDiscount.code || "").trim();
     const variants = Array.isArray(activeDiscount.variants)
@@ -67,7 +68,7 @@ const Header: React.FC = () => {
       const percent = Number(activeDiscount.percentOff || 0);
       const percentText =
         Number.isFinite(percent) && percent > 0 ? `${percent}%` : "%";
-      return `🏷️ Discount: ${code} • ${percentText} off • ${scopeText}`;
+      return { code, valueText: `${percentText}`, scopeText };
     }
 
     if (activeDiscount.kind === "amount") {
@@ -76,10 +77,10 @@ const Header: React.FC = () => {
       const symbol = currency === "GBP" ? "£" : currency === "USD" ? "$" : "";
       const amountText =
         Number.isFinite(amount) && amount > 0 ? `${symbol}${amount}` : "Amount";
-      return `🏷️ Discount: ${code} • ${amountText} off • ${scopeText}`;
+      return { code, valueText: `${amountText}`, scopeText };
     }
 
-    return `🏷️ Discount: ${code} • ${scopeText}`;
+    return { code, valueText: "", scopeText };
   }, [activeDiscount]);
 
   const navLinks = [
@@ -94,11 +95,38 @@ const Header: React.FC = () => {
 
   return (
     <>
-      {activeDiscount && (
-        <div className="announcement-bar">
-          <p className="container-custom">{announcementText}</p>
+      <div
+        className="announcement-bar font-semibold text-sm sm:text-base"
+        role="status"
+        aria-live="polite"
+      >
+        <div className="container-custom flex flex-col items-center justify-center gap-0.5 leading-tight">
+          {discountAnnouncement && (
+            <p className="text-center">
+              <span aria-hidden>🏷️ </span>
+              <span className="font-bold">Discount:</span>{" "}
+              <span className="font-extrabold">
+                {discountAnnouncement.code}
+              </span>
+              {discountAnnouncement.valueText ? (
+                <>
+                  {" • "}
+                  <span>{discountAnnouncement.valueText} off</span>
+                </>
+              ) : null}
+              {" • "}
+              <span className="opacity-95">
+                {discountAnnouncement.scopeText}
+              </span>
+            </p>
+          )}
+
+          <p className="text-center">
+            <span className="font-bold">Order deadlines:</span>{" "}
+            {ORDER_DEADLINES_TEXT}
+          </p>
         </div>
-      )}
+      </div>
 
       <header className="sticky top-0 z-50 bg-card/95 backdrop-blur-md border-b border-border">
         <div className="container-custom">

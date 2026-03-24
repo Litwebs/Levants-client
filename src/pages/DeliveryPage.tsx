@@ -14,6 +14,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { checkDeliveryPostcode } from "@/api/delivery";
+import { ORDER_DEADLINES_TEXT } from "@/lib/orderDeadlines";
 
 const DeliveryPage: React.FC = () => {
   const [postcode, setPostcode] = useState("");
@@ -71,8 +72,7 @@ const DeliveryPage: React.FC = () => {
     {
       icon: Clock,
       title: "Order Deadlines",
-      description:
-        "Order by Friday at 10pm for Sunday delivery, or by Monday at 10pm for Wednesday delivery.",
+      description: ORDER_DEADLINES_TEXT,
     },
     {
       icon: Package,
