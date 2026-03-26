@@ -16,19 +16,25 @@ const ShopPage: React.FC = () => {
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const { products, loading, error, fetchProducts } = useProducts();
 
+  const slugifyCategory = (value: string) =>
+    String(value || "")
+      .trim()
+      .toLowerCase()
+      .replace(/&/g, "and")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/(^-|-$)/g, "");
+
   const categoryParam = searchParams.get("category") || "";
   const sortParam = searchParams.get("sort") || "featured";
   const searchQuery = searchParams.get("q") || "";
 
   const [selectedCategories, setSelectedCategories] = useState<string[]>(
-    categoryParam ? [categoryParam] : [],
+    categoryParam ? [slugifyCategory(categoryParam)] : [],
   );
   const [sortBy, setSortBy] = useState(sortParam);
 
   useEffect(() => {
     fetchProducts({
-      category:
-        selectedCategories.length === 1 ? selectedCategories[0] : undefined,
       search: searchQuery || undefined,
       sort:
         sortBy === "price-low"
@@ -39,7 +45,7 @@ const ShopPage: React.FC = () => {
               ? "name_asc"
               : undefined,
     });
-  }, [selectedCategories, searchQuery, sortBy]);
+  }, [searchQuery, sortBy, fetchProducts]);
 
   // Derive unique categories from products
   const categories = useMemo(() => {
@@ -49,14 +55,20 @@ const ShopPage: React.FC = () => {
     );
     return Array.from(catMap.entries()).map(([name, count]) => ({
       name,
-      slug: name,
+      slug: slugifyCategory(name),
       count,
     }));
   }, [products]);
 
+  const filteredProducts = useMemo(() => {
+    if (!selectedCategories.length) return products;
+    const selected = new Set(selectedCategories.map(slugifyCategory));
+    return products.filter((p) => selected.has(slugifyCategory(p.category)));
+  }, [products, selectedCategories]);
+
   // Map backend products to ProductCard-compatible shape
   const mappedProducts = useMemo(() => {
-    return products.map((p) => ({
+    return filteredProducts.map((p) => ({
       id: p.id,
       name: p.name,
       category: p.category,
@@ -86,7 +98,7 @@ const ShopPage: React.FC = () => {
           : ("in-stock" as const),
       badges: [] as string[],
     }));
-  }, [products]);
+  }, [filteredProducts]);
 
   const toggleCategory = (slug: string) => {
     setSelectedCategories((prev) =>

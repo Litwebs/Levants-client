@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/accordion";
 import { checkDeliveryPostcode } from "@/api/delivery";
 import { ORDER_DEADLINES_TEXT } from "@/lib/orderDeadlines";
+import { buildWhatsAppLink, WHATSAPP_DISPLAY_PHONE } from "@/lib/whatsapp";
 
 const DeliveryPage: React.FC = () => {
   const [postcode, setPostcode] = useState("");
@@ -23,6 +24,11 @@ const DeliveryPage: React.FC = () => {
     type: "success" | "error";
     message: string;
   } | null>(null);
+
+  const refrigeratedImages = Array.from(
+    { length: 4 },
+    (_, idx) => `/delivery/ref${idx + 1}.jpeg`,
+  );
 
   const handleCheckPostcode = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -188,6 +194,43 @@ const DeliveryPage: React.FC = () => {
         </div>
       </section>
 
+      {/* Refrigerated Vans */}
+      <section className="py-16 lg:py-24 bg-secondary/30">
+        <div className="container-custom">
+          <div className="max-w-3xl mx-auto text-center mb-10">
+            <Snowflake className="w-12 h-12 text-primary mx-auto mb-4" />
+            <h2 className="font-heading text-2xl lg:text-3xl font-semibold mb-4">
+              Refrigerated Vans
+            </h2>
+            <p className="text-muted-foreground">
+              Our temperature-controlled refrigerated vans help keep your order
+              perfectly chilled from farm to doorstep.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            {refrigeratedImages.map((src, index) => (
+              <div
+                key={src}
+                className="aspect-square rounded-2xl overflow-hidden bg-muted"
+              >
+                <img
+                  src={src}
+                  alt={`Refrigerated van ${index + 1}`}
+                  className="w-full h-full object-cover hover:scale-105 transition-transform duration-500"
+                  loading="lazy"
+                  onError={(e) => {
+                    if (e.currentTarget.dataset.fallbackApplied) return;
+                    e.currentTarget.dataset.fallbackApplied = "1";
+                    e.currentTarget.src = "/placeholder.svg";
+                  }}
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* Delivery Area */}
       <section className="py-16 lg:py-24 bg-secondary/30">
         <div className="container-custom">
@@ -248,13 +291,34 @@ const DeliveryPage: React.FC = () => {
                 </h2>
                 <p className="text-muted-foreground">
                   Want a regular delivery? Our weekly subscription is super
-                  easy! Just WhatsApp us your order for delivery every
-                  Wednesday, Sunday, or both.
+                  easy! Just{" "}
+                  <a
+                    href={buildWhatsAppLink(
+                      "Hi Levants Dairy — I'd like to set up a weekly subscription.",
+                    )}
+                    className="text-primary font-medium hover:underline"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    WhatsApp us
+                  </a>{" "}
+                  your order for delivery every Wednesday, Sunday, or both.
                 </p>
               </div>
             </div>
 
             <div className="bg-card rounded-2xl border border-border p-6 lg:p-8 space-y-4">
+              <p className="text-sm text-muted-foreground">
+                WhatsApp:{" "}
+                <a
+                  href={buildWhatsAppLink()}
+                  className="font-medium text-primary hover:underline"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  {WHATSAPP_DISPLAY_PHONE}
+                </a>
+              </p>
               <p className="text-sm text-muted-foreground">
                 Any changes to your order are simple — tell us by Friday at 10pm
                 for Sunday's delivery, or by Monday at 10pm for Wednesday's.
@@ -276,33 +340,36 @@ const DeliveryPage: React.FC = () => {
             </h2>
             <div className="bg-card rounded-2xl border border-border p-6 lg:p-8 space-y-3">
               <p className="text-sm text-muted-foreground">
-                Unbeatable Freshness: We deliver milk that's milked, bottled,
-                and to your door within 12 hours. Taste the difference freshness
-                makes!
+                <span className="font-semibold">Unbeatable Freshness:</span> We
+                deliver milk that's milked, bottled, and to your door within 12
+                hours. Taste the difference freshness makes!
               </p>
               <p className="text-sm text-muted-foreground">
-                Convenient Delivery: Get fresh milk delivered twice a week,
-                right to your doorstep.
+                <span className="font-semibold">Convenient Delivery:</span> Get
+                fresh milk delivered twice a week, right to your doorstep.
               </p>
               <p className="text-sm text-muted-foreground">
-                Reputable & Trusted: We're a company known for our reliability
-                and commitment to customer satisfaction.
+                <span className="font-semibold">Reputable & Trusted:</span>
+                We're a company known for our reliability and commitment to
+                customer satisfaction.
               </p>
               <p className="text-sm text-muted-foreground">
-                100% Natural: Enjoy pure, wholesome milk, free from artificial
-                additives.
+                <span className="font-semibold">100% Natural:</span> Enjoy pure,
+                wholesome milk, free from artificial additives.
               </p>
               <p className="text-sm text-muted-foreground">
-                Supporting Local Farmers: By choosing us, you're directly
-                supporting local farmers and sustainable agriculture.
+                <span className="font-semibold">Supporting Local Farmers:</span>
+                By choosing us, you're directly supporting local farmers and
+                sustainable agriculture.
               </p>
               <p className="text-sm text-muted-foreground">
-                Affordable: Get the best quality and freshness at a price that's
-                friendly to your wallet.
+                <span className="font-semibold">Affordable:</span> Get the best
+                quality and freshness at a price that's friendly to your wallet.
               </p>
               <p className="text-sm text-muted-foreground">
-                Quality & Efficiency: From our farm to your fridge, we
-                prioritize quality and ensure a seamless delivery experience.
+                <span className="font-semibold">Quality & Efficiency:</span>
+                From our farm to your fridge, we prioritize quality and ensure a
+                seamless delivery experience.
               </p>
             </div>
           </div>

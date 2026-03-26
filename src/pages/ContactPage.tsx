@@ -1,18 +1,21 @@
-import React, { useState } from 'react';
-import { Mail, Phone, MapPin, Clock, Send, MessageSquare } from 'lucide-react';
-import { toast } from 'sonner';
+import React, { useState } from "react";
+import { Mail, MapPin, Clock, Send, MessageSquare } from 'lucide-react';
+import { toast } from "sonner";
+import { buildWhatsAppLink, WHATSAPP_DISPLAY_PHONE } from "@/lib/whatsapp";
 
 const ContactPage: React.FC = () => {
   const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    phone: '',
-    subject: '',
-    message: '',
+    name: "",
+    email: "",
+    phone: "",
+    subject: "",
+    message: "",
   });
 
   const handleInputChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+    >,
   ) => {
     setFormData((prev) => ({
       ...prev,
@@ -22,41 +25,35 @@ const ContactPage: React.FC = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    toast.success('Message sent successfully!', {
+    toast.success("Message sent successfully!", {
       description: "We'll get back to you within 24 hours.",
     });
     setFormData({
-      name: '',
-      email: '',
-      phone: '',
-      subject: '',
-      message: '',
+      name: "",
+      email: "",
+      phone: "",
+      subject: "",
+      message: "",
     });
   };
 
   const contactInfo = [
     {
       icon: Mail,
-      label: 'Email',
-      value: 'hello@levantsdairy.com',
-      link: 'mailto:hello@levantsdairy.com',
+      label: "Email",
+      value: "hello@levantsdairy.com",
+      link: "mailto:hello@levantsdairy.com",
     },
     {
-      icon: Phone,
-      label: 'Phone',
-      value: '+44 1234 567890',
-      link: 'tel:+441234567890',
-    },
-    {
-      icon: MapPin,
-      label: 'Address',
-      value: 'Levants Farm, Mill Lane, Cambridge, CB1 2AB',
-      link: 'https://maps.google.com',
+      icon: MessageSquare,
+      label: "WhatsApp",
+      value: WHATSAPP_DISPLAY_PHONE,
+      link: buildWhatsAppLink("Hi Levants Dairy — I have a question."),
     },
     {
       icon: Clock,
-      label: 'Hours',
-      value: 'Mon-Fri: 8am-6pm, Sat: 9am-4pm',
+      label: "Hours",
+      value: "Mon-Fri: 8am-6pm, Sat: 9am-4pm",
       link: null,
     },
   ];
@@ -71,7 +68,8 @@ const ContactPage: React.FC = () => {
               Get in Touch
             </h1>
             <p className="text-primary-foreground/80">
-              Have a question, feedback, or just want to say hello? We'd love to hear from you.
+              Have a question, feedback, or just want to say hello? We'd love to
+              hear from you.
             </p>
           </div>
         </div>
@@ -197,13 +195,23 @@ const ContactPage: React.FC = () => {
                         <info.icon className="w-5 h-5 text-primary" />
                       </div>
                       <div>
-                        <p className="text-sm text-muted-foreground">{info.label}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {info.label}
+                        </p>
                         {info.link ? (
                           <a
                             href={info.link}
                             className="font-medium hover:text-primary transition-colors"
-                            target={info.link.startsWith('http') ? '_blank' : undefined}
-                            rel={info.link.startsWith('http') ? 'noopener noreferrer' : undefined}
+                            target={
+                              info.link.startsWith("http")
+                                ? "_blank"
+                                : undefined
+                            }
+                            rel={
+                              info.link.startsWith("http")
+                                ? "noopener noreferrer"
+                                : undefined
+                            }
                           >
                             {info.value}
                           </a>

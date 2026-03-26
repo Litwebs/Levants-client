@@ -1,9 +1,16 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import { Leaf, Heart, Award, Truck, ArrowRight } from "lucide-react";
+import { Leaf, Heart, Award, Truck, ArrowRight, RefreshCw } from "lucide-react";
 import heroImage from "@/assets/hero-farm.jpg";
+import { buildWhatsAppLink, WHATSAPP_DISPLAY_PHONE } from "@/lib/whatsapp";
+import about from "../../public/reviews/about/about.jpeg";
 
 const AboutPage: React.FC = () => {
+  const farmImages = Array.from(
+    { length: 11 },
+    (_, idx) => `/reviews/about/about${idx + 1}.jpeg`,
+  );
+
   const values = [
     {
       icon: Leaf,
@@ -48,11 +55,11 @@ const AboutPage: React.FC = () => {
             <h1 className="font-heading text-4xl lg:text-5xl font-semibold text-card mb-6">
               About Us
             </h1>
-            <p className="text-lg text-card/90">
+            {/* <p className="text-lg text-card/90">
               We're a small, dedicated team passionate about bringing the finest
               milk, dairy, and more directly from local Yorkshire family-run
               farms to your doorstep.
-            </p>
+            </p> */}
           </div>
         </div>
       </section>
@@ -89,7 +96,7 @@ const AboutPage: React.FC = () => {
             <div className="relative">
               <div className="aspect-[4/3] rounded-2xl overflow-hidden bg-muted">
                 <img
-                  src={heroImage}
+                  src={about}
                   alt="Our farm"
                   className="w-full h-full object-cover"
                 />
@@ -112,10 +119,10 @@ const AboutPage: React.FC = () => {
             <h2 className="font-heading text-3xl lg:text-4xl font-semibold mb-4">
               What We Stand For
             </h2>
-            <p className="text-muted-foreground max-w-2xl mx-auto">
+            {/* <p className="text-muted-foreground max-w-2xl mx-auto">
               Quality, service, and supporting Yorkshire farms guide everything
               we do.
-            </p>
+            </p> */}
           </div>
 
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-8">
@@ -145,27 +152,93 @@ const AboutPage: React.FC = () => {
         <div className="container-custom">
           <div className="text-center mb-12">
             <h2 className="font-heading text-3xl lg:text-4xl font-semibold mb-4">
-              From Farm to Door
+              Life On The Farm
             </h2>
             <p className="text-muted-foreground max-w-2xl mx-auto">
-              We source from local Yorkshire family-run farms and deliver in
-              refrigerated vans to keep your order in optimal condition.
+              Welcome to our family farm, where tradition meets sustainability.
+              For over five generations, we've been dedicated to providing the
+              highest quality dairy products from our grass-fed, free-range, and
+              pasture-raised cows. Our herd includes traditional native breeds
+              such as Friesian, Ayrshire, Jersey, and Shorthorn, each
+              contributing to the unique richness and flavor of our milk. We
+              believe in ethical farming practices that prioritize the
+              well-being of our animals and the health of our planet. Explore
+              our site to learn more about our commitment to quality and
+              sustainability.
             </p>
           </div>
 
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            {[1, 2, 3, 4].map((i) => (
+            {farmImages.map((src, index) => (
               <div
-                key={i}
+                key={src}
                 className="aspect-square rounded-2xl overflow-hidden bg-muted"
               >
                 <img
-                  src={heroImage}
-                  alt={`Farm life ${i}`}
+                  src={src}
+                  alt={`Farm life ${index + 1}`}
                   className="w-full h-full object-cover hover:scale-105 transition-transform duration-500"
+                  loading="lazy"
+                  onError={(e) => {
+                    if (e.currentTarget.dataset.fallbackApplied) return;
+                    e.currentTarget.dataset.fallbackApplied = "1";
+                    e.currentTarget.src = heroImage;
+                  }}
                 />
               </div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Weekly Subscription */}
+      <section className="py-16 lg:py-24 bg-secondary/30">
+        <div className="container-custom">
+          <div className="max-w-3xl mx-auto">
+            <div className="flex items-start gap-4 mb-8">
+              <RefreshCw className="w-8 h-8 text-primary flex-shrink-0" />
+              <div>
+                <h2 className="font-heading text-2xl lg:text-3xl font-semibold mb-4">
+                  Weekly Subscription
+                </h2>
+                <p className="text-muted-foreground">
+                  Want a regular delivery? Our weekly subscription is super
+                  easy! Just{" "}
+                  <a
+                    href={buildWhatsAppLink(
+                      "Hi Levants Dairy — I'd like to set up a weekly subscription.",
+                    )}
+                    className="text-primary font-medium hover:underline"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    WhatsApp us
+                  </a>{" "}
+                  your order for delivery every Wednesday, Sunday, or both.
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-card rounded-2xl border border-border p-6 lg:p-8 space-y-4">
+              <p className="text-sm text-muted-foreground">
+                WhatsApp:{" "}
+                <a
+                  href={buildWhatsAppLink()}
+                  className="font-medium text-primary hover:underline"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  {WHATSAPP_DISPLAY_PHONE}
+                </a>
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Any changes to your order are simple — tell us by Friday at 10pm
+                for Sunday's delivery, or by Monday at 10pm for Wednesday's.
+              </p>
+              <p className="text-sm text-muted-foreground">
+                It’s contract free!
+              </p>
+            </div>
           </div>
         </div>
       </section>

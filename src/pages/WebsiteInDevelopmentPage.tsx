@@ -1,4 +1,5 @@
 import DevModeBanner from "@/components/layout/DevModeBanner";
+import { buildWhatsAppLink, WHATSAPP_DISPLAY_PHONE } from "@/lib/whatsapp";
 
 const WebsiteInDevelopmentPage = () => {
   return (
@@ -18,15 +19,11 @@ const WebsiteInDevelopmentPage = () => {
           <p className="text-muted-foreground text-base sm:text-lg">
             In the mean time contact us at
             <div className="whats-app">
-              <a
-                href="https://api.whatsapp.com/send?phone=447494927688"
-                target="_blank"
-                rel="noreferrer"
-              >
-                <strong>+44 7494 927688</strong>
+              <a href={buildWhatsAppLink()} target="_blank" rel="noreferrer">
+                <strong>{WHATSAPP_DISPLAY_PHONE}</strong>
               </a>
             </div>
-             to place an order or for any enquiries:
+            to place an order or for any enquiries:
           </p>
         </div>
       </div>
@@ -35,4 +32,3 @@ const WebsiteInDevelopmentPage = () => {
 };
 
 export default WebsiteInDevelopmentPage;
-

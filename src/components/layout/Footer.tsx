@@ -2,6 +2,7 @@ import React from "react";
 import { Link } from "react-router-dom";
 import { Facebook, Instagram, MessageCircle, Music2, Mail } from "lucide-react";
 import img from "@/assets/mark.jpeg";
+import { buildWhatsAppLink } from "@/lib/whatsapp";
 
 const Footer: React.FC = () => {
   const currentYear = new Date().getFullYear();
@@ -40,13 +41,22 @@ const Footer: React.FC = () => {
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-8 lg:gap-12">
           {/* Brand Column */}
           <div className="col-span-2 md:col-span-4 lg:col-span-1 mb-4 lg:mb-0 min-w-0">
-            <Link to="/" className="inline-block mb-4">
-              <h2 className="font-heading text-2xl font-semibold">
+            <Link
+              to="/"
+              className="inline-flex items-center gap-3 mb-4 flex-nowrap"
+            >
+              <img
+                src="/Logo.jpg"
+                alt="Levants logo"
+                className="w-9 h-9 lg:w-10 lg:h-10 rounded-full object-cover shrink-0"
+                loading="lazy"
+              />
+              <h2 className="font-heading text-2xl font-semibold whitespace-nowrap">
                 Levants Dairy
               </h2>
             </Link>
-            <p className="text-muted-foreground text-sm mb-6 max-w-xs">
-              Farm fresh delivered to your door
+            <p className="text-muted-foreground text-sm italic mb-6 max-w-xs">
+              Farm Fresh To Your Door
             </p>
 
             <div className="mb-6 max-w-xs">
@@ -84,9 +94,11 @@ const Footer: React.FC = () => {
                 <Instagram className="w-5 h-5" />
               </a>
               <a
-                href="#"
+                href={buildWhatsAppLink()}
                 className="p-2 rounded-full bg-foreground/10 hover:bg-foreground/15 transition-colors"
                 aria-label="WhatsApp"
+                target="_blank"
+                rel="noopener noreferrer"
               >
                 <MessageCircle className="w-5 h-5" />
               </a>

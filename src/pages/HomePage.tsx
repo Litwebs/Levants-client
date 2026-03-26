@@ -57,7 +57,7 @@ const SHOP_BY_CATEGORY = [
   {
     slug: "ghee",
     name: "Ghee",
-    description: "Clarified butter for cooking",
+    description: "Grass fed, free range",
     image: productButter,
   },
   {
@@ -80,7 +80,7 @@ const SHOP_BY_CATEGORY = [
   },
   {
     slug: "bread",
-    name: "Bread",
+    name: "Bakery",
     description: "Freshly baked, artisanal",
     image: heroImage,
   },
@@ -230,6 +230,15 @@ const HomePage: React.FC = () => {
       text: "Best tasting milkshakes. Kids loved them. The eggs have a beautiful goldy yolk. Quality products and does not break the bank.",
       imageSrc: "/reviews/fatima.jpg",
       imageAlt: "Milk, milkshakes, and eggs delivered",
+    },
+    {
+      id: 4,
+      name: "Adam",
+      location: "Bradford",
+      rating: 5,
+      text: "Been ordering from Levants Dairy for the last 9 months. Huge difference compared to superamarkets",
+      imageSrc: "/reviews/adam.jpg",
+      imageAlt: "Levants Dairy delivery",
     },
   ];
 
@@ -462,10 +471,38 @@ const HomePage: React.FC = () => {
               We currently deliver to Bradford and surrounding areas. Enter your
               postcode to confirm we deliver to your area.
             </p>
-            <div className="max-w-xl mx-auto text-primary-foreground/80">
-              Use the postcode checker at the top of the page to confirm
-              delivery availability instantly.
-            </div>
+            <form className="max-w-xl mx-auto" onSubmit={handleCheckPostcode}>
+              <div className="flex flex-col sm:flex-row sm:items-stretch rounded-xl overflow-hidden border border-primary-foreground/20 bg-primary-foreground/10 backdrop-blur-sm">
+                <div className="relative flex-1">
+                  <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary-foreground/80" />
+                  <input
+                    type="text"
+                    placeholder="Enter your postcode"
+                    className="w-full h-12 pl-10 pr-4 bg-transparent text-primary-foreground placeholder:text-primary-foreground/70 focus:outline-none"
+                    value={postcode}
+                    onChange={(e) => setPostcode(e.target.value)}
+                    disabled={checkingPostcode}
+                  />
+                </div>
+                <button
+                  className="btn-gold whitespace-nowrap rounded-none"
+                  type="submit"
+                  disabled={checkingPostcode}
+                >
+                  {checkingPostcode ? "Checking..." : "Check My Postcode"}
+                </button>
+              </div>
+
+              {postcodeResult && (
+                <div
+                  className="mt-4 text-base font-semibold text-primary-foreground bg-primary-foreground/10 border border-primary-foreground/20 rounded-xl px-4 py-3 opacity-0 animate-fade-in-up"
+                  role="status"
+                  aria-live="polite"
+                >
+                  {postcodeResult.message}
+                </div>
+              )}
+            </form>
           </div>
         </div>
       </section>
