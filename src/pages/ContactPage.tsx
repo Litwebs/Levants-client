@@ -1,6 +1,5 @@
 import React, { useState } from "react";
-import { Mail, MapPin, Clock, Send, MessageSquare } from 'lucide-react';
-import { toast } from "sonner";
+import { Mail, Clock, Send, MessageSquare } from "lucide-react";
 import { buildWhatsAppLink, WHATSAPP_DISPLAY_PHONE } from "@/lib/whatsapp";
 
 const ContactPage: React.FC = () => {
@@ -23,26 +22,12 @@ const ContactPage: React.FC = () => {
     }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    toast.success("Message sent successfully!", {
-      description: "We'll get back to you within 24 hours.",
-    });
-    setFormData({
-      name: "",
-      email: "",
-      phone: "",
-      subject: "",
-      message: "",
-    });
-  };
-
   const contactInfo = [
     {
       icon: Mail,
       label: "Email",
-      value: "hello@levantsdairy.com",
-      link: "mailto:hello@levantsdairy.com",
+      value: "levantsdairy1@gmail.com",
+      link: "mailto:levantsdairy1@gmail.com",
     },
     {
       icon: MessageSquare,
@@ -88,7 +73,11 @@ const ContactPage: React.FC = () => {
                   </h2>
                 </div>
 
-                <form onSubmit={handleSubmit} className="space-y-6">
+                <form
+                  action="https://formsubmit.co/levantsdairy1@gmail.com"
+                  method="POST"
+                  className="space-y-6"
+                >
                   <div className="grid sm:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium mb-2">
@@ -221,16 +210,6 @@ const ContactPage: React.FC = () => {
                       </div>
                     </div>
                   ))}
-                </div>
-              </div>
-
-              {/* Map Placeholder */}
-              <div className="bg-muted rounded-2xl overflow-hidden aspect-[4/3]">
-                <div className="w-full h-full flex items-center justify-center text-muted-foreground">
-                  <div className="text-center">
-                    <MapPin className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                    <p className="text-sm">Map would appear here</p>
-                  </div>
                 </div>
               </div>
             </div>

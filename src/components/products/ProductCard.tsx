@@ -19,6 +19,23 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
 
   const currentPrice = selectedVariant?.price ?? product.price;
 
+  const allergensText = (() => {
+    const allergens = (product as any)?.allergens;
+    if (Array.isArray(allergens))
+      return allergens.length ? allergens.join(", ") : "None";
+    if (typeof allergens === "string")
+      return allergens.trim() ? allergens.trim() : "None";
+    return "None";
+  })();
+
+  const storageNotesText = (() => {
+    const storageNotes =
+      (product as any)?.storageNotes ?? (product as any)?.storage;
+    if (typeof storageNotes === "string")
+      return storageNotes.trim() ? storageNotes.trim() : "Not provided";
+    return "Not provided";
+  })();
+
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault();
     addItem(product, selectedVariant, quantity);
@@ -91,6 +108,16 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
           <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
             {product.shortDescription}
           </p>
+
+          <div className="space-y-1 mb-3">
+            <p className="text-xs text-muted-foreground line-clamp-2">
+              <span className="font-medium">Allergens:</span> {allergensText}
+            </p>
+            <p className="text-xs text-muted-foreground line-clamp-2">
+              <span className="font-medium">Storage notes:</span>{" "}
+              {storageNotesText}
+            </p>
+          </div>
 
           {/* Price */}
           <p className="text-lg font-semibold text-primary mb-3">

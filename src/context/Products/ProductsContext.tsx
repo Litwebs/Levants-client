@@ -32,6 +32,25 @@ function normalizeProduct(candidate: any): Product {
   if (!Array.isArray(normalized.galleryImages)) normalized.galleryImages = [];
   if (!Array.isArray(normalized.variants)) normalized.variants = [];
 
+  // Backend shape: `allergens: string[]` and `storageNotes: string`.
+  // Older/mock data may have `allergens: string` and/or `storage`.
+  if (!Array.isArray(normalized.allergens)) {
+    if (typeof normalized.allergens === "string") {
+      const text = normalized.allergens.trim();
+      normalized.allergens = text ? [text] : [];
+    } else {
+      normalized.allergens = [];
+    }
+  }
+
+  if (typeof normalized.storageNotes !== "string") {
+    if (typeof normalized.storage === "string") {
+      normalized.storageNotes = normalized.storage;
+    } else {
+      normalized.storageNotes = "";
+    }
+  }
+
   if (!normalized.pricing || typeof normalized.pricing !== "object") {
     const prices = (normalized.variants as any[])
       .map((v) => (typeof v?.price === "number" ? v.price : undefined))
@@ -101,10 +120,14 @@ export const ProductsProvider = ({ children }: { children: ReactNode }) => {
   const fetchProducts = useCallback(async (params?: ProductsQueryParams) => {
     dispatch({ type: PRODUCTS_REQUEST });
     try {
-      const queryParams: Record<string, string | number | boolean | undefined> =
-        {};
-      if (params?.page) queryParams.page = params.page;
-      if (params?.pageSize) queryParams.pageSize = params.pageSize;
+      const queryParams: Record<
+        string,
+        string | number | boolean | Array<string | number | boolean> | undefined
+      > = {};
+      // The backend paginates results. Callers (e.g. Shop page) can pass `page`/`pageSize`
+      // to drive pagination; default to a sensible first page.
+      queryParams.page = params?.page ?? 1;
+      queryParams.pageSize = params?.pageSize ?? 20;
       if (params?.category) queryParams.category = params.category;
       if (params?.minPrice !== undefined)
         queryParams.minPrice = params.minPrice;
@@ -114,16 +137,34 @@ export const ProductsProvider = ({ children }: { children: ReactNode }) => {
       if (params?.search) queryParams.search = params.search;
       if (params?.sort) queryParams.sort = params.sort;
 
-      const res = await api.get<{
-        success: boolean;
-        data: { items: Product[] };
-        meta: PaginationMeta;
-      }>("/products", queryParams);
+      const res = await api.get<any>("/products", queryParams);
 
-      console.log("Fetched products:", res.data.items);
+      const items: Product[] =
+        res?.data?.items ?? res?.data?.data?.items ?? res?.items ?? [];
+
+      const metaCandidate: PaginationMeta | null =
+        (res?.meta?.meta as PaginationMeta | undefined) ??
+        (res?.meta as PaginationMeta | undefined) ??
+        null;
+
+      const fallbackPage =
+        typeof queryParams.page === "number" ? queryParams.page : 1;
+      const fallbackPageSize =
+        typeof queryParams.pageSize === "number"
+          ? queryParams.pageSize
+          : items.length;
+
+      const meta: PaginationMeta = metaCandidate ?? {
+        page: fallbackPage,
+        pageSize: fallbackPageSize,
+        total: items.length,
+        totalPages: 1,
+      };
+
+      console.log("Fetched products:", items);
       dispatch({
         type: PRODUCTS_SUCCESS,
-        payload: { items: res.data.items, meta: res.meta },
+        payload: { items, meta },
       });
     } catch (err: any) {
       dispatch({

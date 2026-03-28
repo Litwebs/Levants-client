@@ -7,7 +7,7 @@ import about from "../../public/reviews/about/about.jpeg";
 
 const AboutPage: React.FC = () => {
   const farmImages = Array.from(
-    { length: 11 },
+    { length: 12 },
     (_, idx) => `/reviews/about/about${idx + 1}.jpeg`,
   );
 

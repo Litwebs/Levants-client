@@ -15,12 +15,15 @@ import { resolveImageUrl } from "@/api/client";
 import ProductCard from "@/components/products/ProductCard";
 import CategoryCard from "@/components/products/CategoryCard";
 import heroImage from "@/assets/hero-farm.jpg";
-import productMilk from "@/assets/product-milk.jpg";
-import productCream from "@/assets/product-cream.jpg";
-import productMilkshake from "@/assets/product-milkshake.jpg";
-import productButter from "@/assets/product-butter.jpg";
-import productCheddar from "@/assets/product-cheddar.jpg";
-import productHoney from "@/assets/product-honey.jpg";
+import productEgg from "../../public/categories/eggs.jpeg";
+import productJuice from "../../public/categories/juices.jpeg";
+import productMilk from "../../public/categories/milk.jpeg";
+import productCream from "../../public/categories/cream.jpeg";
+import productMilkshake from "../../public/categories/milkshakes.jpeg";
+import productButter from "../../public/categories/butter.jpeg";
+import productCheddar from "../../public/categories/cheese.jpeg";
+import productBakery from "../../public/categories/bakary.jpeg";
+import productHoney from "../../public/categories/honey.jpeg";
 import { checkDeliveryPostcode } from "@/api/delivery";
 
 const SHOP_BY_CATEGORY = [
@@ -33,7 +36,7 @@ const SHOP_BY_CATEGORY = [
   {
     slug: "cream",
     name: "Cream",
-    description: "Rich cream for cooking and desserts",
+    description: "Grass fed, free range",
     image: productCream,
   },
   {
@@ -46,7 +49,7 @@ const SHOP_BY_CATEGORY = [
     slug: "eggs",
     name: "Eggs",
     description: "Free range, golden yolks",
-    image: heroImage,
+    image: productEgg,
   },
   {
     slug: "butter",
@@ -76,13 +79,13 @@ const SHOP_BY_CATEGORY = [
     slug: "juices",
     name: "Juices",
     description: "Fresh juices",
-    image: heroImage,
+    image: productJuice,
   },
   {
     slug: "bread",
     name: "Bakery",
     description: "Freshly baked, artisanal",
-    image: heroImage,
+    image: productBakery,
   },
 ] as const;
 
@@ -160,6 +163,8 @@ const HomePage: React.FC = () => {
       price: p.pricing.min,
       shortDescription: p.description.slice(0, 120),
       longDescription: p.description,
+      allergens: p.allergens,
+      storageNotes: p.storageNotes,
       images: [
         resolveImageUrl(p.thumbnailImage),
         ...p.galleryImages.map(resolveImageUrl),

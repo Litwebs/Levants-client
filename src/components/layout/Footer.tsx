@@ -1,8 +1,7 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import { Facebook, Instagram, MessageCircle, Music2, Mail } from "lucide-react";
+import { Facebook, Instagram, Music2 } from "lucide-react";
 import img from "@/assets/mark.jpeg";
-import { buildWhatsAppLink } from "@/lib/whatsapp";
 
 const Footer: React.FC = () => {
   const currentYear = new Date().getFullYear();
@@ -27,18 +26,13 @@ const Footer: React.FC = () => {
       { name: "Contact Us", path: "/contact" },
       { name: "Returns Policy", path: "/delivery#returns" },
     ],
-    legal: [
-      { name: "Privacy Policy", path: "/privacy" },
-      { name: "Terms of Service", path: "/terms" },
-      { name: "Cookie Policy", path: "/cookies" },
-    ],
   };
 
   return (
     <footer className="bg-border text-foreground overflow-x-hidden">
       {/* Main Footer Links */}
       <div className="container-custom py-12 lg:py-16">
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-8 lg:gap-12">
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-4 gap-8 lg:gap-12">
           {/* Brand Column */}
           <div className="col-span-2 md:col-span-4 lg:col-span-1 mb-4 lg:mb-0 min-w-0">
             <Link
@@ -73,41 +67,31 @@ const Footer: React.FC = () => {
 
             <div className="flex items-center gap-4">
               <a
-                href="#"
+                href="https://www.facebook.com/share/1Chyt7LZXT/?mibextid=wwXIfr"
                 className="p-2 rounded-full bg-foreground/10 hover:bg-foreground/15 transition-colors"
                 aria-label="Facebook"
+                target="_blank"
+                rel="noopener noreferrer"
               >
                 <Facebook className="w-5 h-5" />
               </a>
               <a
-                href="#"
+                href="https://www.tiktok.com/@levantsdairy?_r=1&_t=ZN-952qaABGMmk"
                 className="p-2 rounded-full bg-foreground/10 hover:bg-foreground/15 transition-colors"
                 aria-label="TikTok"
+                target="_blank"
+                rel="noopener noreferrer"
               >
                 <Music2 className="w-5 h-5" />
               </a>
               <a
-                href="#"
+                href="https://www.instagram.com/levantsdairy?igsh=MTR4ajAzOGs5M24xZQ=="
                 className="p-2 rounded-full bg-foreground/10 hover:bg-foreground/15 transition-colors"
                 aria-label="Instagram"
-              >
-                <Instagram className="w-5 h-5" />
-              </a>
-              <a
-                href={buildWhatsAppLink()}
-                className="p-2 rounded-full bg-foreground/10 hover:bg-foreground/15 transition-colors"
-                aria-label="WhatsApp"
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                <MessageCircle className="w-5 h-5" />
-              </a>
-              <a
-                href="mailto:hello@levantsdairy.com"
-                className="p-2 rounded-full bg-foreground/10 hover:bg-foreground/15 transition-colors"
-                aria-label="Email"
-              >
-                <Mail className="w-5 h-5" />
+                <Instagram className="w-5 h-5" />
               </a>
             </div>
           </div>
@@ -157,25 +141,6 @@ const Footer: React.FC = () => {
             </h4>
             <ul className="space-y-3">
               {footerLinks.support.map((link) => (
-                <li key={link.path}>
-                  <Link
-                    to={link.path}
-                    className="text-muted-foreground hover:text-foreground text-sm transition-colors"
-                  >
-                    {link.name}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {/* Legal Links */}
-          <div>
-            <h4 className="font-medium text-sm uppercase tracking-wider mb-4">
-              Legal
-            </h4>
-            <ul className="space-y-3">
-              {footerLinks.legal.map((link) => (
                 <li key={link.path}>
                   <Link
                     to={link.path}

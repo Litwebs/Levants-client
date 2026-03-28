@@ -94,13 +94,18 @@ const Header: React.FC = () => {
   const isActive = (path: string) => location.pathname === path;
 
   return (
-    <>
+    <header className="sticky top-0 z-50">
       <div
         className="announcement-bar font-semibold text-sm sm:text-base"
         role="status"
         aria-live="polite"
       >
         <div className="container-custom flex flex-col items-center justify-center gap-0.5 leading-tight">
+          <p className="text-center">
+            Website is under development — no orders are expected to arrive.
+            Payment is demo only.
+          </p>
+
           {discountAnnouncement && (
             <p className="text-center">
               <span aria-hidden>🏷️ </span>
@@ -121,14 +126,11 @@ const Header: React.FC = () => {
             </p>
           )}
 
-          <p className="text-center">
-            <span className="font-bold">Order deadlines:</span>{" "}
-            {ORDER_DEADLINES_TEXT}
-          </p>
+          <p className="text-center">{ORDER_DEADLINES_TEXT}</p>
         </div>
       </div>
 
-      <header className="sticky top-0 z-50 bg-card/95 backdrop-blur-md border-b border-border">
+      <div className="bg-card/95 backdrop-blur-md border-b border-border">
         <div className="container-custom">
           <div className="flex items-center justify-between h-16 lg:h-20">
             <button
@@ -207,8 +209,8 @@ const Header: React.FC = () => {
             </nav>
           </div>
         )}
-      </header>
-    </>
+      </div>
+    </header>
   );
 };
 

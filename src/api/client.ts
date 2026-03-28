@@ -6,12 +6,16 @@ function getDefaultApiBaseUrl(): string {
   // Prod: default to the API subdomain. If your prod site reverse-proxies
   // `/api` under the same origin, set VITE_API_BASE_URL accordingly.
   return 'https://api.levantsdairy.co.uk/api';
+  // return 'http://localhost:5001/api';
 }
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || getDefaultApiBaseUrl();
 
+type QueryParamPrimitive = string | number | boolean;
+type QueryParamValue = QueryParamPrimitive | QueryParamPrimitive[] | undefined;
+
 interface RequestOptions extends RequestInit {
-  params?: Record<string, string | number | boolean | undefined>;
+  params?: Record<string, QueryParamValue>;
 }
 
 async function request<T>(endpoint: string, options: RequestOptions = {}): Promise<T> {
@@ -22,9 +26,14 @@ async function request<T>(endpoint: string, options: RequestOptions = {}): Promi
   if (params) {
     const searchParams = new URLSearchParams();
     Object.entries(params).forEach(([key, value]) => {
-      if (value !== undefined) {
-        searchParams.append(key, String(value));
+      if (value === undefined) return;
+      if (Array.isArray(value)) {
+        value.forEach((item) => {
+          if (item !== undefined) searchParams.append(key, String(item));
+        });
+        return;
       }
+      searchParams.append(key, String(value));
     });
     const qs = searchParams.toString();
     if (qs) url += `?${qs}`;
@@ -86,7 +95,7 @@ export class ApiError extends Error {
 }
 
 const api = {
-  get: <T>(endpoint: string, params?: Record<string, string | number | boolean | undefined>) =>
+  get: <T>(endpoint: string, params?: Record<string, QueryParamValue>) =>
     request<T>(endpoint, { method: 'GET', params }),
 
   post: <T>(endpoint: string, body?: unknown) =>

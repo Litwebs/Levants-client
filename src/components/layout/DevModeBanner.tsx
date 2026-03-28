@@ -8,8 +8,7 @@ const DevModeBanner: React.FC = () => {
       aria-live="polite"
     >
       <p className="container-custom">
-        Development notice: This website is still in development. Payments are
-        demo only, and no orders will be delivered.
+        Website is under development — no orders are expected to arrive.
       </p>
     </div>
   );

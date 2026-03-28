@@ -18,7 +18,8 @@ export interface Product {
   stockStatus: 'in-stock' | 'low-stock' | 'out-of-stock';
   badges: string[];
   ingredients?: string;
-  allergens?: string;
+  allergens?: string | string[];
+  storageNotes?: string;
   storage?: string;
   nutritionInfo?: string;
 }

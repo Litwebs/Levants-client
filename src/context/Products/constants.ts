@@ -31,6 +31,8 @@ export interface Product {
   slug: string;
   category: string;
   description: string;
+  allergens?: string[];
+  storageNotes?: string;
   thumbnailImage: ProductImageRef;
   galleryImages: ProductImageRef[];
   variants: ProductVariant[];
@@ -42,6 +44,7 @@ export interface PaginationMeta {
   pageSize: number;
   total: number;
   totalPages: number;
+  categories?: string[];
 }
 
 export interface ProductsState {
@@ -71,7 +74,7 @@ export const initialProductsState: ProductsState = {
 export interface ProductsQueryParams {
   page?: number;
   pageSize?: number;
-  category?: string;
+  category?: string | string[];
   minPrice?: number;
   maxPrice?: number;
   inStock?: boolean;

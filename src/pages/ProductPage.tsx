@@ -162,6 +162,23 @@ const ProductPage: React.FC = () => {
   const description =
     typeof product.description === "string" ? product.description : "";
 
+  const allergensText = (() => {
+    const allergens = (product as any)?.allergens;
+    if (Array.isArray(allergens))
+      return allergens.length ? allergens.join(", ") : "None";
+    if (typeof allergens === "string")
+      return allergens.trim() ? allergens.trim() : "None";
+    return "None";
+  })();
+
+  const storageNotesText = (() => {
+    const storageNotes =
+      (product as any)?.storageNotes ?? (product as any)?.storage;
+    if (typeof storageNotes === "string")
+      return storageNotes.trim() ? storageNotes.trim() : "Not provided";
+    return "Not provided";
+  })();
+
   const currentPrice = selectedVariant?.price ?? product.pricing?.min ?? 0;
   const isOutOfStock = selectedVariant
     ? selectedVariant.stockQuantity <= 0
@@ -185,6 +202,8 @@ const ProductPage: React.FC = () => {
       price: product.pricing?.min ?? 0,
       shortDescription: description.slice(0, 120),
       longDescription: description,
+      allergens: (product as any)?.allergens,
+      storageNotes: (product as any)?.storageNotes ?? (product as any)?.storage,
       images,
       variants: variants.map((v) => ({
         id: v.id,
@@ -408,17 +427,6 @@ const ProductPage: React.FC = () => {
             {/* Delivery Info */}
             <div className="bg-secondary/50 rounded-xl p-4 space-y-3">
               <div className="flex items-center gap-3">
-                <Truck className="w-5 h-5 text-primary" />
-                <div>
-                  <p className="text-sm font-medium">
-                    Next-Day Delivery Available
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    Order before 2pm for next-day delivery
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center gap-3">
                 <Snowflake className="w-5 h-5 text-primary" />
                 <div>
                   <p className="text-sm font-medium">Delivered Chilled</p>
@@ -426,6 +434,19 @@ const ProductPage: React.FC = () => {
                     Insulated packaging keeps products fresh
                   </p>
                 </div>
+              </div>
+            </div>
+
+            <div className="bg-secondary/50 rounded-xl p-4 space-y-3 mt-4">
+              <div>
+                <p className="text-sm font-medium">Allergens</p>
+                <p className="text-xs text-muted-foreground">{allergensText}</p>
+              </div>
+              <div>
+                <p className="text-sm font-medium">Storage notes</p>
+                <p className="text-xs text-muted-foreground">
+                  {storageNotesText}
+                </p>
               </div>
             </div>
           </div>
@@ -461,6 +482,8 @@ const ProductPage: React.FC = () => {
                   price: rp.pricing?.min ?? 0,
                   shortDescription: rpDescription.slice(0, 120),
                   longDescription: rpDescription,
+                  allergens: (rp as any).allergens,
+                  storageNotes: (rp as any).storageNotes ?? (rp as any).storage,
                   images: [
                     resolveImageUrl(rp.thumbnailImage),
                     ...rpGallery.map(resolveImageUrl),
