@@ -430,9 +430,9 @@ const ProductPage: React.FC = () => {
                 <Snowflake className="w-5 h-5 text-primary" />
                 <div>
                   <p className="text-sm font-medium">Delivered Chilled</p>
-                  <p className="text-xs text-muted-foreground">
+                  {/* <p className="text-xs text-muted-foreground">
                     Insulated packaging keeps products fresh
-                  </p>
+                  </p> */}
                 </div>
               </div>
             </div>

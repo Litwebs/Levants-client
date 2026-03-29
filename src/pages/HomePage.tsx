@@ -83,7 +83,7 @@ const SHOP_BY_CATEGORY = [
     image: productJuice,
   },
   {
-    slug: "bread",
+    slug: "bakery",
     name: "Bakery",
     description: "Freshly baked, artisanal",
     image: productBakery,
