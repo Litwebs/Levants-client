@@ -24,6 +24,7 @@ import productButter from "../../public/categories/butter.jpeg";
 import productCheddar from "../../public/categories/cheese.jpeg";
 import productBakery from "../../public/categories/bakary.jpeg";
 import productHoney from "../../public/categories/honey.jpeg";
+import productGhee from "../../public/categories/ghee.jpeg";
 import { checkDeliveryPostcode } from "@/api/delivery";
 
 const SHOP_BY_CATEGORY = [
@@ -61,7 +62,7 @@ const SHOP_BY_CATEGORY = [
     slug: "ghee",
     name: "Ghee",
     description: "Grass fed, free range",
-    image: productButter,
+    image: productGhee,
   },
   {
     slug: "cheese",
