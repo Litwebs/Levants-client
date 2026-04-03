@@ -1,5 +1,10 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { useParams, Link, useNavigate } from "react-router-dom";
+import {
+  useParams,
+  Link,
+  useNavigate,
+  useSearchParams,
+} from "react-router-dom";
 import {
   ChevronLeft,
   Truck,
@@ -20,6 +25,7 @@ import { toast } from "sonner";
 const ProductPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { currentProduct, loading, fetchProductById, products, fetchProducts } =
     useProducts();
   const { addItem } = useCart();
@@ -40,17 +46,22 @@ const ProductPage: React.FC = () => {
 
   const variants = Array.isArray(product?.variants) ? product.variants : [];
 
+  const requestedVariantId = searchParams.get("variant") || "";
+
   const [selectedVariant, setSelectedVariant] = useState(
     product?.variants?.[0],
   );
 
   useEffect(() => {
     if (product?.variants?.length) {
-      setSelectedVariant(product.variants[0]);
+      const fromQuery = requestedVariantId
+        ? product.variants.find((v) => v.id === requestedVariantId)
+        : undefined;
+      setSelectedVariant(fromQuery ?? product.variants[0]);
       setActiveImage(0);
       setShowVariantImage(true);
     }
-  }, [product]);
+  }, [product, requestedVariantId]);
 
   const images = useMemo(() => {
     if (!product) return [];

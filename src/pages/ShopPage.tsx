@@ -206,7 +206,10 @@ const ShopPage: React.FC = () => {
         id: v.id,
         name: v.name,
         price: v.price,
-        thumbnailImage: v.thumbnailImage,
+        thumbnailImage: (v as any).thumbnailImage,
+        image: (v as any).image,
+        imageUrl: (v as any).imageUrl,
+        imageId: (v as any).imageId,
         stockStatus:
           v.stockQuantity <= 0
             ? ("out-of-stock" as const)
@@ -222,6 +225,49 @@ const ShopPage: React.FC = () => {
       badges: [] as string[],
     }));
   }, [products]);
+
+  const productVariantCards = useMemo(() => {
+    return mappedProducts.flatMap((product) => {
+      const variants = product.variants ?? [];
+      if (variants.length === 0) {
+        return [
+          {
+            product,
+            lockedVariantId: undefined as string | undefined,
+          },
+        ];
+      }
+
+      return variants.map((variant, variantIndex) => {
+        const variantImageUrl = resolveImageUrl(
+          (variant as any)?.thumbnailImage ??
+            (variant as any)?.image ??
+            (variant as any)?.imageUrl ??
+            (variant as any)?.imageId,
+        );
+
+        // If the variant has its own thumbnail, use it as the primary card image.
+        // Fallback: map variant index -> product.galleryImages (already in product.images[1..]).
+        const fallbackGalleryImage = product.images?.[variantIndex + 1];
+        const primary =
+          variantImageUrl ?? fallbackGalleryImage ?? product.images?.[0];
+        const productForCard = primary
+          ? {
+              ...product,
+              images: [
+                primary,
+                ...(product.images || []).filter((img) => img !== primary),
+              ],
+            }
+          : product;
+
+        return {
+          product: productForCard,
+          lockedVariantId: variant.id,
+        };
+      });
+    });
+  }, [mappedProducts]);
 
   const toggleCategory = (slug: string) => {
     if (currentPage !== 1) setPage(1);
@@ -331,7 +377,7 @@ const ShopPage: React.FC = () => {
             {/* Desktop Sort Bar */}
             <div className="hidden lg:flex items-center justify-between mb-8">
               <p className="text-muted-foreground">
-                Showing {mappedProducts.length} of {totalAvailable} products
+                Showing {productVariantCards.length} items
               </p>
               <div className="flex items-center gap-3">
                 <span className="text-sm text-muted-foreground">Sort by:</span>
@@ -369,18 +415,24 @@ const ShopPage: React.FC = () => {
             )}
 
             {/* Product Grid */}
-            {!loading && !error && mappedProducts.length > 0 && (
+            {!loading && !error && productVariantCards.length > 0 && (
               <>
                 <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
-                  {mappedProducts.map((product, index) => (
-                    <div
-                      key={product.id}
-                      className="h-full opacity-0 animate-fade-in-up"
-                      style={{ animationDelay: `${index * 0.05}s` }}
-                    >
-                      <ProductCard product={product} />
-                    </div>
-                  ))}
+                  {productVariantCards.map(
+                    ({ product, lockedVariantId }, index) => (
+                      <div
+                        key={lockedVariantId ?? product.id}
+                        className="h-full opacity-0 animate-fade-in-up"
+                        style={{ animationDelay: `${index * 0.05}s` }}
+                      >
+                        <ProductCard
+                          product={product}
+                          lockedVariantId={lockedVariantId}
+                          hideVariantSelector
+                        />
+                      </div>
+                    ),
+                  )}
                 </div>
 
                 {Boolean(totalPages && totalPages > 1) && (
@@ -445,7 +497,7 @@ const ShopPage: React.FC = () => {
               </>
             )}
 
-            {!loading && !error && mappedProducts.length === 0 && (
+            {!loading && !error && productVariantCards.length === 0 && (
               <div className="text-center py-16">
                 <p className="text-muted-foreground text-lg mb-4">
                   No products found matching your filters.
