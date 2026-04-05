@@ -271,7 +271,8 @@ const CheckoutPage: React.FC = () => {
 
   const discountAmount = Number(validatedDiscount?.discountAmount || 0);
   const displaySubtotal = Math.max(0, subtotal - discountAmount);
-  const displayTotal = displaySubtotal;
+  const deliveryFee = 1;
+  const displayTotal = displaySubtotal + deliveryFee;
 
   if (items.length === 0) {
     return (
@@ -695,9 +696,7 @@ const CheckoutPage: React.FC = () => {
                 )}
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Delivery</span>
-                  <span>
-                    <span className="text-primary font-medium">FREE</span>
-                  </span>
+                  <span>£{deliveryFee.toFixed(2)}</span>
                 </div>
                 <div className="border-t border-border pt-2 flex justify-between font-semibold">
                   <span>Total</span>

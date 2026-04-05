@@ -101,11 +101,6 @@ const Header: React.FC = () => {
         aria-live="polite"
       >
         <div className="container-custom flex flex-col items-center justify-center gap-0.5 leading-tight">
-          <p className="text-center">
-            Website is under development — no orders are expected to arrive.
-            Payment is demo only.
-          </p>
-
           {discountAnnouncement && (
             <p className="text-center">
               <span aria-hidden>🏷️ </span>

@@ -1,7 +1,7 @@
-import React, { useEffect, useRef } from 'react';
-import { Link } from 'react-router-dom';
-import { CheckCircle, Package, Truck, ArrowRight } from 'lucide-react';
-import { useCart } from '@/context/CartContext';
+import React, { useEffect, useRef } from "react";
+import { Link } from "react-router-dom";
+import { CheckCircle, Package, Truck, ArrowRight } from "lucide-react";
+import { useCart } from "@/context/CartContext";
 
 const PaymentSuccessPage: React.FC = () => {
   const { clearCart } = useCart();
@@ -48,9 +48,11 @@ const PaymentSuccessPage: React.FC = () => {
                   <Package className="w-5 h-5 text-muted-foreground" />
                 </div>
                 <div>
-                  <p className="font-medium text-muted-foreground">Being Prepared</p>
+                  <p className="font-medium text-muted-foreground">
+                    Being Prepared
+                  </p>
                   <p className="text-sm text-muted-foreground">
-                    Your items will be carefully packed in chilled packaging.
+                    Your items will be carefully packed.
                   </p>
                 </div>
               </div>
@@ -59,7 +61,9 @@ const PaymentSuccessPage: React.FC = () => {
                   <Truck className="w-5 h-5 text-muted-foreground" />
                 </div>
                 <div>
-                  <p className="font-medium text-muted-foreground">Out for Delivery</p>
+                  <p className="font-medium text-muted-foreground">
+                    Out for Delivery
+                  </p>
                   <p className="text-sm text-muted-foreground">
                     Your order will be delivered fresh to your door.
                   </p>
@@ -70,11 +74,15 @@ const PaymentSuccessPage: React.FC = () => {
 
           <div className="bg-secondary/50 rounded-xl p-4 mb-8">
             <p className="text-sm text-muted-foreground">
-              A confirmation email has been sent with your order details and tracking information.
+              A confirmation email has been sent with your order details and
+              tracking information.
             </p>
           </div>
 
-          <Link to="/shop" className="btn-primary inline-flex items-center justify-center gap-2">
+          <Link
+            to="/shop"
+            className="btn-primary inline-flex items-center justify-center gap-2"
+          >
             Continue Shopping
             <ArrowRight className="w-4 h-4" />
           </Link>

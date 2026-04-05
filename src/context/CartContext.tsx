@@ -310,8 +310,8 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({
     return total + price * item.quantity;
   }, 0);
 
-  const deliveryFee = 0;
-  const total = subtotal;
+  const deliveryFee = 1;
+  const total = subtotal + deliveryFee;
 
   return (
     <CartContext.Provider

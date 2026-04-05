@@ -171,7 +171,11 @@ const CartDrawer: React.FC = () => {
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Delivery</span>
                 <span>
-                  <span className="text-primary font-medium">FREE</span>
+                  {deliveryFee === 0 ? (
+                    <span className="text-primary font-medium">FREE</span>
+                  ) : (
+                    `£${deliveryFee.toFixed(2)}`
+                  )}
                 </span>
               </div>
               <div className="flex justify-between font-semibold text-base pt-2 border-t border-border">
