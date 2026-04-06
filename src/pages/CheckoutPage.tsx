@@ -499,8 +499,8 @@ const CheckoutPage: React.FC = () => {
                   <div className="text-sm">
                     <p className="font-medium">Delivered Chilled</p>
                     <p className="text-muted-foreground">
-                      Your order will arrive in insulated packaging to keep
-                      products fresh.
+                      Your order will be delivered chilled to keep products
+                      fresh.
                     </p>
                   </div>
                 </div>
