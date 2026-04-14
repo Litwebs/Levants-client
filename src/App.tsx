@@ -9,6 +9,7 @@ import { ProductsProvider } from "@/context/Products/ProductsContext";
 import { OrdersProvider } from "@/context/Orders/OrdersContext";
 import Layout from "@/components/layout/Layout";
 import { ScrollToTop } from "./components/ScrollToTop";
+import { ScrollToTopButton } from "./components/ScrollToTopButton";
 import HomePage from "./pages/HomePage";
 import ShopPage from "./pages/ShopPage";
 import ProductPage from "./pages/ProductPage";
@@ -72,6 +73,7 @@ const App = () => {
   if (!isLive) {
     return (
       <BrowserRouter>
+        <ScrollToTopButton />
         <Routes>
           <Route path="*" element={<WebsiteInDevelopmentPage />} />
         </Routes>
@@ -89,6 +91,7 @@ const App = () => {
               <Sonner />
               <BrowserRouter>
                 <ScrollToTop />
+                <ScrollToTopButton />
                 <Routes>
                   <Route
                     path="/"

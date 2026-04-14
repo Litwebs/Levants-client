@@ -159,8 +159,18 @@ const Footer: React.FC = () => {
       <div className="border-t border-foreground/10">
         <div className="container-custom py-6">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-            <p className="text-muted-foreground text-sm">
-              © {currentYear} Levants Dairy. All rights reserved.
+            <p className="text-muted-foreground text-sm text-center sm:text-left">
+              © {currentYear} Levants Dairy. All rights reserved.{" "}
+              <span className="text-foreground font-medium">Powered by</span>{" "}
+              <a
+                href="https://litwebs.co.uk"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-foreground font-semibold underline underline-offset-4 hover:opacity-90 transition-opacity"
+              >
+                Litwebs
+              </a>
+              .
             </p>
             <div className="flex items-center gap-4 flex-wrap justify-center sm:justify-end">
               <img
