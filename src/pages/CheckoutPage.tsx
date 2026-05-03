@@ -85,6 +85,10 @@ const CheckoutPage: React.FC = () => {
         toast.error("Please enter your address.");
         return false;
       }
+      if (formData.address1.trim().length < 3) {
+        toast.error("Address must be at least 3 characters long.");
+        return false;
+      }
       if (isBlank(formData.city)) {
         toast.error("Please enter your city.");
         return false;
