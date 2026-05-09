@@ -1,10 +1,5 @@
 function getDefaultApiBaseUrl(): string {
-  // Dev: use same-origin `/api` so Vite can proxy to the backend (avoids CORS).
-  // If you want a different backend in dev (e.g. localhost), set VITE_API_BASE_URL.
-  // if (!import.meta.env.PROD) return '/api';
-
-  // Prod: default to the API subdomain. If your prod site reverse-proxies
-  // `/api` under the same origin, set VITE_API_BASE_URL accordingly.
+  
   return 'https://api.levantsdairy.co.uk/api';
   // return 'http://localhost:5001/api';
 }
