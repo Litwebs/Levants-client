@@ -79,7 +79,7 @@ const SHOP_BY_CATEGORY = [
   {
     slug: "juices",
     name: "Juices",
-    description: "Fresh juices",
+    description: "",
     image: productJuice,
   },
   {

@@ -33,6 +33,11 @@ const App = () => {
   const [isLive, setIsLive] = useState(true);
 
   useEffect(() => {
+    if (import.meta.env.DEV) {
+      setChecking(false);
+      return;
+    }
+
     let mounted = true;
 
     const checkStatus = async () => {
