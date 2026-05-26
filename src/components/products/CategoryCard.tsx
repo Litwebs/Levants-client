@@ -15,11 +15,13 @@ const CategoryCard: React.FC<CategoryCardProps> = ({ category }) => {
     >
       {/* Image */}
       <div className="relative aspect-[4/3] overflow-hidden bg-muted">
-        <img
-          src={category.image}
-          alt={category.name}
-          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-        />
+        {category.image && (
+          <img
+            src={category.image}
+            alt={category.name}
+            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+          />
+        )}
         {/* Overlay */}
         <div className="absolute inset-0 bg-gradient-to-t from-foreground/60 via-foreground/20 to-transparent" />
 

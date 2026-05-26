@@ -15,83 +15,10 @@ import { resolveImageUrl } from "@/api/client";
 import ProductCard from "@/components/products/ProductCard";
 import CategoryCard from "@/components/products/CategoryCard";
 import heroImage from "@/assets/hero-farm.jpg";
-import productEgg from "../../public/categories/eggs.jpeg";
-import productJuice from "../../public/categories/juices.jpeg";
-import productMilk from "../../public/categories/milk.jpeg";
-import productCream from "../../public/categories/cream.jpeg";
-import productMilkshake from "../../public/categories/milkshakes.jpeg";
-import productButter from "../../public/categories/butter.jpeg";
-import productCheddar from "../../public/categories/cheese.jpeg";
-import productBakery from "../../public/categories/bakary.jpeg";
-import productHoney from "../../public/categories/honey.jpeg";
-import productGhee from "../../public/categories/ghee.jpeg";
 import { checkDeliveryPostcode } from "@/api/delivery";
 
-const SHOP_BY_CATEGORY = [
-  {
-    slug: "milk",
-    name: "Milk",
-    description: "Farm fresh, unhomogenised",
-    image: productMilk,
-  },
-  {
-    slug: "cream",
-    name: "Cream",
-    description: "Grass fed, free range",
-    image: productCream,
-  },
-  {
-    slug: "milkshakes",
-    name: "Milkshakes",
-    description: "Fresh, no additives or preservatives",
-    image: productMilkshake,
-  },
-  {
-    slug: "eggs",
-    name: "Eggs",
-    description: "Free range, golden yolks",
-    image: productEgg,
-  },
-  {
-    slug: "butter",
-    name: "Butter",
-    description: "Grass fed, farmhouse",
-    image: productButter,
-  },
-  {
-    slug: "ghee",
-    name: "Ghee",
-    description: "Grass fed, free range",
-    image: productGhee,
-  },
-  {
-    slug: "cheese",
-    name: "Cheese",
-    description: "Award winning, traditional",
-    image: productCheddar,
-  },
-  {
-    slug: "honey",
-    name: "Honey",
-    description: "Raw, local, award winning",
-    image: productHoney,
-  },
-  {
-    slug: "juices",
-    name: "Juices",
-    description: "",
-    image: productJuice,
-  },
-  {
-    slug: "bakery",
-    name: "Bakery",
-    description: "Freshly baked, artisanal",
-    image: productBakery,
-  },
-] as const;
-
 const HomePage: React.FC = () => {
-  const { products, fetchProducts } = useProducts();
+  const { products, meta, fetchProducts } = useProducts();
   const [postcode, setPostcode] = useState("");
   const [checkingPostcode, setCheckingPostcode] = useState(false);
   const [postcodeResult, setPostcodeResult] = useState<{
@@ -199,15 +126,31 @@ const HomePage: React.FC = () => {
       counts.set(key, (counts.get(key) || 0) + 1);
     }
 
-    return SHOP_BY_CATEGORY.map((c) => ({
-      id: c.slug,
-      name: c.name,
-      slug: c.slug,
-      description: c.description,
-      image: c.image,
-      productCount: counts.get(c.slug) ?? 0,
-    }));
-  }, [products]);
+    if (!meta?.categories?.length) return [];
+
+    // Deduplicate by lowercase title, preferring entries with an image
+    const seen = new Map<string, (typeof meta.categories)[number]>();
+    for (const cat of meta.categories) {
+      const key = cat.title.trim().toLowerCase();
+      if (!key) continue;
+      const existing = seen.get(key);
+      if (!existing || (!existing.image && cat.image)) {
+        seen.set(key, cat);
+      }
+    }
+
+    return Array.from(seen.values()).map((cat) => {
+      const slug = cat.title.trim().toLowerCase();
+      return {
+        id: slug,
+        name: cat.title,
+        slug,
+        description: cat.subtitle,
+        image: cat.image?.url ?? "",
+        productCount: counts.get(slug) ?? 0,
+      };
+    });
+  }, [products, meta]);
 
   const testimonials = [
     {

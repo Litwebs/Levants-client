@@ -50,7 +50,7 @@ const ShopPage: React.FC = () => {
   const backendCategoriesRef = useRef<string[]>([]);
   useEffect(() => {
     if (Array.isArray(meta?.categories)) {
-      backendCategoriesRef.current = meta.categories;
+      backendCategoriesRef.current = meta.categories.map((c) => c.title);
     }
   }, [meta?.categories]);
 
@@ -160,11 +160,17 @@ const ShopPage: React.FC = () => {
   // Categories should be stable across pages (backend provides full list)
   const categories = useMemo(() => {
     const backendCategories = Array.isArray(meta?.categories)
-      ? meta?.categories
+      ? meta.categories.map((c) => c.title)
       : [];
     if (backendCategories.length) {
+      const seen = new Set<string>();
       return backendCategories
         .map((name) => ({ name, slug: slugifyCategory(name) }))
+        .filter(({ slug }) => {
+          if (seen.has(slug)) return false;
+          seen.add(slug);
+          return true;
+        })
         .sort((a, b) => a.name.localeCompare(b.name));
     }
 

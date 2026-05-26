@@ -3,6 +3,7 @@ import { Link, useLocation } from "react-router-dom";
 import { ShoppingBag, Menu, X } from "lucide-react";
 import { useCart } from "@/context/CartContext";
 import api from "@/api/client";
+import { AnnouncementBanner } from "./AnnouncementBanner";
 import { ORDER_DEADLINES_TEXT } from "@/lib/orderDeadlines";
 
 type ActiveDiscount = {
@@ -95,6 +96,7 @@ const Header: React.FC = () => {
 
   return (
     <header className="sticky top-0 z-50">
+      <AnnouncementBanner />
       <div
         className="announcement-bar font-semibold text-sm sm:text-base"
         role="status"

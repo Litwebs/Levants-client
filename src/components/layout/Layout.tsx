@@ -1,7 +1,7 @@
-import React from 'react';
-import Header from './Header';
-import Footer from './Footer';
-import CartDrawer from '@/components/cart/CartDrawer';
+import React from "react";
+import Header from "./Header";
+import Footer from "./Footer";
+import CartDrawer from "@/components/cart/CartDrawer";
 
 interface LayoutProps {
   children: React.ReactNode;

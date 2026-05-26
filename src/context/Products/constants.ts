@@ -39,12 +39,18 @@ export interface Product {
   pricing: ProductPricing;
 }
 
+export interface CategoryMeta {
+  title: string;
+  subtitle: string;
+  image: { url: string; [key: string]: unknown } | null;
+}
+
 export interface PaginationMeta {
   page: number;
   pageSize: number;
   total: number;
   totalPages: number;
-  categories?: string[];
+  categories?: CategoryMeta[];
 }
 
 export interface ProductsState {
