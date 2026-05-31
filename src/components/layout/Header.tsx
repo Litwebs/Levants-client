@@ -87,6 +87,7 @@ const Header: React.FC = () => {
   const navLinks = [
     { name: "Home", path: "/" },
     { name: "Shop", path: "/shop" },
+    { name: "Reviews", path: "/reviews" },
     { name: "About", path: "/about" },
     { name: "Delivery & FAQs", path: "/delivery" },
     { name: "Contact", path: "/contact" },

@@ -38,7 +38,8 @@ async function request<T>(endpoint: string, options: RequestOptions = {}): Promi
   if (!headers.has('Accept')) headers.set('Accept', 'application/json');
 
   const hasBody = fetchOptions.body !== undefined && fetchOptions.body !== null;
-  if (hasBody && !headers.has('Content-Type')) {
+  const isFormData = fetchOptions.body instanceof FormData;
+  if (hasBody && !isFormData && !headers.has('Content-Type')) {
     headers.set('Content-Type', 'application/json');
   }
 
@@ -97,6 +98,12 @@ const api = {
     request<T>(endpoint, {
       method: 'POST',
       body: body ? JSON.stringify(body) : undefined,
+    }),
+
+  postForm: <T>(endpoint: string, formData: FormData) =>
+    request<T>(endpoint, {
+      method: 'POST',
+      body: formData,
     }),
 
   put: <T>(endpoint: string, body?: unknown) =>

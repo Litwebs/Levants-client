@@ -493,6 +493,17 @@ const HomePage: React.FC = () => {
               </div>
             ))}
           </div>
+          <div className="text-center mt-10">
+            <p className="text-muted-foreground mb-4">
+              Ordered from us? We'd love to hear what you think.
+            </p>
+            <Link
+              to="/reviews"
+              className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-6 py-2.5 rounded-xl font-medium hover:bg-primary/90 transition-colors"
+            >
+              Leave a Review
+            </Link>
+          </div>
         </div>
       </section>
 

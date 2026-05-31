@@ -20,6 +20,7 @@ import OrderConfirmationPage from "./pages/OrderConfirmationPage";
 import AboutPage from "./pages/AboutPage";
 import DeliveryPage from "./pages/DeliveryPage";
 import ContactPage from "./pages/ContactPage";
+import ReviewsPage from "./pages/ReviewsPage";
 import NotFound from "./pages/NotFound";
 import WebsiteInDevelopmentPage from "./pages/WebsiteInDevelopmentPage.tsx";
 
@@ -172,6 +173,14 @@ const App = () => {
                     element={
                       <Layout>
                         <ContactPage />
+                      </Layout>
+                    }
+                  />
+                  <Route
+                    path="/reviews"
+                    element={
+                      <Layout>
+                        <ReviewsPage />
                       </Layout>
                     }
                   />
