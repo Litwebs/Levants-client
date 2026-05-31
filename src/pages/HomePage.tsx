@@ -159,34 +159,25 @@ const HomePage: React.FC = () => {
       location: "Bradford",
       rating: 5,
       text: "Great products and amazing service. Would highly recommend.",
-      imageSrc: "/reviews/sarah.jpg",
+      imageSrc: "/reviews/rev1.jpeg",
       imageAlt: "Levants delivery at the doorstep",
     },
     {
       id: 2,
-      name: "Craig",
-      location: "Leeds",
-      rating: 5,
-      text: "The freshest best tasting milk I’ve ever had with cream on top just like the good old days. In glass bottle too. Would highly recommend!",
-      imageSrc: "/reviews/craig.jpg",
-      imageAlt: "Glass bottles of milk outside a door",
-    },
-    {
-      id: 3,
       name: "Fatima",
       location: "Dewsbury",
       rating: 5,
       text: "Best tasting milkshakes. Kids loved them. The eggs have a beautiful goldy yolk. Quality products and does not break the bank.",
-      imageSrc: "/reviews/fatima.jpg",
+      imageSrc: "/reviews/rev2.jpeg",
       imageAlt: "Milk, milkshakes, and eggs delivered",
     },
     {
-      id: 4,
+      id: 3,
       name: "Adam",
       location: "Bradford",
       rating: 5,
       text: "Been ordering from Levants Dairy for the last 9 months. Huge difference compared to superamarkets",
-      imageSrc: "/reviews/adam.jpg",
+      imageSrc: "/reviews/rev3.jpeg",
       imageAlt: "Levants Dairy delivery",
     },
   ];
@@ -467,11 +458,11 @@ const HomePage: React.FC = () => {
               Join thousands of happy customers enjoying farm-fresh dairy.
             </p>
           </div>
-          <div className="grid md:grid-cols-3 gap-6 lg:gap-8">
+          <div className="grid md:grid-cols-3 gap-3 lg:gap-4">
             {testimonials.map((testimonial, index) => (
               <div
                 key={testimonial.id}
-                className="bg-card p-6 lg:p-8 rounded-2xl border border-border opacity-0 animate-fade-in-up"
+                className="bg-card p-4 lg:p-6 rounded-2xl border border-border opacity-0 animate-fade-in-up"
                 style={{ animationDelay: `${index * 0.15}s` }}
               >
                 <Quote className="w-8 h-8 text-primary/20 mb-4" />
@@ -480,7 +471,7 @@ const HomePage: React.FC = () => {
                     <img
                       src={testimonial.imageSrc}
                       alt={testimonial.imageAlt || testimonial.name}
-                      className="w-full aspect-[4/3] object-cover"
+                      className="w-full aspect-[3/4] object-cover"
                       loading="lazy"
                     />
                   </div>
