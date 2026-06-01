@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   Star,
   Upload,
@@ -247,13 +248,51 @@ const ReviewsDisplay: React.FC = () => {
 type Step = "verify" | "form" | "success";
 
 const ReviewSubmitForm: React.FC = () => {
+  const [searchParams] = useSearchParams();
   const [step, setStep] = useState<Step>("verify");
   const [verifiedOrderId, setVerifiedOrderId] = useState("");
 
   // Step 1 state
-  const [orderId, setOrderId] = useState("");
+  const [orderId, setOrderId] = useState(
+    () => searchParams.get("orderId") ?? "",
+  );
   const [verifying, setVerifying] = useState(false);
   const [verifyError, setVerifyError] = useState<string | null>(null);
+
+  // Auto-verify when orderId is pre-filled from the URL (e.g. from email link)
+  useEffect(() => {
+    const fromUrl = searchParams.get("orderId")?.trim();
+    if (!fromUrl) return;
+    setVerifyError(null);
+    setVerifying(true);
+    verifyOrderId(fromUrl)
+      .then(() => {
+        setVerifiedOrderId(fromUrl);
+        setStep("form");
+      })
+      .catch((err) => {
+        if (err instanceof ApiError) {
+          if (err.status === 404) {
+            setVerifyError(
+              "Order not found. Please check your order number and try again.",
+            );
+          } else if (err.status === 409) {
+            setVerifyError(
+              "A review has already been submitted for this order.",
+            );
+          } else {
+            setVerifyError(
+              err.message || "Something went wrong. Please try again.",
+            );
+          }
+        } else {
+          setVerifyError("Something went wrong. Please try again.");
+        }
+      })
+      .finally(() => setVerifying(false));
+    // Run only once on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Step 2 state
   const [customerName, setCustomerName] = useState("");
