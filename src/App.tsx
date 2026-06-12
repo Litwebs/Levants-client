@@ -24,6 +24,29 @@ import ReviewsPage from "./pages/ReviewsPage";
 import NotFound from "./pages/NotFound";
 import WebsiteInDevelopmentPage from "./pages/WebsiteInDevelopmentPage.tsx";
 
+// ── Portal ───────────────────────────────────────────────────────────────────
+import PortalLayout from "@/portal/components/PortalLayout";
+import LoginPage from "@/portal/pages/auth/LoginPage";
+import RegisterPage from "@/portal/pages/auth/RegisterPage";
+import ForgotPasswordPage from "@/portal/pages/auth/ForgotPasswordPage";
+import ResetPasswordPage from "@/portal/pages/auth/ResetPasswordPage";
+import DashboardPage from "@/portal/pages/DashboardPage";
+import PortalProductsPage from "@/portal/pages/ProductsPage";
+import PortalCartPage from "@/portal/pages/CartPage";
+import PortalCheckoutPage from "@/portal/pages/CheckoutPage";
+import PortalOrderConfirmationPage from "@/portal/pages/PortalOrderConfirmationPage";
+import OrdersPage from "@/portal/pages/OrdersPage";
+import OrderDetailPage from "@/portal/pages/OrderDetailPage";
+import SubscriptionsPage from "@/portal/pages/SubscriptionsPage";
+import NewSubscriptionPage from "@/portal/pages/NewSubscriptionPage";
+import SubscriptionDetailPage from "@/portal/pages/SubscriptionDetailPage";
+import DeliveriesPage from "@/portal/pages/DeliveriesPage";
+import PaymentsPage from "@/portal/pages/PaymentsPage";
+import AddressesPage from "@/portal/pages/AddressesPage";
+import SupportPage from "@/portal/pages/SupportPage";
+import AccountSettingsPage from "@/portal/pages/AccountSettingsPage";
+import NotificationsPage from "@/portal/pages/NotificationsPage";
+
 const queryClient = new QueryClient();
 
 const SITE_STATUS_ENDPOINT = "https://admin.litwebs.co.uk/api/websites/status";
@@ -184,6 +207,149 @@ const App = () => {
                       </Layout>
                     }
                   />
+                  {/* ── Customer Portal ─────────────────────────────── */}
+                  {/* Auth */}
+                  <Route path="/login" element={<LoginPage />} />
+                  <Route path="/register" element={<RegisterPage />} />
+                  <Route
+                    path="/forgot-password"
+                    element={<ForgotPasswordPage />}
+                  />
+                  <Route
+                    path="/reset-password"
+                    element={<ResetPasswordPage />}
+                  />
+
+                  {/* Portal pages (all wrapped in PortalLayout) */}
+                  <Route
+                    path="/portal/dashboard"
+                    element={
+                      <PortalLayout>
+                        <DashboardPage />
+                      </PortalLayout>
+                    }
+                  />
+                  <Route
+                    path="/portal/products"
+                    element={
+                      <PortalLayout>
+                        <PortalProductsPage />
+                      </PortalLayout>
+                    }
+                  />
+                  <Route
+                    path="/portal/cart"
+                    element={
+                      <PortalLayout>
+                        <PortalCartPage />
+                      </PortalLayout>
+                    }
+                  />
+                  <Route
+                    path="/portal/checkout"
+                    element={
+                      <PortalLayout>
+                        <PortalCheckoutPage />
+                      </PortalLayout>
+                    }
+                  />
+                  <Route
+                    path="/portal/order-confirmation"
+                    element={
+                      <PortalLayout>
+                        <PortalOrderConfirmationPage />
+                      </PortalLayout>
+                    }
+                  />
+                  <Route
+                    path="/portal/orders"
+                    element={
+                      <PortalLayout>
+                        <OrdersPage />
+                      </PortalLayout>
+                    }
+                  />
+                  <Route
+                    path="/portal/orders/:id"
+                    element={
+                      <PortalLayout>
+                        <OrderDetailPage />
+                      </PortalLayout>
+                    }
+                  />
+                  <Route
+                    path="/portal/subscriptions"
+                    element={
+                      <PortalLayout>
+                        <SubscriptionsPage />
+                      </PortalLayout>
+                    }
+                  />
+                  <Route
+                    path="/portal/subscriptions/new"
+                    element={
+                      <PortalLayout>
+                        <NewSubscriptionPage />
+                      </PortalLayout>
+                    }
+                  />
+                  <Route
+                    path="/portal/subscriptions/:id"
+                    element={
+                      <PortalLayout>
+                        <SubscriptionDetailPage />
+                      </PortalLayout>
+                    }
+                  />
+                  <Route
+                    path="/portal/deliveries"
+                    element={
+                      <PortalLayout>
+                        <DeliveriesPage />
+                      </PortalLayout>
+                    }
+                  />
+                  <Route
+                    path="/portal/payments"
+                    element={
+                      <PortalLayout>
+                        <PaymentsPage />
+                      </PortalLayout>
+                    }
+                  />
+                  <Route
+                    path="/portal/addresses"
+                    element={
+                      <PortalLayout>
+                        <AddressesPage />
+                      </PortalLayout>
+                    }
+                  />
+                  <Route
+                    path="/portal/support"
+                    element={
+                      <PortalLayout>
+                        <SupportPage />
+                      </PortalLayout>
+                    }
+                  />
+                  <Route
+                    path="/portal/account"
+                    element={
+                      <PortalLayout>
+                        <AccountSettingsPage />
+                      </PortalLayout>
+                    }
+                  />
+                  <Route
+                    path="/portal/notifications"
+                    element={
+                      <PortalLayout>
+                        <NotificationsPage />
+                      </PortalLayout>
+                    }
+                  />
+
                   <Route path="*" element={<NotFound />} />
                 </Routes>
               </BrowserRouter>
