@@ -10,6 +10,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { mockCustomer } from "@/portal/data/mockData";
 import { PageHeader, ConfirmationModal } from "@/portal/components/PortalUI";
 import { useNavigate } from "react-router-dom";
+import { clearPortalAuth } from "@/lib/portalAuth";
 
 const AccountSettingsPage: React.FC = () => {
   const navigate = useNavigate();
@@ -34,6 +35,11 @@ const AccountSettingsPage: React.FC = () => {
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     }, 1200);
+  };
+
+  const handleAccountExit = () => {
+    clearPortalAuth();
+    navigate("/login");
   };
 
   return (
@@ -302,7 +308,7 @@ const AccountSettingsPage: React.FC = () => {
         title="Sign out?"
         description="You will be signed out of your account."
         confirmLabel="Sign out"
-        onConfirm={() => navigate("/login")}
+        onConfirm={handleAccountExit}
       />
       <ConfirmationModal
         open={deactivateOpen}
@@ -311,7 +317,7 @@ const AccountSettingsPage: React.FC = () => {
         description="This will deactivate your account. You can reactivate by contacting support."
         confirmLabel="Deactivate"
         variant="destructive"
-        onConfirm={() => navigate("/login")}
+        onConfirm={handleAccountExit}
       />
     </div>
   );

@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { CartProvider } from "@/context/CartContext";
 import { ProductsProvider } from "@/context/Products/ProductsContext";
@@ -46,6 +46,7 @@ import AddressesPage from "@/portal/pages/AddressesPage";
 import SupportPage from "@/portal/pages/SupportPage";
 import AccountSettingsPage from "@/portal/pages/AccountSettingsPage";
 import NotificationsPage from "@/portal/pages/NotificationsPage";
+import { isPortalLoggedIn } from "@/lib/portalAuth";
 
 const queryClient = new QueryClient();
 
@@ -209,6 +210,15 @@ const App = () => {
                   />
                   {/* ── Customer Portal ─────────────────────────────── */}
                   {/* Auth */}
+                  <Route
+                    path="/portal"
+                    element={
+                      <Navigate
+                        to={isPortalLoggedIn() ? "/portal/dashboard" : "/login"}
+                        replace
+                      />
+                    }
+                  />
                   <Route path="/login" element={<LoginPage />} />
                   <Route path="/register" element={<RegisterPage />} />
                   <Route

@@ -1,10 +1,11 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { ShoppingBag, Menu, X } from "lucide-react";
+import { ShoppingBag, Menu, X, User, UserCheck } from "lucide-react";
 import { useCart } from "@/context/CartContext";
 import api from "@/api/client";
 import { AnnouncementBanner } from "./AnnouncementBanner";
 import { ORDER_DEADLINES_TEXT } from "@/lib/orderDeadlines";
+import { PORTAL_AUTH_CHANGED_EVENT, isPortalLoggedIn } from "@/lib/portalAuth";
 
 type ActiveDiscount = {
   code: string;
@@ -17,6 +18,9 @@ type ActiveDiscount = {
 
 const Header: React.FC = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [portalLoggedIn, setPortalLoggedIn] = useState(() =>
+    isPortalLoggedIn(),
+  );
   const [activeDiscount, setActiveDiscount] = useState<ActiveDiscount | null>(
     null,
   );
@@ -51,6 +55,20 @@ const Header: React.FC = () => {
 
     return () => {
       isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    const syncPortalAuth = () => {
+      setPortalLoggedIn(isPortalLoggedIn());
+    };
+
+    window.addEventListener("storage", syncPortalAuth);
+    window.addEventListener(PORTAL_AUTH_CHANGED_EVENT, syncPortalAuth);
+
+    return () => {
+      window.removeEventListener("storage", syncPortalAuth);
+      window.removeEventListener(PORTAL_AUTH_CHANGED_EVENT, syncPortalAuth);
     };
   }, []);
 
@@ -171,6 +189,18 @@ const Header: React.FC = () => {
             </nav>
 
             <div className="flex items-center gap-2 lg:gap-4">
+              <Link
+                to={portalLoggedIn ? "/portal/dashboard" : "/login"}
+                className="relative p-2 text-foreground hover:text-primary transition-colors"
+                aria-label={portalLoggedIn ? "Account" : "Sign in"}
+              >
+                {portalLoggedIn ? (
+                  <UserCheck className="w-5 h-5" />
+                ) : (
+                  <User className="w-5 h-5" />
+                )}
+              </Link>
+
               <button
                 onClick={openCart}
                 className="relative p-2 text-foreground hover:text-primary transition-colors"

@@ -23,6 +23,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { mockCustomer, mockNotifications } from "@/portal/data/mockData";
 import { cn } from "@/lib/utils";
+import { clearPortalAuth } from "@/lib/portalAuth";
 
 const navItems = [
   { label: "Dashboard", href: "/portal/dashboard", icon: LayoutDashboard },
@@ -53,6 +54,7 @@ const PortalLayoutInner: React.FC<PortalLayoutProps> = ({ children }) => {
   const unreadCount = mockNotifications.filter((n) => !n.read).length;
 
   const handleLogout = () => {
+    clearPortalAuth();
     navigate("/login");
   };
 

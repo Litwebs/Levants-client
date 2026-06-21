@@ -1,12 +1,14 @@
 import React, { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { setPortalLoggedIn } from "@/lib/portalAuth";
 
 const LoginPage: React.FC = () => {
+  const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error] = useState<string | null>(null);
@@ -14,7 +16,11 @@ const LoginPage: React.FC = () => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    setTimeout(() => setLoading(false), 1500);
+    setTimeout(() => {
+      setPortalLoggedIn(true);
+      setLoading(false);
+      navigate("/portal/dashboard");
+    }, 1500);
   };
 
   return (
@@ -51,12 +57,12 @@ const LoginPage: React.FC = () => {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-1.5">
-              <Label htmlFor="email">Email or phone number</Label>
+              <Label htmlFor="email">Email address</Label>
               <Input
                 id="email"
-                type="text"
-                placeholder="you@example.com or +44 7700..."
-                autoComplete="username"
+                type="email"
+                placeholder="you@example.com"
+                autoComplete="email"
               />
             </div>
 
