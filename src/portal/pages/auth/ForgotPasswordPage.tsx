@@ -5,18 +5,37 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { ApiError } from "@/api/client";
+import { portalAuthApi } from "@/api/portalAuth";
 
 const ForgotPasswordPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [email, setEmail] = useState("");
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
+
+    if (!email.trim()) {
+      setError("Please enter your email address.");
+      return;
+    }
+
     setLoading(true);
-    setTimeout(() => {
+    try {
+      await portalAuthApi.forgotPassword({ email: email.trim().toLowerCase() });
       setLoading(false);
       setSent(true);
-    }, 1500);
+    } catch (err) {
+      if (err instanceof ApiError) {
+        setError(err.message);
+      } else {
+        setError("Unable to send reset email right now. Please try again.");
+      }
+      setLoading(false);
+    }
   };
 
   return (
@@ -46,6 +65,12 @@ const ForgotPasswordPage: React.FC = () => {
                 </p>
               </div>
 
+              {error && (
+                <Alert variant="destructive">
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              )}
+
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="space-y-1.5">
                   <Label htmlFor="email">Email address</Label>
@@ -54,6 +79,8 @@ const ForgotPasswordPage: React.FC = () => {
                     type="email"
                     placeholder="you@example.com"
                     autoComplete="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
                   />
                 </div>
 

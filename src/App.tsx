@@ -30,6 +30,7 @@ import LoginPage from "@/portal/pages/auth/LoginPage";
 import RegisterPage from "@/portal/pages/auth/RegisterPage";
 import ForgotPasswordPage from "@/portal/pages/auth/ForgotPasswordPage";
 import ResetPasswordPage from "@/portal/pages/auth/ResetPasswordPage";
+import ConfirmEmailChangePage from "@/portal/pages/auth/ConfirmEmailChangePage";
 import DashboardPage from "@/portal/pages/DashboardPage";
 import PortalProductsPage from "@/portal/pages/ProductsPage";
 import PortalCartPage from "@/portal/pages/CartPage";
@@ -46,7 +47,12 @@ import AddressesPage from "@/portal/pages/AddressesPage";
 import SupportPage from "@/portal/pages/SupportPage";
 import AccountSettingsPage from "@/portal/pages/AccountSettingsPage";
 import NotificationsPage from "@/portal/pages/NotificationsPage";
-import { isPortalLoggedIn } from "@/lib/portalAuth";
+import {
+  PORTAL_AUTH_CHANGED_EVENT,
+  isPortalLoggedIn,
+  setPortalLoggedIn,
+} from "@/lib/portalAuth";
+import { portalAuthApi } from "@/api/portalAuth";
 
 const queryClient = new QueryClient();
 
@@ -56,6 +62,40 @@ const SITE_URL_TO_CHECK = "https://levantsdairy.co.uk";
 const App = () => {
   const [checking, setChecking] = useState(true);
   const [isLive, setIsLive] = useState(true);
+  const [portalAuthReady, setPortalAuthReady] = useState(false);
+  const [portalAuthenticated, setPortalAuthenticated] =
+    useState(isPortalLoggedIn());
+
+  useEffect(() => {
+    let mounted = true;
+
+    const syncAuthState = async () => {
+      try {
+        await portalAuthApi.me();
+        if (!mounted) return;
+        setPortalLoggedIn(true);
+        setPortalAuthenticated(true);
+      } catch {
+        if (!mounted) return;
+        setPortalLoggedIn(false);
+        setPortalAuthenticated(false);
+      } finally {
+        if (mounted) setPortalAuthReady(true);
+      }
+    };
+
+    void syncAuthState();
+
+    const handleAuthChanged = () => {
+      setPortalAuthenticated(isPortalLoggedIn());
+    };
+
+    window.addEventListener(PORTAL_AUTH_CHANGED_EVENT, handleAuthChanged);
+    return () => {
+      mounted = false;
+      window.removeEventListener(PORTAL_AUTH_CHANGED_EVENT, handleAuthChanged);
+    };
+  }, []);
 
   useEffect(() => {
     if (import.meta.env.DEV) {
@@ -110,6 +150,18 @@ const App = () => {
       </BrowserRouter>
     );
   }
+
+  const RequirePortalAuth = ({ children }: { children: JSX.Element }) => {
+    if (!portalAuthReady) return null;
+    if (!portalAuthenticated) return <Navigate to="/login" replace />;
+    return children;
+  };
+
+  const GuestOnlyRoute = ({ children }: { children: JSX.Element }) => {
+    if (!portalAuthReady) return null;
+    if (portalAuthenticated) return <Navigate to="/portal/dashboard" replace />;
+    return children;
+  };
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -214,149 +266,217 @@ const App = () => {
                     path="/portal"
                     element={
                       <Navigate
-                        to={isPortalLoggedIn() ? "/portal/dashboard" : "/login"}
+                        to={
+                          portalAuthenticated ? "/portal/dashboard" : "/login"
+                        }
                         replace
                       />
                     }
                   />
-                  <Route path="/login" element={<LoginPage />} />
-                  <Route path="/register" element={<RegisterPage />} />
+                  <Route
+                    path="/login"
+                    element={
+                      <GuestOnlyRoute>
+                        <LoginPage />
+                      </GuestOnlyRoute>
+                    }
+                  />
+                  <Route
+                    path="/register"
+                    element={
+                      <GuestOnlyRoute>
+                        <RegisterPage />
+                      </GuestOnlyRoute>
+                    }
+                  />
                   <Route
                     path="/forgot-password"
-                    element={<ForgotPasswordPage />}
+                    element={
+                      <GuestOnlyRoute>
+                        <ForgotPasswordPage />
+                      </GuestOnlyRoute>
+                    }
                   />
                   <Route
                     path="/reset-password"
-                    element={<ResetPasswordPage />}
+                    element={
+                      <GuestOnlyRoute>
+                        <ResetPasswordPage />
+                      </GuestOnlyRoute>
+                    }
+                  />
+                  <Route
+                    path="/portal/reset-password"
+                    element={
+                      <GuestOnlyRoute>
+                        <ResetPasswordPage />
+                      </GuestOnlyRoute>
+                    }
+                  />
+                  <Route
+                    path="/confirm-email-change"
+                    element={<ConfirmEmailChangePage />}
                   />
 
                   {/* Portal pages (all wrapped in PortalLayout) */}
                   <Route
                     path="/portal/dashboard"
                     element={
-                      <PortalLayout>
-                        <DashboardPage />
-                      </PortalLayout>
+                      <RequirePortalAuth>
+                        <PortalLayout>
+                          <DashboardPage />
+                        </PortalLayout>
+                      </RequirePortalAuth>
                     }
                   />
                   <Route
                     path="/portal/products"
                     element={
-                      <PortalLayout>
-                        <PortalProductsPage />
-                      </PortalLayout>
+                      <RequirePortalAuth>
+                        <PortalLayout>
+                          <PortalProductsPage />
+                        </PortalLayout>
+                      </RequirePortalAuth>
                     }
                   />
                   <Route
                     path="/portal/cart"
                     element={
-                      <PortalLayout>
-                        <PortalCartPage />
-                      </PortalLayout>
+                      <RequirePortalAuth>
+                        <PortalLayout>
+                          <PortalCartPage />
+                        </PortalLayout>
+                      </RequirePortalAuth>
                     }
                   />
                   <Route
                     path="/portal/checkout"
                     element={
-                      <PortalLayout>
-                        <PortalCheckoutPage />
-                      </PortalLayout>
+                      <RequirePortalAuth>
+                        <PortalLayout>
+                          <PortalCheckoutPage />
+                        </PortalLayout>
+                      </RequirePortalAuth>
                     }
                   />
                   <Route
                     path="/portal/order-confirmation"
                     element={
-                      <PortalLayout>
-                        <PortalOrderConfirmationPage />
-                      </PortalLayout>
+                      <RequirePortalAuth>
+                        <PortalLayout>
+                          <PortalOrderConfirmationPage />
+                        </PortalLayout>
+                      </RequirePortalAuth>
                     }
                   />
                   <Route
                     path="/portal/orders"
                     element={
-                      <PortalLayout>
-                        <OrdersPage />
-                      </PortalLayout>
+                      <RequirePortalAuth>
+                        <PortalLayout>
+                          <OrdersPage />
+                        </PortalLayout>
+                      </RequirePortalAuth>
                     }
                   />
                   <Route
                     path="/portal/orders/:id"
                     element={
-                      <PortalLayout>
-                        <OrderDetailPage />
-                      </PortalLayout>
+                      <RequirePortalAuth>
+                        <PortalLayout>
+                          <OrderDetailPage />
+                        </PortalLayout>
+                      </RequirePortalAuth>
                     }
                   />
                   <Route
                     path="/portal/subscriptions"
                     element={
-                      <PortalLayout>
-                        <SubscriptionsPage />
-                      </PortalLayout>
+                      <RequirePortalAuth>
+                        <PortalLayout>
+                          <SubscriptionsPage />
+                        </PortalLayout>
+                      </RequirePortalAuth>
                     }
                   />
                   <Route
                     path="/portal/subscriptions/new"
                     element={
-                      <PortalLayout>
-                        <NewSubscriptionPage />
-                      </PortalLayout>
+                      <RequirePortalAuth>
+                        <PortalLayout>
+                          <NewSubscriptionPage />
+                        </PortalLayout>
+                      </RequirePortalAuth>
                     }
                   />
                   <Route
                     path="/portal/subscriptions/:id"
                     element={
-                      <PortalLayout>
-                        <SubscriptionDetailPage />
-                      </PortalLayout>
+                      <RequirePortalAuth>
+                        <PortalLayout>
+                          <SubscriptionDetailPage />
+                        </PortalLayout>
+                      </RequirePortalAuth>
                     }
                   />
                   <Route
                     path="/portal/deliveries"
                     element={
-                      <PortalLayout>
-                        <DeliveriesPage />
-                      </PortalLayout>
+                      <RequirePortalAuth>
+                        <PortalLayout>
+                          <DeliveriesPage />
+                        </PortalLayout>
+                      </RequirePortalAuth>
                     }
                   />
                   <Route
                     path="/portal/payments"
                     element={
-                      <PortalLayout>
-                        <PaymentsPage />
-                      </PortalLayout>
+                      <RequirePortalAuth>
+                        <PortalLayout>
+                          <PaymentsPage />
+                        </PortalLayout>
+                      </RequirePortalAuth>
                     }
                   />
                   <Route
                     path="/portal/addresses"
                     element={
-                      <PortalLayout>
-                        <AddressesPage />
-                      </PortalLayout>
+                      <RequirePortalAuth>
+                        <PortalLayout>
+                          <AddressesPage />
+                        </PortalLayout>
+                      </RequirePortalAuth>
                     }
                   />
                   <Route
                     path="/portal/support"
                     element={
-                      <PortalLayout>
-                        <SupportPage />
-                      </PortalLayout>
+                      <RequirePortalAuth>
+                        <PortalLayout>
+                          <SupportPage />
+                        </PortalLayout>
+                      </RequirePortalAuth>
                     }
                   />
                   <Route
                     path="/portal/account"
                     element={
-                      <PortalLayout>
-                        <AccountSettingsPage />
-                      </PortalLayout>
+                      <RequirePortalAuth>
+                        <PortalLayout>
+                          <AccountSettingsPage />
+                        </PortalLayout>
+                      </RequirePortalAuth>
                     }
                   />
                   <Route
                     path="/portal/notifications"
                     element={
-                      <PortalLayout>
-                        <NotificationsPage />
-                      </PortalLayout>
+                      <RequirePortalAuth>
+                        <PortalLayout>
+                          <NotificationsPage />
+                        </PortalLayout>
+                      </RequirePortalAuth>
                     }
                   />
 

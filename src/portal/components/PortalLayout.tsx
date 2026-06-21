@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
@@ -21,9 +21,15 @@ import {
 import { ThemeProvider, useTheme } from "@/portal/context/ThemeContext";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { mockCustomer, mockNotifications } from "@/portal/data/mockData";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { mockNotifications } from "@/portal/data/mockData";
 import { cn } from "@/lib/utils";
 import { clearPortalAuth } from "@/lib/portalAuth";
+import { portalAuthApi } from "@/api/portalAuth";
+import {
+  CustomerProvider,
+  usePortalCustomer,
+} from "@/portal/context/CustomerContext";
 
 const navItems = [
   { label: "Dashboard", href: "/portal/dashboard", icon: LayoutDashboard },
@@ -49,11 +55,42 @@ const PortalLayoutInner: React.FC<PortalLayoutProps> = ({ children }) => {
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
-  const { theme, toggleTheme } = useTheme();
+  const { theme, toggleTheme, setThemePreference } = useTheme();
+  const { customer, updateCustomerProfile } = usePortalCustomer();
+
+  const firstName = customer?.firstName || "Customer";
+  const fullName =
+    [customer?.firstName, customer?.lastName]
+      .filter(Boolean)
+      .join(" ")
+      .trim() || "Customer";
+  const email = customer?.email || "";
+  const avatarInitials =
+    `${customer?.firstName?.[0] || ""}${customer?.lastName?.[0] || ""}`.toUpperCase() ||
+    "CU";
+
+  useEffect(() => {
+    const dbTheme = customer?.themePreference;
+    if (!dbTheme) return;
+    if (dbTheme !== theme) {
+      setThemePreference(dbTheme);
+    }
+  }, [customer?.themePreference, setThemePreference, theme]);
+
+  const handleThemeToggle = () => {
+    const nextTheme = theme === "dark" ? "light" : "dark";
+    toggleTheme();
+    void updateCustomerProfile({ themePreference: nextTheme });
+  };
 
   const unreadCount = mockNotifications.filter((n) => !n.read).length;
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      await portalAuthApi.logout();
+    } catch {
+      // Clear client auth state even if server session is already invalid.
+    }
     clearPortalAuth();
     navigate("/login");
   };
@@ -115,15 +152,13 @@ const PortalLayoutInner: React.FC<PortalLayoutProps> = ({ children }) => {
       <div className="border-t border-border p-3">
         <div className="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-muted transition-colors">
           <div className="w-8 h-8 rounded-full bg-forest/15 flex items-center justify-center text-forest text-xs font-bold flex-shrink-0">
-            {mockCustomer.avatarInitials}
+            {avatarInitials}
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-foreground truncate">
-              {mockCustomer.name}
+              {fullName}
             </p>
-            <p className="text-xs text-muted-foreground truncate">
-              {mockCustomer.email}
-            </p>
+            <p className="text-xs text-muted-foreground truncate">{email}</p>
           </div>
         </div>
         <button
@@ -195,7 +230,7 @@ const PortalLayoutInner: React.FC<PortalLayoutProps> = ({ children }) => {
             <Button
               variant="ghost"
               size="icon"
-              onClick={toggleTheme}
+              onClick={handleThemeToggle}
               aria-label="Toggle theme"
             >
               {theme === "dark" ? (
@@ -222,10 +257,10 @@ const PortalLayoutInner: React.FC<PortalLayoutProps> = ({ children }) => {
                 onClick={() => setProfileOpen((v) => !v)}
               >
                 <div className="w-7 h-7 rounded-full bg-forest/15 flex items-center justify-center text-forest text-xs font-bold">
-                  {mockCustomer.avatarInitials}
+                  {avatarInitials}
                 </div>
                 <span className="hidden sm:block font-medium text-foreground">
-                  {mockCustomer.name.split(" ")[0]}
+                  {firstName}
                 </span>
                 <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
               </button>
@@ -238,10 +273,8 @@ const PortalLayoutInner: React.FC<PortalLayoutProps> = ({ children }) => {
                   />
                   <div className="absolute right-0 top-full mt-1 w-48 bg-card border border-border rounded-xl shadow-lg z-20 overflow-hidden">
                     <div className="px-4 py-3 border-b border-border">
-                      <p className="text-sm font-medium">{mockCustomer.name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {mockCustomer.email}
-                      </p>
+                      <p className="text-sm font-medium">{fullName}</p>
+                      <p className="text-xs text-muted-foreground">{email}</p>
                     </div>
                     <div className="py-1">
                       <Link
@@ -272,6 +305,14 @@ const PortalLayoutInner: React.FC<PortalLayoutProps> = ({ children }) => {
           key={location.pathname}
           className="portal-page-enter flex-1 p-4 lg:p-6 pb-24 lg:pb-6"
         >
+          {customer?.pendingEmail ? (
+            <Alert className="mb-4 border-amber-400/40 bg-amber-50 text-amber-900">
+              <AlertDescription>
+                Email change pending: confirm the link sent to{" "}
+                {customer.pendingEmail} to complete the update.
+              </AlertDescription>
+            </Alert>
+          ) : null}
           {children}
         </main>
       </div>
@@ -310,7 +351,9 @@ const PortalLayoutInner: React.FC<PortalLayoutProps> = ({ children }) => {
 
 const PortalLayout: React.FC<PortalLayoutProps> = ({ children }) => (
   <ThemeProvider>
-    <PortalLayoutInner>{children}</PortalLayoutInner>
+    <CustomerProvider>
+      <PortalLayoutInner>{children}</PortalLayoutInner>
+    </CustomerProvider>
   </ThemeProvider>
 );
 

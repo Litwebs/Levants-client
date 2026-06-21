@@ -1,23 +1,61 @@
 import React, { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { Eye, EyeOff, Loader2, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { ApiError } from "@/api/client";
+import { portalAuthApi } from "@/api/portalAuth";
 
 const ResetPasswordPage: React.FC = () => {
+  const [searchParams] = useSearchParams();
   const [showNew, setShowNew] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
+
+    const token = (searchParams.get("token") || "").trim();
+    if (!token) {
+      setError("Reset token is missing. Please use the link from your email.");
+      return;
+    }
+
+    if (!newPassword || !confirmPassword) {
+      setError("Please complete both password fields.");
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setError("Passwords do not match.");
+      return;
+    }
+
     setLoading(true);
-    setTimeout(() => {
+    try {
+      await portalAuthApi.resetPassword({
+        token,
+        password: newPassword,
+        confirmPassword,
+      });
+
       setLoading(false);
       setDone(true);
-    }, 1500);
+    } catch (err) {
+      if (err instanceof ApiError) {
+        setError(err.message);
+      } else {
+        setError("Unable to reset password right now. Please try again.");
+      }
+      setLoading(false);
+    }
   };
 
   return (
@@ -46,6 +84,12 @@ const ResetPasswordPage: React.FC = () => {
                 </p>
               </div>
 
+              {error && (
+                <Alert variant="destructive">
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              )}
+
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="space-y-1.5">
                   <Label htmlFor="newPassword">New password</Label>
@@ -56,6 +100,8 @@ const ResetPasswordPage: React.FC = () => {
                       placeholder="Create a new password"
                       autoComplete="new-password"
                       className="pr-10"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
                     />
                     <button
                       type="button"
@@ -84,6 +130,8 @@ const ResetPasswordPage: React.FC = () => {
                       placeholder="Repeat your new password"
                       autoComplete="new-password"
                       className="pr-10"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
                     />
                     <button
                       type="button"

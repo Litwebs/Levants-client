@@ -14,12 +14,12 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
-  mockCustomer,
   mockOrders,
   mockSubscriptions,
   mockDeliveries,
   mockPayments,
 } from "@/portal/data/mockData";
+import { usePortalCustomer } from "@/portal/context/CustomerContext";
 import { DashboardSummaryCard } from "@/portal/components/PortalUI";
 import {
   SubscriptionStatusBadge,
@@ -29,6 +29,9 @@ import {
 } from "@/portal/components/StatusBadges";
 
 const DashboardPage: React.FC = () => {
+  const { customer } = usePortalCustomer();
+  const firstName = customer?.firstName || "there";
+
   const activeSubscriptions = mockSubscriptions.filter(
     (s) => s.status === "active",
   );
@@ -49,7 +52,7 @@ const DashboardPage: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h2 className="font-heading text-2xl font-bold text-foreground">
-            Good morning, {mockCustomer.name.split(" ")[0]} 👋
+            Good morning, {firstName} 👋
           </h2>
           <p className="text-sm text-muted-foreground mt-0.5">
             Manage your subscriptions and delivery schedule
