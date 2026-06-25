@@ -13,6 +13,31 @@ interface RequestOptions extends RequestInit {
   params?: Record<string, QueryParamValue>;
 }
 
+let refreshInFlight: Promise<boolean> | null = null;
+
+async function tryRefreshCustomerSession(): Promise<boolean> {
+  if (refreshInFlight) return refreshInFlight;
+
+  refreshInFlight = (async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/portal/auth/refresh`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          Accept: 'application/json',
+        },
+      });
+      return response.ok;
+    } catch {
+      return false;
+    } finally {
+      refreshInFlight = null;
+    }
+  })();
+
+  return refreshInFlight;
+}
+
 async function request<T>(endpoint: string, options: RequestOptions = {}): Promise<T> {
   const { params, ...fetchOptions } = options;
 
@@ -36,6 +61,7 @@ async function request<T>(endpoint: string, options: RequestOptions = {}): Promi
 
   const headers = new Headers(fetchOptions.headers);
   if (!headers.has('Accept')) headers.set('Accept', 'application/json');
+  const hasRetried = headers.get('x-auth-retry') === '1';
 
   const hasBody = fetchOptions.body !== undefined && fetchOptions.body !== null;
   const isFormData = fetchOptions.body instanceof FormData;
@@ -43,12 +69,28 @@ async function request<T>(endpoint: string, options: RequestOptions = {}): Promi
     headers.set('Content-Type', 'application/json');
   }
 
-  const response = await fetch(url, {
+  let response = await fetch(url, {
     ...fetchOptions,
     headers,
     credentials: 'include'
 
   });
+  if (
+    response.status === 401 &&
+    !hasRetried &&
+    !endpoint.includes('/portal/auth/refresh')
+  ) {
+    const refreshed = await tryRefreshCustomerSession();
+    if (refreshed) {
+      headers.set('x-auth-retry', '1');
+      response = await fetch(url, {
+        ...fetchOptions,
+        headers,
+        credentials: 'include'
+      });
+    }
+  }
+
   if (!response.ok) {
     const contentType = response.headers.get('content-type') || '';
     const errorBody = contentType.includes('application/json')

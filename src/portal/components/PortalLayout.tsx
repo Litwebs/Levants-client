@@ -30,6 +30,7 @@ import {
   CustomerProvider,
   usePortalCustomer,
 } from "@/portal/context/CustomerContext";
+import { AddressesProvider } from "@/portal/context/AddressesContext";
 
 const navItems = [
   { label: "Dashboard", href: "/portal/dashboard", icon: LayoutDashboard },
@@ -352,7 +353,9 @@ const PortalLayoutInner: React.FC<PortalLayoutProps> = ({ children }) => {
 const PortalLayout: React.FC<PortalLayoutProps> = ({ children }) => (
   <ThemeProvider>
     <CustomerProvider>
-      <PortalLayoutInner>{children}</PortalLayoutInner>
+      <AddressesProvider>
+        <PortalLayoutInner>{children}</PortalLayoutInner>
+      </AddressesProvider>
     </CustomerProvider>
   </ThemeProvider>
 );

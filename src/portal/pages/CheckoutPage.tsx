@@ -1,6 +1,12 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { MapPin, CalendarDays, CreditCard, ChevronRight } from "lucide-react";
+import {
+  MapPin,
+  CalendarDays,
+  CreditCard,
+  ChevronRight,
+  Loader2,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Label } from "@/components/ui/label";
@@ -12,18 +18,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  mockCartItems,
-  mockAddresses,
-  mockPaymentMethods,
-} from "@/portal/data/mockData";
+import { mockCartItems, mockPaymentMethods } from "@/portal/data/mockData";
 import { PageHeader } from "@/portal/components/PortalUI";
+import { useAddresses } from "@/portal/context/AddressesContext";
 import { cn } from "@/lib/utils";
 
 const CheckoutPage: React.FC = () => {
-  const [selectedAddress, setSelectedAddress] = useState(
-    mockAddresses.find((a) => a.isDefault)?.id ?? mockAddresses[0]?.id,
-  );
+  const {
+    addresses,
+    loading: addressesLoading,
+    fetchAddresses,
+  } = useAddresses();
+  const [selectedAddress, setSelectedAddress] = useState<string | null>(null);
   const [selectedPayment, setSelectedPayment] = useState(
     mockPaymentMethods.find((p) => p.isDefault)?.id ??
       mockPaymentMethods[0]?.id,
@@ -31,6 +37,18 @@ const CheckoutPage: React.FC = () => {
   const [deliveryDate, setDeliveryDate] = useState("2024-06-27");
   const [deliveryWindow, setDeliveryWindow] = useState("morning");
   const [notes, setNotes] = useState("");
+
+  useEffect(() => {
+    fetchAddresses();
+  }, [fetchAddresses]);
+
+  useEffect(() => {
+    // Set default or first address if not selected
+    if (addresses.length > 0 && !selectedAddress) {
+      const defaultAddr = addresses.find((a) => a.isDefault);
+      setSelectedAddress(defaultAddr?._id ?? addresses[0]?._id ?? null);
+    }
+  }, [addresses, selectedAddress]);
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -48,41 +66,55 @@ const CheckoutPage: React.FC = () => {
               <MapPin className="h-4 w-4 text-forest" />
               Delivery Address
             </h3>
-            <div className="space-y-2 mb-3">
-              {mockAddresses.map((addr) => (
-                <button
-                  key={addr.id}
-                  onClick={() => setSelectedAddress(addr.id)}
-                  className={cn(
-                    "w-full text-left p-3 rounded-xl border transition-colors",
-                    selectedAddress === addr.id
-                      ? "border-forest bg-forest/5"
-                      : "border-border hover:border-forest/50",
-                  )}
-                >
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <p className="text-sm font-medium">{addr.fullName}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {addr.line1}
-                        {addr.line2 ? `, ${addr.line2}` : ""}, {addr.city},{" "}
-                        {addr.postcode}
-                      </p>
-                      {addr.instructions && (
-                        <p className="text-xs text-muted-foreground italic mt-0.5">
-                          {addr.instructions}
-                        </p>
+            {addressesLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+              </div>
+            ) : addresses.length === 0 ? (
+              <div className="text-sm text-muted-foreground py-6 text-center">
+                <p>No saved addresses yet.</p>
+              </div>
+            ) : (
+              <>
+                <div className="space-y-2 mb-3">
+                  {addresses.map((addr) => (
+                    <button
+                      key={addr._id}
+                      onClick={() => setSelectedAddress(addr._id ?? null)}
+                      className={cn(
+                        "w-full text-left p-3 rounded-xl border transition-colors",
+                        selectedAddress === addr._id
+                          ? "border-forest bg-forest/5"
+                          : "border-border hover:border-forest/50",
                       )}
-                    </div>
-                    {addr.isDefault && (
-                      <span className="text-[10px] bg-forest/10 text-forest rounded-full px-1.5 py-0.5 font-medium ml-2 flex-shrink-0">
-                        Default
-                      </span>
-                    )}
-                  </div>
-                </button>
-              ))}
-            </div>
+                    >
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <p className="text-sm font-medium">
+                            {addr.fullName || "Unnamed"}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {addr.line1}
+                            {addr.line2 ? `, ${addr.line2}` : ""}, {addr.city},{" "}
+                            {addr.postcode}
+                          </p>
+                          {addr.deliveryInstructions && (
+                            <p className="text-xs text-muted-foreground italic mt-0.5">
+                              {addr.deliveryInstructions}
+                            </p>
+                          )}
+                        </div>
+                        {addr.isDefault && (
+                          <span className="text-[10px] bg-forest/10 text-forest rounded-full px-1.5 py-0.5 font-medium ml-2 flex-shrink-0">
+                            Default
+                          </span>
+                        )}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
             <Button variant="outline" size="sm" asChild>
               <Link to="/portal/addresses">
                 <MapPin className="h-3.5 w-3.5" />

@@ -19,7 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { mockAddresses } from "@/portal/data/mockData";
+import { useAddresses } from "@/portal/context/AddressesContext";
 import { cn } from "@/lib/utils";
 import api from "@/api/client";
 
@@ -89,16 +89,32 @@ const NewSubscriptionPage: React.FC = () => {
   }, []);
 
   // ── Wizard state ─────────────────────────────────────────────────────────
+  const {
+    addresses,
+    loading: addressesLoading,
+    fetchAddresses,
+  } = useAddresses();
   const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
   const [quantities, setQuantities] = useState<
     Record<string, { qty: number; variantIdx: number }>
   >({});
   const [frequency, setFrequency] = useState("weekly");
   const [deliveryDay, setDeliveryDay] = useState("Tuesday");
-  const [selectedAddress, setSelectedAddress] = useState(
-    mockAddresses.find((a) => a.isDefault)?.id ?? "",
-  );
+  const [selectedAddress, setSelectedAddress] = useState<string>("");
   const [subscriptionName, setSubscriptionName] = useState("");
+
+  // Fetch addresses on mount
+  useEffect(() => {
+    fetchAddresses();
+  }, [fetchAddresses]);
+
+  // Set default address when addresses load
+  useEffect(() => {
+    if (addresses.length > 0 && !selectedAddress) {
+      const defaultAddr = addresses.find((a) => a.isDefault);
+      setSelectedAddress(defaultAddr?._id ?? addresses[0]?._id ?? "");
+    }
+  }, [addresses, selectedAddress]);
 
   const toggleProduct = (id: string) =>
     setSelectedProducts((prev) =>
@@ -504,25 +520,39 @@ const NewSubscriptionPage: React.FC = () => {
             <p className="text-sm text-muted-foreground mb-4">
               Where should we deliver?
             </p>
-            <div className="space-y-2 mb-4">
-              {mockAddresses.map((addr) => (
-                <button
-                  key={addr.id}
-                  onClick={() => setSelectedAddress(addr.id)}
-                  className={cn(
-                    "w-full text-left p-3 rounded-xl border transition-colors",
-                    selectedAddress === addr.id
-                      ? "border-forest bg-forest/5"
-                      : "border-border hover:border-forest/40",
-                  )}
-                >
-                  <p className="text-sm font-medium">{addr.fullName}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {addr.line1}, {addr.city}, {addr.postcode}
-                  </p>
-                </button>
-              ))}
-            </div>
+            {addressesLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+              </div>
+            ) : addresses.length === 0 ? (
+              <div className="text-sm text-muted-foreground py-6 text-center">
+                <p>No saved addresses yet.</p>
+              </div>
+            ) : (
+              <>
+                <div className="space-y-2 mb-4">
+                  {addresses.map((addr) => (
+                    <button
+                      key={addr._id}
+                      onClick={() => setSelectedAddress(addr._id ?? "")}
+                      className={cn(
+                        "w-full text-left p-3 rounded-xl border transition-colors",
+                        selectedAddress === addr._id
+                          ? "border-forest bg-forest/5"
+                          : "border-border hover:border-forest/40",
+                      )}
+                    >
+                      <p className="text-sm font-medium">
+                        {addr.fullName || "Unnamed"}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {addr.line1}, {addr.city}, {addr.postcode}
+                      </p>
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
             <Button variant="outline" size="sm" asChild>
               <Link to="/portal/addresses">Add new address</Link>
             </Button>
@@ -571,7 +601,7 @@ const NewSubscriptionPage: React.FC = () => {
               <div className="flex justify-between py-1.5 border-b border-border">
                 <span className="text-muted-foreground">Address</span>
                 <span className="font-medium text-right max-w-[60%]">
-                  {mockAddresses.find((a) => a.id === selectedAddress)?.line1 ??
+                  {addresses.find((a) => a._id === selectedAddress)?.line1 ??
                     "—"}
                 </span>
               </div>
