@@ -73,14 +73,12 @@ const PortalLayoutInner: React.FC<PortalLayoutProps> = ({ children }) => {
   useEffect(() => {
     const dbTheme = customer?.themePreference;
     if (!dbTheme) return;
-    if (dbTheme !== theme) {
-      setThemePreference(dbTheme);
-    }
-  }, [customer?.themePreference, setThemePreference, theme]);
+    setThemePreference(dbTheme);
+  }, [customer?.themePreference, setThemePreference]);
 
   const handleThemeToggle = () => {
     const nextTheme = theme === "dark" ? "light" : "dark";
-    toggleTheme();
+    setThemePreference(nextTheme);
     void updateCustomerProfile({ themePreference: nextTheme });
   };
 
