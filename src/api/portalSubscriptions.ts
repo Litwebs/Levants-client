@@ -49,6 +49,14 @@ export type PortalSubscription = {
       quantity: number;
       unitPrice: number;
     }>;
+    deliveryAddress?: {
+      line1: string;
+      line2?: string | null;
+      city: string;
+      postcode: string;
+      country: string;
+      deliveryInstructions?: string | null;
+    };
     effectiveFrom?: string | null;
   } | null;
   notes?: string | null;

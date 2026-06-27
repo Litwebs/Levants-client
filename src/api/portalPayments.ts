@@ -23,6 +23,21 @@ export type PortalPayment = {
     orderId?: string;
     status?: string;
     total?: number;
+    amountPaid?: number | null;
+    refunds?: Array<{
+      amount?: number;
+      amountMinor?: number;
+      status?: "pending" | "succeeded" | "failed";
+      refundedAt?: string | null;
+      reason?: string | null;
+      restock?: boolean;
+    }>;
+    refund?: {
+      refundedAt?: string | null;
+      reason?: string | null;
+      restock?: boolean;
+      stripeRefundId?: string | null;
+    } | null;
   } | null;
   subscription?: {
     _id: string;

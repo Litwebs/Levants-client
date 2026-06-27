@@ -40,6 +40,11 @@ export type PortalOrder = {
   customer: string;
   orderId: string;
   status: string;
+  orderType?: "one_time" | "subscription_generated";
+  subscription?: {
+    _id: string;
+    subscriptionNumber?: string;
+  } | null;
   deliveryStatus?: string;
   portalDeliveryStatus?: string | null;
   total: number;

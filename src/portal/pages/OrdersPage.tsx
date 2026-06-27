@@ -68,6 +68,22 @@ const formatMoney = (amount: number, currency = "GBP") =>
     currency,
   }).format(amount || 0);
 
+const getRefundSummary = (order: PortalOrder) => {
+  const before = Number(order.amountPaid ?? order.total ?? 0);
+  const refundedFromEntries = (order.refunds || []).reduce(
+    (sum, refund) => sum + Number(refund.amount ?? refund.amountMinor ?? 0),
+    0,
+  );
+  const refunded =
+    refundedFromEntries > 0
+      ? refundedFromEntries
+      : order.refund?.refundedAt
+        ? before
+        : 0;
+  const after = Math.max(before - refunded, 0);
+  return { before, refunded, after };
+};
+
 const formatStatusLabel = (status?: string) => {
   if (!status) return "Unknown";
   return status.replace(/_/g, " ").replace(/\b\w/g, (m) => m.toUpperCase());
@@ -103,6 +119,9 @@ const getDeliveryStatusBadgeClass = (status?: string) => {
       return "bg-foreground/5 text-foreground dark:bg-slate-500/20 dark:text-slate-100";
   }
 };
+
+const isSubscriptionGeneratedOrder = (order: PortalOrder) =>
+  order.orderType === "subscription_generated" || Boolean(order.subscription);
 
 const formatDeliveryAddress = (order: PortalOrder) => {
   const a = order.deliveryAddress;
@@ -307,11 +326,34 @@ const OrdersPage: React.FC = () => {
                   </div>
                 </div>
 
+                {isSubscriptionGeneratedOrder(order) && (
+                  <div className="mb-3">
+                    <span className="inline-flex items-center rounded-full bg-sky-100 px-2 py-0.5 text-[11px] font-medium text-sky-800 dark:bg-sky-500/20 dark:text-sky-200">
+                      Subscription generated
+                    </span>
+                  </div>
+                )}
+
                 <p className="text-xs text-muted-foreground mb-3 line-clamp-1">
                   {order.items
                     .map((i) => `${i.name} x${i.quantity}`)
                     .join(", ")}
                 </p>
+
+                {(() => {
+                  const summary = getRefundSummary(order);
+                  if (summary.refunded <= 0) return null;
+                  return (
+                    <p className="text-xs text-muted-foreground mb-3">
+                      Refunded{" "}
+                      {formatMoney(summary.refunded, order.currency || "GBP")} ·
+                      Before{" "}
+                      {formatMoney(summary.before, order.currency || "GBP")} ·
+                      After{" "}
+                      {formatMoney(summary.after, order.currency || "GBP")}
+                    </p>
+                  );
+                })()}
 
                 <p className="text-xs text-muted-foreground mb-3">
                   {formatDeliveryAddress(order)}

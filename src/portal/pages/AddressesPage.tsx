@@ -345,6 +345,8 @@ const AddressesPage: React.FC = () => {
     }
   };
 
+  const visibleError = formError || error;
+
   return (
     <div className="max-w-3xl mx-auto">
       <PageHeader
@@ -368,14 +370,9 @@ const AddressesPage: React.FC = () => {
         }
       />
 
-      {error && (
+      {visibleError && (
         <div className="mb-4 p-3 bg-destructive/10 text-destructive rounded-lg text-sm">
-          {error}
-        </div>
-      )}
-      {formError && (
-        <div className="mb-4 p-3 bg-destructive/10 text-destructive rounded-lg text-sm">
-          {formError}
+          {visibleError}
         </div>
       )}
       {addresses.length >= 10 && (

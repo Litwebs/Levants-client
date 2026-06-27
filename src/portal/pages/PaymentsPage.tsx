@@ -67,6 +67,24 @@ const paymentReferenceType = (payment: PortalPayment) => {
   return "Payment";
 };
 
+const getRefundSummary = (payment: PortalPayment) => {
+  const original = Number(
+    payment.order?.amountPaid ?? payment.order?.total ?? payment.amount ?? 0,
+  );
+  const refundedFromEntries = (payment.order?.refunds || []).reduce(
+    (sum, refund) => sum + Number(refund.amount ?? refund.amountMinor ?? 0),
+    0,
+  );
+  const refunded =
+    refundedFromEntries > 0
+      ? refundedFromEntries
+      : payment.order?.refund?.refundedAt
+        ? original
+        : 0;
+  const after = Math.max(original - refunded, 0);
+  return { original, refunded, after };
+};
+
 const paymentMethodLabel = (method: PortalPaymentMethod) => {
   if (method.type === "card") {
     const brand = method.cardBrand || "Card";
@@ -630,6 +648,21 @@ const PaymentsPage: React.FC = () => {
                       </Button>
                     )}
                   </div>
+
+                  {(() => {
+                    const summary = getRefundSummary(pay);
+                    if (summary.refunded <= 0) return null;
+                    return (
+                      <p className="mt-2 text-xs text-muted-foreground">
+                        Refunded{" "}
+                        {formatMoney(summary.refunded, pay.currency || "GBP")} ·
+                        Before{" "}
+                        {formatMoney(summary.original, pay.currency || "GBP")} ·
+                        After{" "}
+                        {formatMoney(summary.after, pay.currency || "GBP")}
+                      </p>
+                    );
+                  })()}
                 </div>
               ))}
             </div>

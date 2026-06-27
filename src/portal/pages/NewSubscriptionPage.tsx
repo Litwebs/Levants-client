@@ -57,6 +57,16 @@ interface ApiProduct {
   pricing: { min: number; max: number; currency: string };
 }
 
+interface FlatVariant {
+  variantId: string;
+  productId: string;
+  productName: string;
+  variantName: string;
+  price: number;
+  image: string | null;
+  category: string;
+}
+
 const fmt = (n: number) => `£${n.toFixed(2)}`;
 
 const steps = [
@@ -280,26 +290,24 @@ const NewSubscriptionPage: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [availableDays, setAvailableDays] = useState<string[] | null>(null);
 
+  const fetchProducts = async () => {
+    setLoadingProducts(true);
+    setProductError(null);
+    try {
+      const json = await api.get<{ data: { items: ApiProduct[] } }>(
+        "/products",
+        { page: 1, pageSize: 50 },
+      );
+      setProducts(json?.data?.items ?? []);
+    } catch {
+      setProductError("Could not load products. Please try again.");
+    } finally {
+      setLoadingProducts(false);
+    }
+  };
+
   useEffect(() => {
-    let cancelled = false;
-    const fetchAll = async () => {
-      try {
-        const json = await api.get<{ data: { items: ApiProduct[] } }>(
-          "/products",
-          { page: 1, pageSize: 50 },
-        );
-        if (!cancelled) setProducts(json?.data?.items ?? []);
-      } catch (err) {
-        if (!cancelled)
-          setProductError("Could not load products. Please try again.");
-      } finally {
-        if (!cancelled) setLoadingProducts(false);
-      }
-    };
-    fetchAll();
-    return () => {
-      cancelled = true;
-    };
+    void fetchProducts();
   }, []);
 
   useEffect(() => {
@@ -341,16 +349,11 @@ const NewSubscriptionPage: React.FC = () => {
     loading: addressesLoading,
     fetchAddresses,
   } = useAddresses();
-  const [selectedProducts, setSelectedProducts] = useState<string[]>(
-    () => (draft?.selectedProducts as string[] | undefined) ?? [],
+  const [selectedVariantIds, setSelectedVariantIds] = useState<string[]>(
+    () => (draft?.selectedVariantIds as string[] | undefined) ?? [],
   );
-  const [quantities, setQuantities] = useState<
-    Record<string, { qty: number; variantIdx: number }>
-  >(
-    () =>
-      (draft?.quantities as
-        | Record<string, { qty: number; variantIdx: number }>
-        | undefined) ?? {},
+  const [quantities, setQuantities] = useState<Record<string, number>>(
+    () => (draft?.quantities as Record<string, number> | undefined) ?? {},
   );
   const [frequency, setFrequency] = useState(
     () => (draft?.frequency as string | undefined) ?? "weekly",
@@ -360,9 +363,6 @@ const NewSubscriptionPage: React.FC = () => {
   );
   const [selectedAddress, setSelectedAddress] = useState<string>(
     () => (draft?.selectedAddress as string | undefined) ?? "",
-  );
-  const [subscriptionName, setSubscriptionName] = useState(
-    () => (draft?.subscriptionName as string | undefined) ?? "",
   );
   const [submitLoading, setSubmitLoading] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -475,9 +475,11 @@ const NewSubscriptionPage: React.FC = () => {
     }
   }, [addresses, selectedAddress]);
 
-  const toggleProduct = (id: string) =>
-    setSelectedProducts((prev) =>
-      prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id],
+  const toggleVariant = (variantId: string) =>
+    setSelectedVariantIds((prev) =>
+      prev.includes(variantId)
+        ? prev.filter((id) => id !== variantId)
+        : [...prev, variantId],
     );
 
   // Persist draft on every relevant state change
@@ -487,12 +489,11 @@ const NewSubscriptionPage: React.FC = () => {
         DRAFT_KEY,
         JSON.stringify({
           step,
-          selectedProducts,
+          selectedVariantIds,
           quantities,
           frequency,
           deliveryDay,
           selectedAddress,
-          subscriptionName,
         }),
       );
     } catch {
@@ -500,12 +501,11 @@ const NewSubscriptionPage: React.FC = () => {
     }
   }, [
     step,
-    selectedProducts,
+    selectedVariantIds,
     quantities,
     frequency,
     deliveryDay,
     selectedAddress,
-    subscriptionName,
   ]);
 
   const clearDraft = () => {
@@ -523,17 +523,31 @@ const NewSubscriptionPage: React.FC = () => {
     "All",
     ...Array.from(new Set(products.map((p) => p.category))).sort(),
   ];
-  const filteredProducts = products
-    .filter((p) => categoryFilter === "All" || p.category === categoryFilter)
+
+  const flatVariants: FlatVariant[] = products.flatMap((p) =>
+    p.variants.map((v) => ({
+      variantId: v.id,
+      productId: p.id,
+      productName: p.name,
+      variantName: v.name,
+      price: v.price,
+      image: v.thumbnailImage?.url || p.thumbnailImage?.url || null,
+      category: p.category,
+    })),
+  );
+
+  const filteredVariants = flatVariants
+    .filter((v) => categoryFilter === "All" || v.category === categoryFilter)
     .filter(
-      (p) =>
+      (v) =>
         searchQuery.trim() === "" ||
-        p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        p.category.toLowerCase().includes(searchQuery.toLowerCase()),
+        v.productName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        v.variantName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        v.category.toLowerCase().includes(searchQuery.toLowerCase()),
     );
 
-  const selectedProductObjects = products.filter((p) =>
-    selectedProducts.includes(p.id),
+  const selectedFlatVariants = flatVariants.filter((v) =>
+    selectedVariantIds.includes(v.variantId),
   );
 
   const frequencyToApi = (value: string) => {
@@ -560,20 +574,14 @@ const NewSubscriptionPage: React.FC = () => {
       throw new Error("Please select a delivery address.");
     }
 
-    if (selectedProductObjects.length === 0) {
+    if (selectedFlatVariants.length === 0) {
       throw new Error("Please select at least one product.");
     }
 
-    const items = selectedProductObjects.map((product) => {
-      const variantIdx = quantities[product.id]?.variantIdx ?? 0;
-      const qty = Math.max(1, quantities[product.id]?.qty ?? 1);
-      const variant = product.variants[variantIdx] || product.variants[0];
-
-      return {
-        variantId: variant.id,
-        quantity: qty,
-      };
-    });
+    const items = selectedFlatVariants.map((sv) => ({
+      variantId: sv.variantId,
+      quantity: Math.max(1, quantities[sv.variantId] ?? 1),
+    }));
 
     return {
       frequency: frequencyToApi(frequency) as
@@ -582,7 +590,6 @@ const NewSubscriptionPage: React.FC = () => {
         | "monthly",
       preferredDeliveryDay: dayToIndex(deliveryDay),
       deliveryAddressId: selectedAddress,
-      notes: subscriptionName || undefined,
       items,
     };
   };
@@ -747,18 +754,27 @@ const NewSubscriptionPage: React.FC = () => {
                 <span className="text-sm">Loading products…</span>
               </div>
             ) : productError ? (
-              <div className="flex items-center gap-2 py-8 text-destructive text-sm">
-                <AlertCircle className="h-4 w-4 flex-shrink-0" />
-                {productError}
+              <div className="flex flex-col items-center gap-3 py-10 text-center">
+                <AlertCircle className="h-6 w-6 text-destructive" />
+                <p className="text-sm text-destructive">{productError}</p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => void fetchProducts()}
+                >
+                  Try Again
+                </Button>
               </div>
             ) : (
               <div className="overflow-y-auto max-h-[560px] -mx-1 px-1 pr-2">
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                  {filteredProducts.map((product) => {
-                    const selected = selectedProducts.includes(product.id);
+                  {filteredVariants.map((variant) => {
+                    const selected = selectedVariantIds.includes(
+                      variant.variantId,
+                    );
                     return (
                       <div
-                        key={product.id}
+                        key={variant.variantId}
                         className={cn(
                           "relative rounded-xl border transition-colors flex flex-col overflow-hidden",
                           selected
@@ -768,10 +784,10 @@ const NewSubscriptionPage: React.FC = () => {
                       >
                         {/* Thumbnail */}
                         <div className="w-full aspect-square bg-muted overflow-hidden">
-                          {product.thumbnailImage?.url ? (
+                          {variant.image ? (
                             <img
-                              src={product.thumbnailImage.url}
-                              alt={product.name}
+                              src={variant.image}
+                              alt={variant.variantName}
                               className="w-full h-full object-cover"
                             />
                           ) : (
@@ -781,17 +797,18 @@ const NewSubscriptionPage: React.FC = () => {
 
                         {/* Info */}
                         <div className="p-2 flex-1 flex flex-col gap-1">
-                          <p className="text-xs font-medium text-foreground leading-tight line-clamp-2 flex-1">
-                            {product.name}
+                          <p className="text-xs font-medium text-foreground leading-tight line-clamp-1 flex-1">
+                            {variant.productName}
+                          </p>
+                          <p className="text-xs text-muted-foreground leading-tight line-clamp-1">
+                            {variant.variantName}
                           </p>
                           <p className="text-xs text-muted-foreground">
-                            {product.pricing.min === product.pricing.max
-                              ? fmt(product.pricing.min)
-                              : `${fmt(product.pricing.min)}+`}
+                            {fmt(variant.price)}
                           </p>
                           {/* Add / Remove button */}
                           <button
-                            onClick={() => toggleProduct(product.id)}
+                            onClick={() => toggleVariant(variant.variantId)}
                             className={cn(
                               "mt-1 w-full rounded-lg py-2 text-xs font-bold transition-colors",
                               selected
@@ -805,7 +822,7 @@ const NewSubscriptionPage: React.FC = () => {
                       </div>
                     );
                   })}
-                  {filteredProducts.length === 0 && (
+                  {filteredVariants.length === 0 && (
                     <p className="col-span-3 text-sm text-muted-foreground py-6 text-center">
                       No products match your search.
                     </p>
@@ -814,10 +831,10 @@ const NewSubscriptionPage: React.FC = () => {
               </div>
             )}
 
-            {selectedProducts.length > 0 && (
+            {selectedVariantIds.length > 0 && (
               <p className="text-xs text-forest font-medium mt-3">
-                {selectedProducts.length} product
-                {selectedProducts.length > 1 ? "s" : ""} selected
+                {selectedVariantIds.length} variant
+                {selectedVariantIds.length > 1 ? "s" : ""} selected
               </p>
             )}
           </div>
@@ -826,105 +843,65 @@ const NewSubscriptionPage: React.FC = () => {
         {/* Step 1: Quantities */}
         {step === 1 && (
           <div>
-            <h2 className="font-semibold text-foreground mb-1">
-              Quantities & Variants
-            </h2>
+            <h2 className="font-semibold text-foreground mb-1">Quantities</h2>
             <p className="text-sm text-muted-foreground mb-4">
-              Choose the size and quantity for each product.
+              Set how many of each item you'd like per delivery.
             </p>
-            {selectedProductObjects.length === 0 ? (
+            {selectedFlatVariants.length === 0 ? (
               <p className="text-muted-foreground text-sm">
-                No products selected. Go back and select some.
+                No variants selected. Go back and select some.
               </p>
             ) : (
-              <div className="space-y-4">
-                {selectedProductObjects.map((product) => (
+              <div className="space-y-3">
+                {selectedFlatVariants.map((sv) => (
                   <div
-                    key={product.id}
-                    className="border border-border rounded-xl p-3 space-y-2"
+                    key={sv.variantId}
+                    className="border border-border rounded-xl p-3 flex items-center gap-3"
                   >
-                    <div className="flex items-center gap-2">
-                      {product.thumbnailImage?.url && (
-                        <img
-                          src={product.thumbnailImage.url}
-                          alt={product.name}
-                          className="w-8 h-8 rounded-lg object-cover flex-shrink-0"
-                        />
-                      )}
-                      <p className="text-sm font-medium text-foreground">
-                        {product.name}
+                    {sv.image && (
+                      <img
+                        src={sv.image}
+                        alt={sv.variantName}
+                        className="w-10 h-10 rounded-lg object-cover flex-shrink-0"
+                      />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-foreground leading-tight">
+                        {sv.productName}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {sv.variantName} · {fmt(sv.price)}
                       </p>
                     </div>
-                    <div className="grid sm:grid-cols-2 gap-3">
-                      <div className="space-y-1">
-                        <p className="text-xs text-muted-foreground">Variant</p>
-                        <Select
-                          value={String(
-                            quantities[product.id]?.variantIdx ?? 0,
-                          )}
-                          onValueChange={(v) =>
-                            setQuantities((prev) => ({
-                              ...prev,
-                              [product.id]: {
-                                qty: prev[product.id]?.qty ?? 1,
-                                variantIdx: Number(v),
-                              },
-                            }))
-                          }
-                        >
-                          <SelectTrigger className="h-8 text-xs">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {product.variants.map((v, i) => (
-                              <SelectItem key={v.id} value={String(i)}>
-                                {v.name} · {fmt(v.price)}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="space-y-1">
-                        <p className="text-xs text-muted-foreground">
-                          Quantity
-                        </p>
-                        <div className="flex items-center gap-2">
-                          <button
-                            className="w-7 h-7 rounded-lg border border-border flex items-center justify-center hover:bg-muted"
-                            onClick={() =>
-                              setQuantities((prev) => ({
-                                ...prev,
-                                [product.id]: {
-                                  variantIdx: prev[product.id]?.variantIdx ?? 0,
-                                  qty: Math.max(
-                                    1,
-                                    (prev[product.id]?.qty ?? 1) - 1,
-                                  ),
-                                },
-                              }))
-                            }
-                          >
-                            <span className="text-sm">-</span>
-                          </button>
-                          <span className="text-sm font-medium w-5 text-center">
-                            {quantities[product.id]?.qty ?? 1}
-                          </span>
-                          <button
-                            className="w-7 h-7 rounded-lg border border-border flex items-center justify-center hover:bg-muted"
-                            onClick={() =>
-                              setQuantities((prev) => ({
-                                ...prev,
-                                [product.id]: {
-                                  variantIdx: prev[product.id]?.variantIdx ?? 0,
-                                  qty: (prev[product.id]?.qty ?? 1) + 1,
-                                },
-                              }))
-                            }
-                          >
-                            <span className="text-sm">+</span>
-                          </button>
-                        </div>
-                      </div>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <button
+                        className="w-7 h-7 rounded-lg border border-border flex items-center justify-center hover:bg-muted"
+                        onClick={() =>
+                          setQuantities((prev) => ({
+                            ...prev,
+                            [sv.variantId]: Math.max(
+                              1,
+                              (prev[sv.variantId] ?? 1) - 1,
+                            ),
+                          }))
+                        }
+                      >
+                        <span className="text-sm">-</span>
+                      </button>
+                      <span className="text-sm font-medium w-5 text-center">
+                        {quantities[sv.variantId] ?? 1}
+                      </span>
+                      <button
+                        className="w-7 h-7 rounded-lg border border-border flex items-center justify-center hover:bg-muted"
+                        onClick={() =>
+                          setQuantities((prev) => ({
+                            ...prev,
+                            [sv.variantId]: (prev[sv.variantId] ?? 1) + 1,
+                          }))
+                        }
+                      >
+                        <span className="text-sm">+</span>
+                      </button>
                     </div>
                   </div>
                 ))}
@@ -1074,23 +1051,13 @@ const NewSubscriptionPage: React.FC = () => {
               Check your subscription details before confirming.
             </p>
 
-            <div className="space-y-1.5 mb-4">
-              <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Subscription name (optional)
-              </label>
-              <Input
-                placeholder="e.g. Weekly Essentials"
-                value={subscriptionName}
-                onChange={(e) => setSubscriptionName(e.target.value)}
-              />
-            </div>
-
             <div className="space-y-3 text-sm">
               <div className="flex justify-between py-1.5 border-b border-border">
                 <span className="text-muted-foreground">Products</span>
                 <span className="font-medium">
-                  {selectedProductObjects.map((p) => p.name).join(", ") ||
-                    "None"}
+                  {selectedFlatVariants
+                    .map((sv) => sv.variantName)
+                    .join(", ") || "None"}
                 </span>
               </div>
               <div className="flex justify-between py-1.5 border-b border-border">
@@ -1267,7 +1234,7 @@ const NewSubscriptionPage: React.FC = () => {
         {step < steps.length - 1 ? (
           <Button
             onClick={handleNext}
-            disabled={step === 0 && selectedProducts.length === 0}
+            disabled={step === 0 && selectedVariantIds.length === 0}
           >
             Next
             <ArrowRight className="h-4 w-4" />

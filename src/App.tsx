@@ -42,7 +42,6 @@ import SubscriptionsPage from "@/portal/pages/SubscriptionsPage";
 import NewSubscriptionPage from "@/portal/pages/NewSubscriptionPage";
 import SubscriptionDetailPage from "@/portal/pages/SubscriptionDetailPage";
 import SubscriptionAddProductsPage from "@/portal/pages/SubscriptionAddProductsPage";
-import DeliveriesPage from "@/portal/pages/DeliveriesPage";
 import PaymentsPage from "@/portal/pages/PaymentsPage";
 import AddressesPage from "@/portal/pages/AddressesPage";
 import SupportPage from "@/portal/pages/SupportPage";
@@ -427,16 +426,6 @@ const App = () => {
                       <RequirePortalAuth>
                         <PortalLayout>
                           <SubscriptionAddProductsPage />
-                        </PortalLayout>
-                      </RequirePortalAuth>
-                    }
-                  />
-                  <Route
-                    path="/portal/deliveries"
-                    element={
-                      <RequirePortalAuth>
-                        <PortalLayout>
-                          <DeliveriesPage />
                         </PortalLayout>
                       </RequirePortalAuth>
                     }

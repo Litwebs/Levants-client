@@ -30,6 +30,12 @@ const orderStatusConfig: Record<OrderStatus, { label: string; dot: string }> = {
   cancelled: { label: "Cancelled", dot: "bg-gray-400" },
   "failed-delivery": { label: "Failed Delivery", dot: "bg-red-500" },
   rescheduled: { label: "Rescheduled", dot: "bg-purple-500" },
+  paid: { label: "Paid", dot: "bg-emerald-500" },
+  partially_paid: { label: "Partially Paid", dot: "bg-amber-400" },
+  refund_pending: { label: "Refund Pending", dot: "bg-amber-500" },
+  partially_refunded: { label: "Partially Refunded", dot: "bg-amber-500" },
+  refunded: { label: "Refunded", dot: "bg-emerald-500" },
+  refund_failed: { label: "Refund Failed", dot: "bg-red-500" },
 };
 
 export const OrderStatusBadge: React.FC<{

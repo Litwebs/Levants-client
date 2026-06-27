@@ -35,6 +35,7 @@ import {
 import { ConfirmationModal, EmptyState } from "@/portal/components/PortalUI";
 import { ApiError } from "@/api/client";
 import { usePortalCustomer } from "@/portal/context/CustomerContext";
+import { useAddresses } from "@/portal/context/AddressesContext";
 import {
   portalSubscriptionsApi,
   type PortalSubscription,
@@ -66,6 +67,49 @@ const toEditableItem = (
   unitPrice: Number(item.unitPrice || 0),
   imageUrl: item.imageUrl,
 });
+
+const getItemMatchKey = (item: { sku?: string; name: string }) =>
+  item.sku || item.name;
+
+const toEditablePendingItem = (
+  item: NonNullable<
+    NonNullable<PortalSubscription["pendingChanges"]>["items"]
+  >[number],
+  index: number,
+  liveItems: PortalSubscriptionItem[],
+): EditableSubscriptionItem => {
+  const matchKey = getItemMatchKey(item);
+  const liveMatch = liveItems.find(
+    (liveItem) => getItemMatchKey(liveItem) === matchKey,
+  );
+
+  return {
+    localId: liveMatch?._id || `pending:${matchKey}:${index}`,
+    existingItemId: liveMatch?._id,
+    variantId: liveMatch?.variant || matchKey,
+    name: item.name,
+    sku: item.sku || liveMatch?.sku || "",
+    quantity: Number(item.quantity || 1),
+    unitPrice: Number(item.unitPrice || 0),
+    imageUrl: liveMatch?.imageUrl,
+  };
+};
+
+const buildEditableItems = (
+  subscription: PortalSubscription,
+  isPastCutoff: boolean,
+): EditableSubscriptionItem[] => {
+  if (isPastCutoff && subscription.pendingChanges?.items?.length) {
+    return subscription.pendingChanges.items.map((item, index) =>
+      toEditablePendingItem(item, index, subscription.items),
+    );
+  }
+
+  return subscription.items.map(toEditableItem);
+};
+
+const getDraftIdentityKey = (item: EditableSubscriptionItem) =>
+  item.existingItemId || getItemMatchKey(item);
 
 const toDayName = (day: number) => {
   const days = [
@@ -108,9 +152,43 @@ const formatMoney = (amount: number) =>
     currency: "GBP",
   }).format(amount || 0);
 
+const getAddressId = (address?: { _id?: string; id?: string } | null) =>
+  address?._id || address?.id || "";
+
+const addressMatchesSubscription = (
+  address: {
+    line1: string;
+    line2?: string;
+    city: string;
+    postcode: string;
+    country: string;
+  },
+  deliveryAddress?: PortalSubscription["deliveryAddress"] | null,
+) => {
+  if (!deliveryAddress) return false;
+
+  return (
+    String(address.line1 || "").trim() ===
+      String(deliveryAddress.line1 || "").trim() &&
+    String(address.line2 || "").trim() ===
+      String(deliveryAddress.line2 || "").trim() &&
+    String(address.city || "").trim() ===
+      String(deliveryAddress.city || "").trim() &&
+    String(address.postcode || "").trim() ===
+      String(deliveryAddress.postcode || "").trim() &&
+    String(address.country || "").trim() ===
+      String(deliveryAddress.country || "").trim()
+  );
+};
+
 const SubscriptionDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const { refreshCustomer } = usePortalCustomer();
+  const {
+    addresses,
+    fetchAddresses,
+    loading: addressesLoading,
+  } = useAddresses();
   const [subscription, setSubscription] = useState<PortalSubscription | null>(
     null,
   );
@@ -133,6 +211,7 @@ const SubscriptionDetailPage: React.FC = () => {
   const [productDraft, setProductDraft] = useState<EditableSubscriptionItem[]>(
     [],
   );
+  const [selectedAddressId, setSelectedAddressId] = useState("");
 
   const load = async () => {
     if (!id) return;
@@ -160,7 +239,9 @@ const SubscriptionDetailPage: React.FC = () => {
       if (sub) {
         setFrequency(sub.frequency);
         setDeliveryDay(toDayName(sub.preferredDeliveryDay));
-        setProductDraft(sub.items.map(toEditableItem));
+        setProductDraft(
+          buildEditableItems(sub, Boolean(nextCutoff?.isPastCutoff)),
+        );
       }
     } catch (err) {
       setError(
@@ -177,6 +258,28 @@ const SubscriptionDetailPage: React.FC = () => {
   useEffect(() => {
     void load();
   }, [id]);
+
+  useEffect(() => {
+    void fetchAddresses();
+  }, [fetchAddresses]);
+
+  useEffect(() => {
+    if (!subscription || addresses.length === 0) return;
+
+    const effectiveDeliveryAddress =
+      subscription.pendingChanges?.deliveryAddress ||
+      subscription.deliveryAddress;
+
+    const matchingAddress = addresses.find((address) =>
+      addressMatchesSubscription(address, effectiveDeliveryAddress),
+    );
+    const fallbackAddress =
+      matchingAddress ||
+      addresses.find((address) => address.isDefault) ||
+      addresses[0];
+
+    setSelectedAddressId(getAddressId(fallbackAddress));
+  }, [addresses, subscription]);
 
   const updateQty = (localId: string, quantity: number) => {
     setProductDraft((prev) =>
@@ -197,6 +300,11 @@ const SubscriptionDetailPage: React.FC = () => {
     );
   }, [productDraft]);
 
+  const editableBaseline = useMemo(() => {
+    if (!subscription) return [];
+    return buildEditableItems(subscription, Boolean(cutoff?.isPastCutoff));
+  }, [subscription, cutoff]);
+
   const originalTotal = useMemo(() => {
     if (!subscription) return 0;
     return subscription.items.reduce(
@@ -208,33 +316,71 @@ const SubscriptionDetailPage: React.FC = () => {
 
   const hasUnsavedProductChanges = useMemo(() => {
     if (!subscription) return false;
-    if (productDraft.length !== subscription.items.length) return true;
+    if (productDraft.length !== editableBaseline.length) return true;
 
-    const byId = new Map(subscription.items.map((item) => [item._id, item]));
+    const byId = new Map(
+      editableBaseline.map((item) => [getDraftIdentityKey(item), item]),
+    );
     for (const draftItem of productDraft) {
-      if (!draftItem.existingItemId) return true;
-      const original = byId.get(draftItem.existingItemId);
+      const original = byId.get(getDraftIdentityKey(draftItem));
       if (!original) return true;
       if (Number(original.quantity || 0) !== Number(draftItem.quantity || 0)) {
         return true;
       }
     }
     return false;
-  }, [productDraft, subscription]);
+  }, [editableBaseline, productDraft, subscription]);
 
-  const handleSaveSchedule = async () => {
-    if (!id) return;
+  const liveItemsByKey = useMemo(
+    () =>
+      new Map(
+        (subscription?.items || []).map((item) => [
+          getItemMatchKey(item),
+          item,
+        ]),
+      ),
+    [subscription],
+  );
+
+  const pendingItemsByKey = useMemo(
+    () =>
+      new Map(
+        (subscription?.pendingChanges?.items || []).map((item) => [
+          getItemMatchKey(item),
+          item,
+        ]),
+      ),
+    [subscription],
+  );
+
+  const scheduledRemovedItems = useMemo(() => {
+    if (!cutoff?.isPastCutoff || !subscription?.pendingChanges?.items?.length) {
+      return [] as PortalSubscriptionItem[];
+    }
+
+    return subscription.items.filter(
+      (item) => !pendingItemsByKey.has(getItemMatchKey(item)),
+    );
+  }, [cutoff, pendingItemsByKey, subscription]);
+
+  const handleSaveDeliveryDetails = async () => {
+    if (!id || !selectedAddressId) return;
+
     try {
       setSaving(true);
       setError(null);
+      setNotice(null);
       await portalSubscriptionsApi.update(id, {
-        frequency: frequency as "weekly" | "every_two_weeks" | "monthly",
         preferredDeliveryDay: dayNameToIndex(deliveryDay),
+        deliveryAddressId: selectedAddressId,
       });
       await load();
+      setNotice("Delivery details updated.");
     } catch (err) {
       setError(
-        err instanceof ApiError ? err.message : "Failed to save schedule.",
+        err instanceof ApiError
+          ? err.message
+          : "Failed to update delivery details.",
       );
     } finally {
       setSaving(false);
@@ -409,14 +555,64 @@ const SubscriptionDetailPage: React.FC = () => {
   }
 
   const fullAddress = [
-    subscription.deliveryAddress?.line1,
-    subscription.deliveryAddress?.line2,
-    subscription.deliveryAddress?.city,
-    subscription.deliveryAddress?.postcode,
-    subscription.deliveryAddress?.country,
+    (
+      subscription.pendingChanges?.deliveryAddress ||
+      subscription.deliveryAddress
+    )?.line1,
+    (
+      subscription.pendingChanges?.deliveryAddress ||
+      subscription.deliveryAddress
+    )?.line2,
+    (
+      subscription.pendingChanges?.deliveryAddress ||
+      subscription.deliveryAddress
+    )?.city,
+    (
+      subscription.pendingChanges?.deliveryAddress ||
+      subscription.deliveryAddress
+    )?.postcode,
+    (
+      subscription.pendingChanges?.deliveryAddress ||
+      subscription.deliveryAddress
+    )?.country,
   ]
     .filter(Boolean)
     .join(", ");
+
+  const selectedSavedAddress =
+    addresses.find((address) => getAddressId(address) === selectedAddressId) ||
+    null;
+
+  const isSelectedAddressCurrent = addresses.some(
+    (address) =>
+      getAddressId(address) === selectedAddressId &&
+      addressMatchesSubscription(
+        address,
+        subscription.pendingChanges?.deliveryAddress ||
+          subscription.deliveryAddress,
+      ),
+  );
+
+  const isDeliveryDayCurrent =
+    dayNameToIndex(deliveryDay) === Number(subscription.preferredDeliveryDay);
+
+  const canSaveDeliveryDetails =
+    !saving &&
+    !addressesLoading &&
+    Boolean(selectedAddressId) &&
+    (!isSelectedAddressCurrent || !isDeliveryDayCurrent);
+
+  const selectedAddressPreview = selectedSavedAddress
+    ? [
+        selectedSavedAddress.line1,
+        selectedSavedAddress.line2,
+        selectedSavedAddress.city,
+        selectedSavedAddress.postcode,
+        selectedSavedAddress.country,
+      ]
+        .filter(Boolean)
+        .join(", ")
+    : fullAddress;
 
   return (
     <div className="max-w-6xl mx-auto">
@@ -446,13 +642,13 @@ const SubscriptionDetailPage: React.FC = () => {
       </div>
 
       {error && (
-        <div className="mb-4 p-3 bg-destructive/10 text-destructive rounded-xl text-sm">
+        <div className="mb-4 rounded-xl border border-destructive/20 bg-destructive/10 p-3 text-sm text-destructive dark:border-red-500/30 dark:bg-red-500/15 dark:text-red-200">
           {error}
         </div>
       )}
 
       {notice && (
-        <div className="mb-4 p-3 bg-forest/10 text-forest rounded-xl text-sm">
+        <div className="mb-4 rounded-xl border border-forest/20 bg-forest/10 p-3 text-sm text-forest dark:border-emerald-500/30 dark:bg-emerald-500/15 dark:text-emerald-200">
           {notice}
         </div>
       )}
@@ -461,8 +657,8 @@ const SubscriptionDetailPage: React.FC = () => {
         <div
           className={`mb-4 rounded-xl border p-3 text-xs sm:text-sm leading-relaxed ${
             cutoff.isPastCutoff
-              ? "border-amber-300 bg-amber-50 text-amber-900"
-              : "border-forest/20 bg-forest/5 text-foreground"
+              ? "border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-100"
+              : "border-forest/20 bg-forest/5 text-foreground dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-100"
           }`}
         >
           {cutoff.isPastCutoff ? (
@@ -487,36 +683,6 @@ const SubscriptionDetailPage: React.FC = () => {
           )}
         </div>
       )}
-
-      {subscription.pendingChanges?.items &&
-        subscription.pendingChanges.items.length > 0 && (
-          <div className="mb-4 rounded-xl border border-blue-300 bg-blue-50 text-blue-900 p-3 text-xs sm:text-sm leading-relaxed">
-            <p className="font-semibold mb-1">Scheduled change</p>
-            <p>
-              A change you made after the cut-off will take effect from{" "}
-              <span className="font-semibold">
-                {subscription.pendingChanges.effectiveFrom
-                  ? formatDate(subscription.pendingChanges.effectiveFrom)
-                  : "your next delivery"}
-              </span>
-              . Your upcoming delivery stays as listed below until then.
-            </p>
-            <ul className="mt-2 space-y-1">
-              {subscription.pendingChanges.items.map((it, idx) => (
-                <li key={idx} className="flex justify-between gap-3">
-                  <span>
-                    {it.name} × {it.quantity}
-                  </span>
-                  <span className="font-medium">
-                    {formatMoney(
-                      Number(it.unitPrice || 0) * Number(it.quantity || 0),
-                    )}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
 
       <div className="rounded-2xl border border-border bg-gradient-to-r from-card via-card to-muted/30 p-4 sm:p-5 mb-4">
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
@@ -573,44 +739,106 @@ const SubscriptionDetailPage: React.FC = () => {
             </div>
 
             <div className="space-y-2.5">
-              {productDraft.map((item, idx) => (
+              {productDraft.map((item, idx) =>
+                (() => {
+                  const liveItem = liveItemsByKey.get(getItemMatchKey(item));
+                  const hasScheduledChange = Boolean(
+                    cutoff?.isPastCutoff &&
+                    subscription.pendingChanges?.items?.length &&
+                    (!liveItem ||
+                      Number(liveItem.quantity || 0) !==
+                        Number(item.quantity || 0) ||
+                      Number(liveItem.unitPrice || 0) !==
+                        Number(item.unitPrice || 0)),
+                  );
+
+                  return (
+                    <div
+                      key={item.localId || idx}
+                      className="rounded-xl border border-border/70 bg-muted/20 px-3 py-2.5 flex items-center gap-2.5"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-foreground text-sm sm:text-base truncate">
+                          {item.name}
+                        </p>
+                        <p className="text-xs text-muted-foreground truncate">
+                          {item.sku} · {formatMoney(item.unitPrice)} each
+                        </p>
+                        {hasScheduledChange && (
+                          <p className="mt-1 text-xs text-blue-700 truncate dark:text-sky-300">
+                            {liveItem
+                              ? `Scheduled quantity ${
+                                  item.quantity < liveItem.quantity
+                                    ? "decrease"
+                                    : "increase"
+                                } from ${
+                                  subscription.pendingChanges?.effectiveFrom
+                                    ? formatDate(
+                                        subscription.pendingChanges
+                                          .effectiveFrom,
+                                      )
+                                    : "your next delivery"
+                                }: ${liveItem.quantity} to ${item.quantity}`
+                              : `Scheduled from ${
+                                  subscription.pendingChanges?.effectiveFrom
+                                    ? formatDate(
+                                        subscription.pendingChanges
+                                          .effectiveFrom,
+                                      )
+                                    : "your next delivery"
+                                }: ${item.quantity} per delivery`}
+                          </p>
+                        )}
+                      </div>
+                      <button
+                        onClick={() =>
+                          updateQty(item.localId, item.quantity - 1)
+                        }
+                        disabled={saving}
+                        className="w-7 h-7 rounded-md border border-border flex items-center justify-center hover:bg-muted transition-colors"
+                      >
+                        <Minus className="h-3 w-3" />
+                      </button>
+                      <span className="w-6 text-center text-sm font-semibold text-foreground">
+                        {item.quantity}
+                      </span>
+                      <button
+                        onClick={() =>
+                          updateQty(item.localId, item.quantity + 1)
+                        }
+                        disabled={saving}
+                        className="w-7 h-7 rounded-md border border-border flex items-center justify-center hover:bg-muted transition-colors"
+                      >
+                        <Plus className="h-3 w-3" />
+                      </button>
+                      <button
+                        className="text-muted-foreground hover:text-destructive transition-colors"
+                        onClick={() => setRemoveProductId(item.localId)}
+                        disabled={saving}
+                        aria-label={`Remove ${item.name}`}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  );
+                })(),
+              )}
+              {scheduledRemovedItems.map((item) => (
                 <div
-                  key={item.localId || idx}
-                  className="rounded-xl border border-border/70 bg-muted/20 px-3 py-2.5 flex items-center gap-2.5"
+                  key={`removed:${item._id}`}
+                  className="rounded-xl border border-blue-200 bg-blue-50 px-3 py-2.5 flex items-center gap-2.5 dark:border-sky-500/30 dark:bg-sky-500/10"
                 >
                   <div className="flex-1 min-w-0">
-                    <p className="font-medium text-foreground text-sm sm:text-base truncate">
+                    <p className="font-medium text-blue-900 text-sm sm:text-base truncate line-through dark:text-sky-100">
                       {item.name}
                     </p>
-                    <p className="text-xs text-muted-foreground truncate">
-                      {item.sku} · {formatMoney(item.unitPrice)} each
+                    <p className="text-xs text-blue-700 truncate dark:text-sky-300">
+                      {item.sku} · scheduled for removal from{" "}
+                      {subscription.pendingChanges?.effectiveFrom
+                        ? formatDate(subscription.pendingChanges.effectiveFrom)
+                        : "your next delivery"}
                     </p>
                   </div>
-                  <button
-                    onClick={() => updateQty(item.localId, item.quantity - 1)}
-                    disabled={saving}
-                    className="w-7 h-7 rounded-md border border-border flex items-center justify-center hover:bg-muted transition-colors"
-                  >
-                    <Minus className="h-3 w-3" />
-                  </button>
-                  <span className="w-6 text-center text-sm font-semibold text-foreground">
-                    {item.quantity}
-                  </span>
-                  <button
-                    onClick={() => updateQty(item.localId, item.quantity + 1)}
-                    disabled={saving}
-                    className="w-7 h-7 rounded-md border border-border flex items-center justify-center hover:bg-muted transition-colors"
-                  >
-                    <Plus className="h-3 w-3" />
-                  </button>
-                  <button
-                    className="text-muted-foreground hover:text-destructive transition-colors"
-                    onClick={() => setRemoveProductId(item.localId)}
-                    disabled={saving}
-                    aria-label={`Remove ${item.name}`}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
                 </div>
               ))}
             </div>
@@ -685,9 +913,7 @@ const SubscriptionDetailPage: React.FC = () => {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() =>
-                    setProductDraft(subscription.items.map(toEditableItem))
-                  }
+                  onClick={() => setProductDraft(editableBaseline)}
                   disabled={!hasUnsavedProductChanges || saving}
                 >
                   Discard
@@ -703,78 +929,116 @@ const SubscriptionDetailPage: React.FC = () => {
             </div>
           </section>
 
-          <section className="grid sm:grid-cols-2 gap-4">
-            <div className="bg-card border border-border rounded-2xl p-4 sm:p-5">
-              <h3 className="font-semibold text-foreground mb-4 flex items-center gap-2 text-base sm:text-lg">
-                <CalendarDays className="h-4 w-4 text-forest" />
-                Delivery Schedule
-              </h3>
-              <div className="space-y-3">
-                <div className="space-y-1.5">
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                    Frequency
-                  </p>
-                  <Select value={frequency} onValueChange={setFrequency}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="weekly">Weekly</SelectItem>
-                      <SelectItem value="every_two_weeks">
-                        Every 2 weeks
-                      </SelectItem>
-                      <SelectItem value="monthly">Monthly</SelectItem>
-                    </SelectContent>
-                  </Select>
+          <section className="bg-card border border-border rounded-2xl p-4 sm:p-5">
+            <div className="grid sm:grid-cols-2 gap-6">
+              <div>
+                <h3 className="font-semibold text-foreground mb-4 flex items-center gap-2 text-base sm:text-lg">
+                  <MapPin className="h-4 w-4 text-forest" />
+                  Delivery Address
+                </h3>
+                {addresses.length > 0 ? (
+                  <div className="space-y-3">
+                    <div className="space-y-1.5">
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                        Saved addresses
+                      </p>
+                      <Select
+                        value={selectedAddressId}
+                        onValueChange={setSelectedAddressId}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select an address" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {addresses.map((address) => {
+                            const addressId = getAddressId(address);
+                            const addressLabel = [
+                              address.label || address.fullName,
+                              address.line1,
+                              address.city,
+                              address.postcode,
+                            ]
+                              .filter(Boolean)
+                              .join(" - ");
+
+                            return (
+                              <SelectItem key={addressId} value={addressId}>
+                                {addressLabel}
+                              </SelectItem>
+                            );
+                          })}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                        Subscription delivery address
+                      </p>
+                      <p className="text-sm text-foreground leading-relaxed">
+                        {selectedAddressPreview ||
+                          "No delivery address configured."}
+                      </p>
+                    </div>
+                    <Button variant="outline" size="sm" asChild>
+                      <Link to="/portal/addresses">Manage addresses</Link>
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <p className="text-sm text-foreground leading-relaxed">
+                      {fullAddress || "No delivery address configured."}
+                    </p>
+                    <Button variant="outline" size="sm" asChild>
+                      <Link to="/portal/addresses">Add address</Link>
+                    </Button>
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <h3 className="font-semibold text-foreground mb-4 flex items-center gap-2 text-base sm:text-lg">
+                  <CalendarDays className="h-4 w-4 text-forest" />
+                  Delivery Schedule
+                </h3>
+                <div className="space-y-3">
+                  <div className="space-y-1.5">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      Preferred Day
+                    </p>
+                    <Select value={deliveryDay} onValueChange={setDeliveryDay}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {(cutoff?.deliveryDays?.length
+                          ? cutoff.deliveryDays.map((d) => toDayName(d))
+                          : [
+                              "Monday",
+                              "Tuesday",
+                              "Wednesday",
+                              "Thursday",
+                              "Friday",
+                              "Saturday",
+                            ]
+                        ).map((d) => (
+                          <SelectItem key={d} value={d}>
+                            {d}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
-                <div className="space-y-1.5">
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                    Preferred Day
-                  </p>
-                  <Select value={deliveryDay} onValueChange={setDeliveryDay}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {(cutoff?.deliveryDays?.length
-                        ? cutoff.deliveryDays.map((d) => toDayName(d))
-                        : [
-                            "Monday",
-                            "Tuesday",
-                            "Wednesday",
-                            "Thursday",
-                            "Friday",
-                            "Saturday",
-                          ]
-                      ).map((d) => (
-                        <SelectItem key={d} value={d}>
-                          {d}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <Button
-                  size="sm"
-                  className="w-full sm:w-auto"
-                  onClick={() => void handleSaveSchedule()}
-                  disabled={saving}
-                >
-                  Save Schedule
-                </Button>
               </div>
             </div>
 
-            <div className="bg-card border border-border rounded-2xl p-4 sm:p-5">
-              <h3 className="font-semibold text-foreground mb-4 flex items-center gap-2 text-base sm:text-lg">
-                <MapPin className="h-4 w-4 text-forest" />
-                Delivery Address
-              </h3>
-              <p className="text-sm text-foreground leading-relaxed">
-                {fullAddress || "No delivery address configured."}
-              </p>
-              <Button variant="outline" size="sm" asChild className="mt-4">
-                <Link to="/portal/addresses">Change address</Link>
+            <div className="mt-5 pt-4 border-t border-border flex items-center gap-2 flex-wrap">
+              <Button
+                size="sm"
+                onClick={() => void handleSaveDeliveryDetails()}
+                disabled={!canSaveDeliveryDetails}
+              >
+                {saving ? "Saving..." : "Save delivery details"}
               </Button>
             </div>
           </section>
