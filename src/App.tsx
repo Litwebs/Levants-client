@@ -278,7 +278,9 @@ const App = () => {
                     path="/login"
                     element={
                       <GuestOnlyRoute>
-                        <LoginPage />
+                        <Layout>
+                          <LoginPage />
+                        </Layout>
                       </GuestOnlyRoute>
                     }
                   />
@@ -286,7 +288,9 @@ const App = () => {
                     path="/register"
                     element={
                       <GuestOnlyRoute>
-                        <RegisterPage />
+                        <Layout>
+                          <RegisterPage />
+                        </Layout>
                       </GuestOnlyRoute>
                     }
                   />

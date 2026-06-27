@@ -6,22 +6,25 @@ import {
   RefreshCcw,
   CreditCard,
   Wallet,
+  ArrowLeft,
   MapPin,
   Settings,
-  Bell,
   LogOut,
-  Menu,
   X,
   ChevronDown,
   ExternalLink,
   Sun,
   Moon,
+  Home,
+  ShoppingBag,
+  Star,
+  Info,
+  Mail,
 } from "lucide-react";
 import { ThemeProvider, useTheme } from "@/portal/context/ThemeContext";
+import Header from "@/components/layout/Header";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { mockNotifications } from "@/portal/data/mockData";
 import { cn } from "@/lib/utils";
 import { clearPortalAuth } from "@/lib/portalAuth";
 import { portalAuthApi } from "@/api/portalAuth";
@@ -44,6 +47,15 @@ const navItems = [
   { label: "Account", href: "/portal/account", icon: Settings },
 ];
 
+const siteItems = [
+  { label: "Home", href: "/", icon: Home },
+  { label: "Shop", href: "/shop", icon: ShoppingBag },
+  { label: "Reviews", href: "/reviews", icon: Star },
+  { label: "About", href: "/about", icon: Info },
+  { label: "Delivery & FAQs", href: "/delivery", icon: MapPin },
+  { label: "Contact", href: "/contact", icon: Mail },
+];
+
 interface PortalLayoutProps {
   children: React.ReactNode;
 }
@@ -51,9 +63,11 @@ interface PortalLayoutProps {
 const PortalLayoutInner: React.FC<PortalLayoutProps> = ({ children }) => {
   const location = useLocation();
   const navigate = useNavigate();
+  const isSubscriptionBuilderRoute =
+    location.pathname === "/portal/subscriptions/new";
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
-  const { theme, toggleTheme, setThemePreference } = useTheme();
+  const { theme, setThemePreference } = useTheme();
   const { customer, updateCustomerProfile } = usePortalCustomer();
 
   const firstName = customer?.firstName || "Customer";
@@ -79,8 +93,6 @@ const PortalLayoutInner: React.FC<PortalLayoutProps> = ({ children }) => {
     void updateCustomerProfile({ themePreference: nextTheme });
   };
 
-  const unreadCount = mockNotifications.filter((n) => !n.read).length;
-
   const handleLogout = async () => {
     try {
       await portalAuthApi.logout();
@@ -93,18 +105,18 @@ const PortalLayoutInner: React.FC<PortalLayoutProps> = ({ children }) => {
 
   const SidebarContent = () => (
     <nav className="flex flex-col h-full">
-      {/* Logo */}
       <div className="px-5 py-5 border-b border-border">
-        <Link to="/" className="block" onClick={() => setSidebarOpen(false)}>
-          <h1 className="font-heading text-xl font-bold text-forest">
-            Levants Dairy
-          </h1>
-          <p className="text-xs text-muted-foreground">Customer Portal</p>
-        </Link>
+        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          Customer Portal
+        </p>
+        <p className="text-sm font-medium text-foreground mt-1">Quick links</p>
       </div>
 
       {/* Navigation Items */}
       <div className="flex-1 overflow-y-auto py-3 px-3">
+        <p className="px-3 mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+          Portal
+        </p>
         <ul className="space-y-0.5">
           {navItems.map((item) => {
             const Icon = item.icon;
@@ -127,6 +139,27 @@ const PortalLayoutInner: React.FC<PortalLayoutProps> = ({ children }) => {
                   <Icon className="h-4 w-4 flex-shrink-0" />
                   {item.label}
                 </Link>
+              </li>
+            );
+          })}
+        </ul>
+
+        <p className="px-3 mt-5 mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+          Website
+        </p>
+        <ul className="space-y-0.5">
+          {siteItems.map((item) => {
+            const Icon = item.icon;
+            return (
+              <li key={item.href}>
+                <a
+                  href={item.href}
+                  onClick={() => setSidebarOpen(false)}
+                  className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors text-foreground hover:bg-muted"
+                >
+                  <Icon className="h-4 w-4 flex-shrink-0" />
+                  {item.label}
+                </a>
               </li>
             );
           })}
@@ -168,179 +201,151 @@ const PortalLayoutInner: React.FC<PortalLayoutProps> = ({ children }) => {
     </nav>
   );
 
-  return (
-    <div className="min-h-screen bg-background flex">
-      {/* Desktop Sidebar */}
-      <aside className="hidden lg:flex flex-col w-60 border-r border-border bg-card flex-shrink-0 fixed inset-y-0 left-0 z-30">
-        <SidebarContent />
-      </aside>
-
-      {/* Mobile sidebar overlay */}
-      {sidebarOpen && (
-        <div
-          className="fixed inset-0 z-40 bg-black/50 lg:hidden"
-          onClick={() => setSidebarOpen(false)}
-        />
+  const portalActions = (
+    <>
+      {isSubscriptionBuilderRoute && (
+        <Button
+          asChild
+          variant="ghost"
+          size="sm"
+          className="hidden sm:inline-flex"
+        >
+          <Link to="/portal/subscriptions">
+            <ArrowLeft className="h-4 w-4" />
+            Back
+          </Link>
+        </Button>
       )}
 
-      {/* Mobile Sidebar */}
-      <aside
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={handleThemeToggle}
+        aria-label="Toggle theme"
+      >
+        {theme === "dark" ? (
+          <Sun className="h-5 w-5" />
+        ) : (
+          <Moon className="h-5 w-5" />
+        )}
+      </Button>
+
+      <div className="relative">
+        <button
+          className="flex items-center gap-2 pl-2 pr-2 sm:pr-3 py-1.5 rounded-xl hover:bg-muted transition-colors text-sm"
+          onClick={() => setProfileOpen((v) => !v)}
+        >
+          <div className="w-7 h-7 rounded-full bg-forest/15 flex items-center justify-center text-forest text-xs font-bold">
+            {avatarInitials}
+          </div>
+          <span className="hidden sm:block font-medium text-foreground">
+            {firstName}
+          </span>
+          <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+        </button>
+
+        {profileOpen && (
+          <>
+            <div
+              className="fixed inset-0 z-10"
+              onClick={() => setProfileOpen(false)}
+            />
+            <div className="absolute right-0 top-full mt-1 w-48 bg-card border border-border rounded-xl shadow-lg z-20 overflow-hidden">
+              <div className="px-4 py-3 border-b border-border">
+                <p className="text-sm font-medium">{fullName}</p>
+                <p className="text-xs text-muted-foreground">{email}</p>
+              </div>
+              <div className="py-1">
+                <Link
+                  to="/portal/account"
+                  className="flex items-center gap-2 px-4 py-2 text-sm hover:bg-muted transition-colors"
+                  onClick={() => setProfileOpen(false)}
+                >
+                  <Settings className="h-3.5 w-3.5" />
+                  Account Settings
+                </Link>
+                <button
+                  onClick={handleLogout}
+                  className="flex items-center gap-2 px-4 py-2 text-sm text-destructive hover:bg-destructive/10 w-full transition-colors"
+                >
+                  <LogOut className="h-3.5 w-3.5" />
+                  Sign out
+                </button>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+    </>
+  );
+
+  return (
+    <div className="min-h-screen bg-background flex flex-col">
+      <Header
+        actions={portalActions}
+        showAccountLink={false}
+        onMenuClick={() => setSidebarOpen(true)}
+        onCartClick={() => navigate("/checkout")}
+      />
+
+      <div
         className={cn(
-          "fixed inset-y-0 left-0 z-50 w-64 bg-card border-r border-border flex flex-col transition-transform duration-300 lg:hidden",
-          sidebarOpen ? "translate-x-0" : "-translate-x-full",
+          "container-custom py-4 lg:py-6 flex flex-1 items-start",
+          isSubscriptionBuilderRoute ? "gap-0" : "gap-4 lg:gap-6",
         )}
       >
-        <button
-          className="absolute top-4 right-4 text-muted-foreground hover:text-foreground"
-          onClick={() => setSidebarOpen(false)}
-        >
-          <X className="h-5 w-5" />
-        </button>
-        <SidebarContent />
-      </aside>
+        {/* Desktop Sidebar */}
+        {!isSubscriptionBuilderRoute && (
+          <aside className="hidden lg:flex flex-col w-60 rounded-2xl border border-border bg-card/90 backdrop-blur-sm flex-shrink-0 lg:sticky lg:top-24 max-h-[calc(100vh-7rem)] overflow-hidden">
+            <SidebarContent />
+          </aside>
+        )}
 
-      {/* Main content */}
-      <div className="flex-1 flex flex-col lg:ml-60 min-w-0">
-        {/* Top Header */}
-        <header className="sticky top-0 z-20 bg-card border-b border-border px-4 lg:px-6 h-14 flex items-center justify-between">
-          {/* Left: hamburger (mobile) + page breadcrumb */}
-          <div className="flex items-center gap-3">
+        {/* Mobile sidebar overlay */}
+        {sidebarOpen && (
+          <div
+            className="fixed inset-0 z-40 bg-black/50 lg:hidden"
+            onClick={() => setSidebarOpen(false)}
+          />
+        )}
+
+        {/* Mobile Sidebar */}
+        {
+          <aside
+            className={cn(
+              "fixed inset-y-0 left-0 z-50 w-64 bg-card border-r border-border flex flex-col transition-transform duration-300 lg:hidden",
+              sidebarOpen ? "translate-x-0" : "-translate-x-full",
+            )}
+          >
             <button
-              className="lg:hidden text-muted-foreground hover:text-foreground"
-              onClick={() => setSidebarOpen(true)}
+              className="absolute top-4 right-4 text-muted-foreground hover:text-foreground"
+              onClick={() => setSidebarOpen(false)}
             >
-              <Menu className="h-5 w-5" />
+              <X className="h-5 w-5" />
             </button>
-            <span className="text-sm font-medium text-foreground hidden sm:block">
-              {navItems.find((n) =>
-                n.href === "/portal/dashboard"
-                  ? location.pathname === "/portal/dashboard"
-                  : location.pathname.startsWith(n.href),
-              )?.label ?? "Portal"}
-            </span>
-          </div>
+            <SidebarContent />
+          </aside>
+        }
 
-          {/* Right: icons + profile */}
-          <div className="flex items-center gap-2">
-            {/* Theme toggle */}
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={handleThemeToggle}
-              aria-label="Toggle theme"
-            >
-              {theme === "dark" ? (
-                <Sun className="h-5 w-5" />
-              ) : (
-                <Moon className="h-5 w-5" />
-              )}
-            </Button>
-
-            {/* Notifications */}
-            <Button variant="ghost" size="icon" className="relative" asChild>
-              <Link to="/portal/notifications">
-                <Bell className="h-5 w-5" />
-                {unreadCount > 0 && (
-                  <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-destructive" />
-                )}
-              </Link>
-            </Button>
-
-            {/* Profile dropdown */}
-            <div className="relative">
-              <button
-                className="flex items-center gap-2 pl-2 pr-3 py-1.5 rounded-xl hover:bg-muted transition-colors text-sm"
-                onClick={() => setProfileOpen((v) => !v)}
-              >
-                <div className="w-7 h-7 rounded-full bg-forest/15 flex items-center justify-center text-forest text-xs font-bold">
-                  {avatarInitials}
-                </div>
-                <span className="hidden sm:block font-medium text-foreground">
-                  {firstName}
-                </span>
-                <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
-              </button>
-
-              {profileOpen && (
-                <>
-                  <div
-                    className="fixed inset-0 z-10"
-                    onClick={() => setProfileOpen(false)}
-                  />
-                  <div className="absolute right-0 top-full mt-1 w-48 bg-card border border-border rounded-xl shadow-lg z-20 overflow-hidden">
-                    <div className="px-4 py-3 border-b border-border">
-                      <p className="text-sm font-medium">{fullName}</p>
-                      <p className="text-xs text-muted-foreground">{email}</p>
-                    </div>
-                    <div className="py-1">
-                      <Link
-                        to="/portal/account"
-                        className="flex items-center gap-2 px-4 py-2 text-sm hover:bg-muted transition-colors"
-                        onClick={() => setProfileOpen(false)}
-                      >
-                        <Settings className="h-3.5 w-3.5" />
-                        Account Settings
-                      </Link>
-                      <button
-                        onClick={handleLogout}
-                        className="flex items-center gap-2 px-4 py-2 text-sm text-destructive hover:bg-destructive/10 w-full transition-colors"
-                      >
-                        <LogOut className="h-3.5 w-3.5" />
-                        Sign out
-                      </button>
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
-        </header>
-
-        {/* Page content — keyed by pathname so the animation re-triggers on every navigation */}
-        <main
-          key={location.pathname}
-          className="portal-page-enter flex-1 p-4 lg:p-6 pb-24 lg:pb-6"
-        >
-          {customer?.pendingEmail ? (
-            <Alert className="mb-4 border-amber-400/40 bg-amber-50 text-amber-900">
-              <AlertDescription>
-                Email change pending: confirm the link sent to{" "}
-                {customer.pendingEmail} to complete the update.
-              </AlertDescription>
-            </Alert>
-          ) : null}
-          {children}
-        </main>
+        {/* Main content */}
+        <div className="flex-1 flex flex-col min-w-0">
+          {/* Page content — keyed by pathname so the animation re-triggers on every navigation */}
+          <main
+            key={location.pathname}
+            className="portal-page-enter flex-1 pb-6"
+          >
+            {customer?.pendingEmail ? (
+              <Alert className="mb-4 border-amber-400/40 bg-amber-50 text-amber-900">
+                <AlertDescription>
+                  Email change pending: confirm the link sent to{" "}
+                  {customer.pendingEmail} to complete the update.
+                </AlertDescription>
+              </Alert>
+            ) : null}
+            {children}
+          </main>
+        </div>
       </div>
-
-      {/* Mobile Bottom Navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 z-30 bg-card border-t border-border lg:hidden">
-        <ul className="flex items-center justify-around h-16">
-          {navItems.slice(0, 5).map((item) => {
-            const Icon = item.icon;
-            const isActive =
-              item.href === "/portal/dashboard"
-                ? location.pathname === "/portal/dashboard"
-                : location.pathname.startsWith(item.href);
-            return (
-              <li key={item.href}>
-                <Link
-                  to={item.href}
-                  className={cn(
-                    "flex flex-col items-center gap-1 px-3 py-1 rounded-lg text-xs font-medium transition-colors",
-                    isActive ? "text-forest" : "text-muted-foreground",
-                  )}
-                >
-                  <Icon className="h-5 w-5" />
-                  <span className="text-[10px]">
-                    {item.label.split(" ")[0]}
-                  </span>
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
-      </nav>
     </div>
   );
 };

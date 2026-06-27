@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,6 +11,7 @@ import { setPortalLoggedIn } from "@/lib/portalAuth";
 
 const LoginPage: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -20,6 +21,15 @@ const LoginPage: React.FC = () => {
   const [verificationCode, setVerificationCode] = useState("");
   const [verificationLoading, setVerificationLoading] = useState(false);
   const [resendLoading, setResendLoading] = useState(false);
+
+  const redirectParam = searchParams.get("redirect");
+  const redirectTarget =
+    typeof redirectParam === "string" && redirectParam.startsWith("/")
+      ? redirectParam
+      : "/";
+  const registerLink = `/register?redirect=${encodeURIComponent(
+    redirectTarget,
+  )}`;
 
   const normalizedEmail = email.trim().toLowerCase();
 
@@ -40,7 +50,7 @@ const LoginPage: React.FC = () => {
       });
 
       setPortalLoggedIn(true);
-      navigate("/portal/dashboard");
+      navigate(redirectTarget);
     } catch (err) {
       if (err instanceof ApiError) {
         const body = err.body as
@@ -75,7 +85,7 @@ const LoginPage: React.FC = () => {
       });
       await portalAuthApi.login({ email: normalizedEmail, password });
       setPortalLoggedIn(true);
-      navigate("/portal/dashboard");
+      navigate(redirectTarget);
     } catch (err) {
       if (err instanceof ApiError) {
         setError(err.message);
@@ -246,7 +256,7 @@ const LoginPage: React.FC = () => {
           <div className="mt-6 text-center text-sm text-muted-foreground">
             Don't have an account?{" "}
             <Link
-              to="/register"
+              to={registerLink}
               className="text-forest font-medium hover:underline"
             >
               Create account

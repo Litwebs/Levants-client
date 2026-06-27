@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,6 +11,7 @@ import { setPortalLoggedIn } from "@/lib/portalAuth";
 
 const RegisterPage: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -25,6 +26,13 @@ const RegisterPage: React.FC = () => {
   const [verificationCode, setVerificationCode] = useState("");
   const [verificationLoading, setVerificationLoading] = useState(false);
   const [resendLoading, setResendLoading] = useState(false);
+
+  const redirectParam = searchParams.get("redirect");
+  const redirectTarget =
+    typeof redirectParam === "string" && redirectParam.startsWith("/")
+      ? redirectParam
+      : "/";
+  const loginLink = `/login?redirect=${encodeURIComponent(redirectTarget)}`;
 
   const normalizedEmail = email.trim().toLowerCase();
 
@@ -86,7 +94,7 @@ const RegisterPage: React.FC = () => {
         password,
       });
       setPortalLoggedIn(true);
-      navigate("/portal/dashboard");
+      navigate(redirectTarget);
     } catch (err) {
       if (err instanceof ApiError) {
         setError(err.message);
@@ -316,7 +324,7 @@ const RegisterPage: React.FC = () => {
             <div className="mt-6 text-center text-sm text-muted-foreground">
               Already have an account?{" "}
               <Link
-                to="/login"
+                to={loginLink}
                 className="text-forest font-medium hover:underline"
               >
                 Sign in

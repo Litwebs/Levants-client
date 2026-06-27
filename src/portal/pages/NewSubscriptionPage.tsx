@@ -1,33 +1,24 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
   ArrowRight,
   Check,
   Loader2,
-  AlertCircle,
-  Search,
   CreditCard,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { useAddresses } from "@/portal/context/AddressesContext";
 import { cn } from "@/lib/utils";
-import api, { ApiError } from "@/api/client";
+import api, { ApiError, resolveImageUrl } from "@/api/client";
 import { portalSubscriptionsApi } from "@/api/portalSubscriptions";
 import {
   portalPaymentsApi,
   type PortalPaymentMethod,
 } from "@/api/portalPayments";
+import ProductCard from "@/components/products/ProductCard";
+import ShopPage from "@/pages/ShopPage";
 import {
   Elements,
   PaymentElement,
@@ -282,12 +273,44 @@ const NewSubscriptionPage: React.FC = () => {
   const draft = readDraft();
   const [step, setStep] = useState(() => Number(draft?.step ?? 0));
 
+  // ── Sticky offsets: measure the real site header + this page's sub-header ──
+  // The site header is fully sticky with a variable height (announcement bars),
+  // so we measure it at runtime to position our sticky sub-header right below it.
+  const subHeaderRef = useRef<HTMLDivElement>(null);
+  const [siteHeaderHeight, setSiteHeaderHeight] = useState(0);
+  const [subHeaderHeight, setSubHeaderHeight] = useState(0);
+
+  useEffect(() => {
+    const headerEl = document.querySelector("header");
+    if (!headerEl) return;
+    const update = () =>
+      setSiteHeaderHeight(headerEl.getBoundingClientRect().height);
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(headerEl);
+    window.addEventListener("resize", update);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", update);
+    };
+  }, []);
+
+  useEffect(() => {
+    const el = subHeaderRef.current;
+    if (!el) return;
+    const update = () => setSubHeaderHeight(el.getBoundingClientRect().height);
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  const subHeaderTopOffset = siteHeaderHeight;
+
   // ── Product data from API ─────────────────────────────────────────────────
   const [products, setProducts] = useState<ApiProduct[]>([]);
   const [loadingProducts, setLoadingProducts] = useState(true);
   const [productError, setProductError] = useState<string | null>(null);
-  const [categoryFilter, setCategoryFilter] = useState<string>("All");
-  const [searchQuery, setSearchQuery] = useState("");
   const [availableDays, setAvailableDays] = useState<string[] | null>(null);
 
   const fetchProducts = async () => {
@@ -519,11 +542,6 @@ const NewSubscriptionPage: React.FC = () => {
   const handleNext = () => setStep((s) => Math.min(steps.length - 1, s + 1));
   const handleBack = () => setStep((s) => Math.max(0, s - 1));
 
-  const categories = [
-    "All",
-    ...Array.from(new Set(products.map((p) => p.category))).sort(),
-  ];
-
   const flatVariants: FlatVariant[] = products.flatMap((p) =>
     p.variants.map((v) => ({
       variantId: v.id,
@@ -535,16 +553,6 @@ const NewSubscriptionPage: React.FC = () => {
       category: p.category,
     })),
   );
-
-  const filteredVariants = flatVariants
-    .filter((v) => categoryFilter === "All" || v.category === categoryFilter)
-    .filter(
-      (v) =>
-        searchQuery.trim() === "" ||
-        v.productName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        v.variantName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        v.category.toLowerCase().includes(searchQuery.toLowerCase()),
-    );
 
   const selectedFlatVariants = flatVariants.filter((v) =>
     selectedVariantIds.includes(v.variantId),
@@ -650,193 +658,114 @@ const NewSubscriptionPage: React.FC = () => {
   };
 
   return (
-    <div className="max-w-2xl mx-auto">
-      {/* Header */}
-      <div className="flex items-center gap-3 mb-6">
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8"
-          onClick={
-            step === 0 ? () => navigate("/portal/subscriptions") : handleBack
-          }
-        >
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <div>
-          <h1 className="font-heading text-xl font-bold text-foreground">
-            New Subscription
-          </h1>
-          <p className="text-xs text-muted-foreground">
-            Step {step + 1} of {steps.length}
-          </p>
+    <div
+      className="w-full flex min-h-screen flex-col"
+      style={{ minHeight: `calc(100dvh - ${siteHeaderHeight}px)` }}
+    >
+      <div
+        ref={subHeaderRef}
+        className="sticky z-30 mb-5 -mx-4 bg-background/95 pt-4 pb-4 backdrop-blur-sm sm:-mx-6 lg:-mx-8"
+        style={{ top: subHeaderTopOffset }}
+      >
+        <div className="w-full px-4 sm:px-6 lg:px-8">
+          {/* Header */}
+          <div className="flex items-center gap-2.5 mb-4">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              onClick={
+                step === 0
+                  ? () => navigate("/portal/subscriptions")
+                  : handleBack
+              }
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+            <div className="flex-1">
+              <h1 className="font-heading text-base font-bold text-foreground leading-tight">
+                New Subscription
+              </h1>
+              <p className="text-[11px] text-muted-foreground">
+                Step {step + 1} of {steps.length}
+              </p>
+            </div>
+            {step === 0 && selectedVariantIds.length > 0 && (
+              <span className="text-[11px] text-forest font-medium whitespace-nowrap">
+                {selectedVariantIds.length} variant
+                {selectedVariantIds.length > 1 ? "s" : ""} selected
+              </span>
+            )}
+          </div>
+
+          {/* Progress */}
+          <div className="flex w-full items-start gap-0 max-w-2xl mx-auto pb-1">
+            {steps.map((s, i) => (
+              <React.Fragment key={i}>
+                <div className="flex w-[56px] flex-col items-center flex-shrink-0 sm:w-14">
+                  <div
+                    className={cn(
+                      "w-7 h-7 rounded-full border-2 flex items-center justify-center text-xs font-bold transition-colors",
+                      i < step
+                        ? "bg-forest border-forest text-primary-foreground"
+                        : i === step
+                          ? "border-forest text-forest"
+                          : "border-muted-foreground/30 text-muted-foreground/30",
+                    )}
+                  >
+                    {i < step ? <Check className="h-3.5 w-3.5" /> : i + 1}
+                  </div>
+                  <span className="mt-1 w-full px-0.5 text-[7px] text-muted-foreground text-center leading-tight sm:px-1 sm:text-[9px]">
+                    {s}
+                  </span>
+                </div>
+                {i < steps.length - 1 && (
+                  <div
+                    className={cn(
+                      "mt-[14px] flex-1 h-0.5 min-w-[6px] sm:min-w-[12px]",
+                      i < step ? "bg-forest" : "bg-border",
+                    )}
+                  />
+                )}
+              </React.Fragment>
+            ))}
+          </div>
         </div>
       </div>
 
-      {/* Progress */}
-      <div className="flex items-center gap-0 mb-8 overflow-x-auto">
-        {steps.map((s, i) => (
-          <React.Fragment key={i}>
-            <div className="flex flex-col items-center flex-shrink-0">
-              <div
-                className={cn(
-                  "w-7 h-7 rounded-full border-2 flex items-center justify-center text-xs font-bold transition-colors",
-                  i < step
-                    ? "bg-forest border-forest text-primary-foreground"
-                    : i === step
-                      ? "border-forest text-forest"
-                      : "border-muted-foreground/30 text-muted-foreground/30",
-                )}
-              >
-                {i < step ? <Check className="h-3.5 w-3.5" /> : i + 1}
-              </div>
-              <span className="text-[9px] mt-1 text-muted-foreground text-center leading-tight w-14 hidden sm:block">
-                {s}
-              </span>
-            </div>
-            {i < steps.length - 1 && (
-              <div
-                className={cn(
-                  "flex-1 h-0.5 min-w-[12px] mb-4",
-                  i < step ? "bg-forest" : "bg-border",
-                )}
-              />
-            )}
-          </React.Fragment>
-        ))}
-      </div>
-
       {/* Step content */}
-      <div className="bg-card border border-border rounded-2xl p-6 mb-6">
+      <div
+        className={cn(
+          step === 0
+            ? "flex-1 pb-6"
+            : "flex-1 bg-card border border-border rounded-2xl p-6 mb-6",
+        )}
+      >
         {/* Step 0: Select Products */}
         {step === 0 && (
-          <div className="flex flex-col">
-            <h2 className="font-semibold text-foreground mb-1">
-              Select Products
-            </h2>
-            <p className="text-sm text-muted-foreground mb-3">
-              Choose the products you'd like in your subscription.
-            </p>
-
-            {/* Search */}
-            <div className="relative mb-3">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-              <Input
-                placeholder="Search products…"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 h-9 text-sm"
-              />
-            </div>
-
-            {/* Category filter */}
-            <div className="flex gap-1.5 flex-wrap mb-3">
-              {categories.map((cat) => (
-                <button
-                  key={cat}
-                  onClick={() => setCategoryFilter(cat)}
-                  className={cn(
-                    "px-3 py-1 rounded-full text-xs font-medium border transition-colors",
-                    categoryFilter === cat
-                      ? "bg-forest text-primary-foreground border-forest"
-                      : "border-border text-muted-foreground hover:border-forest/40",
-                  )}
-                >
-                  {cat}
-                </button>
-              ))}
-            </div>
-
-            {/* Product list */}
-            {loadingProducts ? (
-              <div className="flex items-center justify-center py-12 gap-2 text-muted-foreground">
-                <Loader2 className="h-5 w-5 animate-spin" />
-                <span className="text-sm">Loading products…</span>
-              </div>
-            ) : productError ? (
-              <div className="flex flex-col items-center gap-3 py-10 text-center">
-                <AlertCircle className="h-6 w-6 text-destructive" />
-                <p className="text-sm text-destructive">{productError}</p>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => void fetchProducts()}
-                >
-                  Try Again
-                </Button>
-              </div>
-            ) : (
-              <div className="overflow-y-auto max-h-[560px] -mx-1 px-1 pr-2">
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                  {filteredVariants.map((variant) => {
-                    const selected = selectedVariantIds.includes(
-                      variant.variantId,
-                    );
-                    return (
-                      <div
-                        key={variant.variantId}
-                        className={cn(
-                          "relative rounded-xl border transition-colors flex flex-col overflow-hidden",
-                          selected
-                            ? "border-forest bg-forest/5"
-                            : "border-border",
-                        )}
-                      >
-                        {/* Thumbnail */}
-                        <div className="w-full aspect-square bg-muted overflow-hidden">
-                          {variant.image ? (
-                            <img
-                              src={variant.image}
-                              alt={variant.variantName}
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
-                            <div className="w-full h-full bg-muted" />
-                          )}
-                        </div>
-
-                        {/* Info */}
-                        <div className="p-2 flex-1 flex flex-col gap-1">
-                          <p className="text-xs font-medium text-foreground leading-tight line-clamp-1 flex-1">
-                            {variant.productName}
-                          </p>
-                          <p className="text-xs text-muted-foreground leading-tight line-clamp-1">
-                            {variant.variantName}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {fmt(variant.price)}
-                          </p>
-                          {/* Add / Remove button */}
-                          <button
-                            onClick={() => toggleVariant(variant.variantId)}
-                            className={cn(
-                              "mt-1 w-full rounded-lg py-2 text-xs font-bold transition-colors",
-                              selected
-                                ? "bg-destructive/10 text-destructive hover:bg-destructive/20"
-                                : "bg-forest text-white hover:bg-forest/90",
-                            )}
-                          >
-                            {selected ? "Remove" : "Add to plan"}
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                  {filteredVariants.length === 0 && (
-                    <p className="col-span-3 text-sm text-muted-foreground py-6 text-center">
-                      No products match your search.
-                    </p>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {selectedVariantIds.length > 0 && (
-              <p className="text-xs text-forest font-medium mt-3">
-                {selectedVariantIds.length} variant
-                {selectedVariantIds.length > 1 ? "s" : ""} selected
-              </p>
-            )}
+          <div>
+            <ShopPage
+              embedded
+              hideCardQuantityStepper
+              contentGapClassName="flex flex-col lg:flex-row gap-4"
+              productGridClassName="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6"
+              sidebarStickyTopOffset={subHeaderTopOffset + subHeaderHeight + 16}
+              cardActionLabel={({ lockedVariantId }) =>
+                lockedVariantId && selectedVariantIds.includes(lockedVariantId)
+                  ? "Remove from plan"
+                  : "Add to plan"
+              }
+              cardActionClassName={({ lockedVariantId }) =>
+                lockedVariantId && selectedVariantIds.includes(lockedVariantId)
+                  ? "!bg-destructive/10 !text-destructive hover:!bg-destructive/20"
+                  : undefined
+              }
+              onCardAction={({ variant, lockedVariantId }) => {
+                const variantId = variant?.id ?? lockedVariantId;
+                if (!variantId) return;
+                toggleVariant(variantId);
+              }}
+            />
           </div>
         )}
 
@@ -1052,13 +981,20 @@ const NewSubscriptionPage: React.FC = () => {
             </p>
 
             <div className="space-y-3 text-sm">
-              <div className="flex justify-between py-1.5 border-b border-border">
-                <span className="text-muted-foreground">Products</span>
-                <span className="font-medium">
-                  {selectedFlatVariants
-                    .map((sv) => sv.variantName)
-                    .join(", ") || "None"}
-                </span>
+              <div className="py-1.5 border-b border-border">
+                <p className="text-muted-foreground mb-1">Products</p>
+                {selectedFlatVariants.length === 0 ? (
+                  <p className="font-medium">None</p>
+                ) : (
+                  <ul className="list-disc pl-5 space-y-1 font-medium">
+                    {selectedFlatVariants.map((sv) => (
+                      <li key={sv.variantId}>
+                        {sv.variantName} x{" "}
+                        {Math.max(1, quantities[sv.variantId] ?? 1)}
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
               <div className="flex justify-between py-1.5 border-b border-border">
                 <span className="text-muted-foreground">Frequency</span>
@@ -1216,38 +1152,42 @@ const NewSubscriptionPage: React.FC = () => {
       </div>
 
       {/* Navigation */}
-      <div className="flex justify-between">
-        <Button
-          variant="outline"
-          onClick={
-            step === 0
-              ? () => {
-                  clearDraft();
-                  navigate("/portal/subscriptions");
-                }
-              : handleBack
-          }
-        >
-          <ArrowLeft className="h-4 w-4" />
-          {step === 0 ? "Cancel" : "Back"}
-        </Button>
-        {step < steps.length - 1 ? (
-          <Button
-            onClick={handleNext}
-            disabled={step === 0 && selectedVariantIds.length === 0}
-          >
-            Next
-            <ArrowRight className="h-4 w-4" />
-          </Button>
-        ) : (
-          <Button
-            onClick={() => void handleCreateSubscription()}
-            disabled={submitLoading || showNewForm || !selectedMethodId}
-          >
-            <Check className="h-4 w-4" />
-            {submitLoading ? "Creating..." : "Create Subscription"}
-          </Button>
-        )}
+      <div className="sticky bottom-0 z-30 mt-6 -mx-4 sm:-mx-6 lg:-mx-8">
+        <div className="rounded-none border border-border bg-background/95 px-4 py-4 shadow-sm backdrop-blur-sm sm:px-6 lg:px-8">
+          <div className="flex justify-between">
+            <Button
+              variant="outline"
+              onClick={
+                step === 0
+                  ? () => {
+                      clearDraft();
+                      navigate("/portal/subscriptions");
+                    }
+                  : handleBack
+              }
+            >
+              <ArrowLeft className="h-4 w-4" />
+              {step === 0 ? "Cancel" : "Back"}
+            </Button>
+            {step < steps.length - 1 ? (
+              <Button
+                onClick={handleNext}
+                disabled={step === 0 && selectedVariantIds.length === 0}
+              >
+                Next
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+            ) : (
+              <Button
+                onClick={() => void handleCreateSubscription()}
+                disabled={submitLoading || showNewForm || !selectedMethodId}
+              >
+                <Check className="h-4 w-4" />
+                {submitLoading ? "Creating..." : "Create Subscription"}
+              </Button>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );

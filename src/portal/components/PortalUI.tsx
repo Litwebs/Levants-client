@@ -301,21 +301,15 @@ export const DashboardSummaryCard: React.FC<DashboardSummaryCardProps> = ({
     )}
     onClick={onClick}
   >
-    <div className="flex items-start justify-between">
-      <div>
-        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">
-          {title}
-        </p>
-        <p className="font-heading text-2xl font-bold text-foreground">
-          {value}
-        </p>
-        {subtitle && (
-          <p className="text-xs text-muted-foreground mt-1">{subtitle}</p>
-        )}
-      </div>
-      <div className="w-10 h-10 rounded-xl bg-forest/10 flex items-center justify-center text-forest flex-shrink-0">
-        {icon}
-      </div>
+    <div className="w-10 h-10 rounded-xl bg-forest/10 flex items-center justify-center text-forest mb-3">
+      {icon}
     </div>
+    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">
+      {title}
+    </p>
+    <p className="font-heading text-2xl font-bold text-foreground">{value}</p>
+    {subtitle && (
+      <p className="text-xs text-muted-foreground mt-1">{subtitle}</p>
+    )}
   </div>
 );

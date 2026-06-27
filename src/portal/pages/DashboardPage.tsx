@@ -78,7 +78,7 @@ const DashboardPage: React.FC = () => {
         setError(null);
         const [subscriptionsRes, ordersRes, paymentsRes] = await Promise.all([
           portalSubscriptionsApi.list({ page: 1, pageSize: 100 }),
-          portalOrdersApi.list({ page: 1, pageSize: 3 }),
+          portalOrdersApi.list({ page: 1, pageSize: 5 }),
           portalPaymentsApi.list({ page: 1, pageSize: 10 }),
         ]);
 
@@ -134,7 +134,7 @@ const DashboardPage: React.FC = () => {
       ),
     [payments],
   );
-  const recentOrders = orders.slice(0, 3);
+  const recentOrders = orders.slice(0, 5);
 
   const summaryCards = [
     {
@@ -332,62 +332,58 @@ const DashboardPage: React.FC = () => {
                     return (
                       <div
                         key={order._id}
-                        className="px-5 py-3 hover:bg-muted/40 transition-colors"
+                        className="px-5 py-3.5 hover:bg-muted/40 transition-colors"
                       >
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <p className="text-sm font-medium text-foreground truncate">
-                                {order.orderId}
-                              </p>
-                              {order.orderType === "subscription_generated" && (
-                                <span className="inline-flex items-center rounded-full bg-sky-100 px-2 py-0.5 text-[11px] font-medium text-sky-800 dark:bg-sky-500/20 dark:text-sky-200">
-                                  Subscription generated
-                                </span>
-                              )}
-                            </div>
-                            <p className="text-xs text-muted-foreground mt-0.5">
-                              {formatDate(order.createdAt)}
-                            </p>
-                            {refundSummary.refunded > 0 && (
-                              <p className="text-xs text-muted-foreground mt-1">
-                                Refunded{" "}
-                                {formatMoney(
-                                  refundSummary.refunded,
-                                  order.currency || "GBP",
-                                )}{" "}
-                                · Before{" "}
-                                {formatMoney(
-                                  refundSummary.before,
-                                  order.currency || "GBP",
-                                )}{" "}
-                                · After{" "}
-                                {formatMoney(
-                                  refundSummary.after,
-                                  order.currency || "GBP",
-                                )}
-                              </p>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-2 flex-shrink-0">
-                            <OrderStatusBadge status={order.status} />
-                            <span className="text-sm font-semibold text-foreground hidden sm:block">
-                              {formatMoney(
-                                order.total,
-                                order.currency || "GBP",
-                              )}
+                        <div className="flex items-start justify-between gap-3">
+                          <p className="text-sm font-medium text-foreground truncate min-w-0">
+                            {order.orderId}
+                          </p>
+                          <OrderStatusBadge status={order.status} />
+                        </div>
+
+                        {order.orderType === "subscription_generated" && (
+                          <div className="mt-2">
+                            <span className="inline-flex items-center rounded-full bg-sky-100 px-3 py-1 text-[11px] font-medium text-sky-800 dark:bg-sky-500/20 dark:text-sky-200">
+                              Subscription generated
                             </span>
-                            <Button
-                              asChild
-                              variant="ghost"
-                              size="sm"
-                              className="h-7 px-2 text-xs"
-                            >
-                              <Link to={`/portal/orders/${order._id}`}>
-                                View
-                              </Link>
-                            </Button>
                           </div>
+                        )}
+
+                        <p className="text-xs text-muted-foreground mt-2">
+                          {formatDate(order.createdAt)}
+                        </p>
+                        {refundSummary.refunded > 0 && (
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Refunded{" "}
+                            {formatMoney(
+                              refundSummary.refunded,
+                              order.currency || "GBP",
+                            )}{" "}
+                            · Before{" "}
+                            {formatMoney(
+                              refundSummary.before,
+                              order.currency || "GBP",
+                            )}{" "}
+                            · After{" "}
+                            {formatMoney(
+                              refundSummary.after,
+                              order.currency || "GBP",
+                            )}
+                          </p>
+                        )}
+
+                        <div className="flex items-center justify-between gap-3 mt-3">
+                          <span className="text-sm font-semibold text-foreground">
+                            {formatMoney(order.total, order.currency || "GBP")}
+                          </span>
+                          <Button
+                            asChild
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 px-2 text-xs"
+                          >
+                            <Link to={`/portal/orders/${order._id}`}>View</Link>
+                          </Button>
                         </div>
                       </div>
                     );

@@ -307,7 +307,7 @@ const OrdersPage: React.FC = () => {
                       {formatDate(order.createdAt)}
                     </p>
                   </div>
-                  <div className="flex items-center gap-2 flex-wrap">
+                  <div className="flex items-center gap-3 flex-wrap">
                     <span
                       className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${getOrderStatusBadgeClass(order.status)}`}
                     >
@@ -327,8 +327,8 @@ const OrdersPage: React.FC = () => {
                 </div>
 
                 {isSubscriptionGeneratedOrder(order) && (
-                  <div className="mb-3">
-                    <span className="inline-flex items-center rounded-full bg-sky-100 px-2 py-0.5 text-[11px] font-medium text-sky-800 dark:bg-sky-500/20 dark:text-sky-200">
+                  <div className="mb-4 mt-1">
+                    <span className="inline-flex items-center rounded-full bg-sky-100 px-2.5 py-1 text-[11px] font-medium text-sky-800 dark:bg-sky-500/20 dark:text-sky-200">
                       Subscription generated
                     </span>
                   </div>
@@ -359,7 +359,7 @@ const OrdersPage: React.FC = () => {
                   {formatDeliveryAddress(order)}
                 </p>
 
-                <div className="flex items-center gap-2 flex-wrap">
+                <div className="flex items-center gap-3 flex-wrap">
                   <Button asChild variant="outline" size="sm">
                     <Link to={`/portal/orders/${order._id}`}>
                       View details

@@ -1,23 +1,35 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { ShoppingBag } from "lucide-react";
 import { Product, ProductVariant } from "@/data/products";
-import { useCart } from "@/context/CartContext";
 import QuantityStepper from "@/components/ui/QuantityStepper";
-import { toast } from "sonner";
 import { resolveImageUrl } from "@/api/client";
+import { isPortalLoggedIn } from "@/lib/portalAuth";
 
 interface ProductCardProps {
   product: Product;
   lockedVariantId?: string;
   hideVariantSelector?: boolean;
+  actionLabel?: string;
+  onAction?: (params: {
+    product: Product;
+    variant: ProductVariant | undefined;
+    quantity: number;
+  }) => void;
+  hideQuantityStepper?: boolean;
+  actionClassName?: string;
 }
 
 const ProductCard: React.FC<ProductCardProps> = ({
   product,
   lockedVariantId,
   hideVariantSelector,
+  actionLabel,
+  onAction,
+  hideQuantityStepper,
+  actionClassName,
 }) => {
+  const navigate = useNavigate();
   const [quantity, setQuantity] = useState(1);
 
   const initialVariant = useMemo<ProductVariant | undefined>(() => {
@@ -35,7 +47,6 @@ const ProductCard: React.FC<ProductCardProps> = ({
   useEffect(() => {
     setSelectedVariant(initialVariant);
   }, [initialVariant, product.id]);
-  const { addItem } = useCart();
 
   const currentPrice = selectedVariant?.price ?? product.price;
   const currentStockStatus =
@@ -104,15 +115,23 @@ const ProductCard: React.FC<ProductCardProps> = ({
     return "Not provided";
   })();
 
-  const handleAddToCart = (e: React.MouseEvent) => {
+  const handleAction = (e: React.MouseEvent) => {
     e.preventDefault();
-    addItem(product, selectedVariant, quantity);
-    toast.success(`${product.name} added to cart`, {
-      description: selectedVariant
-        ? `${selectedVariant.name} × ${quantity}`
-        : `× ${quantity}`,
-    });
-    setQuantity(1);
+    e.stopPropagation();
+
+    if (onAction) {
+      onAction({ product, variant: selectedVariant, quantity });
+      return;
+    }
+
+    if (isPortalLoggedIn()) {
+      navigate("/portal/subscriptions/new");
+      return;
+    }
+
+    navigate(
+      `/login?redirect=${encodeURIComponent("/portal/subscriptions/new")}`,
+    );
   };
 
   const getBadgeClass = (badge: string) => {
@@ -235,20 +254,24 @@ const ProductCard: React.FC<ProductCardProps> = ({
             </div>
           )}
 
-        {/* Quantity and Add to Cart */}
+        {/* Quantity and action button */}
         <div className="flex items-center gap-3">
-          <QuantityStepper
-            quantity={quantity}
-            onQuantityChange={setQuantity}
-            size="sm"
-          />
+          {!hideQuantityStepper && (
+            <QuantityStepper
+              quantity={quantity}
+              onQuantityChange={setQuantity}
+              size="sm"
+            />
+          )}
           <button
-            onClick={handleAddToCart}
+            onClick={handleAction}
             disabled={currentStockStatus === "out-of-stock"}
-            className="flex-1 btn-primary flex items-center justify-center gap-2 py-2.5 disabled:opacity-50 disabled:cursor-not-allowed"
+            className={`flex-1 btn-primary flex items-center justify-center gap-2 py-2.5 disabled:opacity-50 disabled:cursor-not-allowed ${
+              actionClassName || ""
+            }`}
           >
             <ShoppingBag className="w-4 h-4" />
-            <span className="text-sm">Add</span>
+            <span className="text-sm">{actionLabel || "Subscribe"}</span>
           </button>
         </div>
       </div>

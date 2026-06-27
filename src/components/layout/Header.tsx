@@ -1,8 +1,9 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { ShoppingBag, Menu, X, User, UserCheck } from "lucide-react";
+import { ShoppingBag, Menu, X, Sun, Moon, ChevronRight } from "lucide-react";
 import { useCart } from "@/context/CartContext";
 import api from "@/api/client";
+import { portalAuthApi, type PortalCustomer } from "@/api/portalAuth";
 import { AnnouncementBanner } from "./AnnouncementBanner";
 import { ORDER_DEADLINES_TEXT } from "@/lib/orderDeadlines";
 import { PORTAL_AUTH_CHANGED_EVENT, isPortalLoggedIn } from "@/lib/portalAuth";
@@ -16,7 +17,37 @@ type ActiveDiscount = {
   variants?: string[];
 };
 
-const Header: React.FC = () => {
+function readCustomerFromEnvelope(payload: unknown): PortalCustomer | null {
+  if (!payload || typeof payload !== "object") return null;
+
+  const data = (payload as { data?: unknown }).data;
+  if (!data || typeof data !== "object") return null;
+
+  const customerWrapper = (data as { customer?: unknown }).customer;
+  if (customerWrapper && typeof customerWrapper === "object") {
+    return customerWrapper as PortalCustomer;
+  }
+
+  return data as PortalCustomer;
+}
+
+interface HeaderProps {
+  /** Extra actions rendered in the right-hand action group (e.g. portal theme toggle + account menu). */
+  actions?: React.ReactNode;
+  /** Hide the default account/login icon (used when `actions` already provides an account control). */
+  showAccountLink?: boolean;
+  /** When provided, the mobile menu button calls this instead of toggling the built-in nav drawer. */
+  onMenuClick?: () => void;
+  /** When provided, the cart button calls this instead of opening the cart drawer. */
+  onCartClick?: () => void;
+}
+
+const Header: React.FC<HeaderProps> = ({
+  actions,
+  showAccountLink = true,
+  onMenuClick,
+  onCartClick,
+}) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [portalLoggedIn, setPortalLoggedIn] = useState(() =>
     isPortalLoggedIn(),
@@ -24,8 +55,13 @@ const Header: React.FC = () => {
   const [activeDiscount, setActiveDiscount] = useState<ActiveDiscount | null>(
     null,
   );
+  const [customer, setCustomer] = useState<PortalCustomer | null>(null);
+  const [isDark, setIsDark] = useState(() =>
+    document.documentElement.classList.contains("dark"),
+  );
   const { itemCount, openCart } = useCart();
   const location = useLocation();
+  const showEnhancedAccount = !actions && portalLoggedIn;
 
   useEffect(() => {
     let isMounted = true;
@@ -72,6 +108,50 @@ const Header: React.FC = () => {
     };
   }, []);
 
+  useEffect(() => {
+    if (!showEnhancedAccount) {
+      setCustomer(null);
+      return;
+    }
+
+    let active = true;
+    void (async () => {
+      try {
+        const res = await portalAuthApi.me();
+        if (!active) return;
+
+        const parsedCustomer = readCustomerFromEnvelope(res);
+        if (!parsedCustomer) return;
+
+        setCustomer(parsedCustomer);
+        const pref = parsedCustomer.themePreference;
+        if (pref === "dark" || pref === "light") {
+          setIsDark(pref === "dark");
+          document.documentElement.classList.toggle("dark", pref === "dark");
+          localStorage.setItem("portal-theme", pref);
+        }
+      } catch {
+        // Keep fallback UI if profile fetch fails.
+      }
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, [showEnhancedAccount]);
+
+  const handleThemeToggle = () => {
+    const nextIsDark = !isDark;
+    setIsDark(nextIsDark);
+    document.documentElement.classList.toggle("dark", nextIsDark);
+    const themePreference = nextIsDark ? "dark" : "light";
+    localStorage.setItem("portal-theme", themePreference);
+
+    if (portalLoggedIn) {
+      void portalAuthApi.updateProfile({ themePreference });
+    }
+  };
+
   const discountAnnouncement = useMemo(() => {
     if (!activeDiscount) return null;
 
@@ -110,6 +190,11 @@ const Header: React.FC = () => {
     { name: "Delivery & FAQs", path: "/delivery" },
     { name: "Contact", path: "/contact" },
   ];
+
+  const firstName = customer?.firstName?.trim() || "Account";
+  const avatarInitials =
+    `${customer?.firstName?.[0] || ""}${customer?.lastName?.[0] || ""}`.toUpperCase() ||
+    "AC";
 
   const isActive = (path: string) => location.pathname === path;
 
@@ -151,17 +236,17 @@ const Header: React.FC = () => {
           <div className="flex items-center justify-between h-16 lg:h-20">
             <button
               className="lg:hidden p-2 -ml-2 text-foreground hover:text-primary transition-colors"
-              onClick={() => setIsMenuOpen(!isMenuOpen)}
+              onClick={onMenuClick ?? (() => setIsMenuOpen(!isMenuOpen))}
               aria-label="Toggle menu"
             >
-              {isMenuOpen ? (
+              {!onMenuClick && isMenuOpen ? (
                 <X className="w-6 h-6" />
               ) : (
                 <Menu className="w-6 h-6" />
               )}
             </button>
 
-            <Link to="/" className="flex items-center gap-2">
+            <Link to="/" className="hidden sm:flex items-center gap-2">
               <img
                 src="/Logo.jpg"
                 alt="Levants logo"
@@ -189,20 +274,57 @@ const Header: React.FC = () => {
             </nav>
 
             <div className="flex items-center gap-2 lg:gap-4">
-              <Link
-                to={portalLoggedIn ? "/portal/dashboard" : "/login"}
-                className="relative p-2 text-foreground hover:text-primary transition-colors"
-                aria-label={portalLoggedIn ? "Account" : "Sign in"}
-              >
-                {portalLoggedIn ? (
-                  <UserCheck className="w-5 h-5" />
-                ) : (
-                  <User className="w-5 h-5" />
-                )}
-              </Link>
+              {actions}
+
+              {showEnhancedAccount && (
+                <>
+                  <button
+                    onClick={handleThemeToggle}
+                    className="p-2 text-foreground hover:text-primary transition-colors"
+                    aria-label="Toggle theme"
+                  >
+                    {isDark ? (
+                      <Sun className="w-5 h-5" />
+                    ) : (
+                      <Moon className="w-5 h-5" />
+                    )}
+                  </button>
+
+                  <Link
+                    to="/portal/dashboard"
+                    className="flex items-center gap-2 pl-2 pr-2 sm:pr-3 py-1.5 rounded-xl hover:bg-muted transition-colors text-sm"
+                    aria-label="Open portal dashboard"
+                  >
+                    <div className="w-7 h-7 rounded-full bg-forest/15 flex items-center justify-center text-forest text-xs font-bold">
+                      {avatarInitials}
+                    </div>
+                    <span className="hidden sm:block font-medium text-foreground">
+                      {firstName}
+                    </span>
+                    <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+                  </Link>
+                </>
+              )}
+
+              {showAccountLink && !showEnhancedAccount && (
+                <div className="flex items-center gap-2">
+                  <Link
+                    to="/login"
+                    className="px-3 py-1.5 rounded-lg text-sm font-medium text-foreground hover:text-primary transition-colors"
+                  >
+                    Login
+                  </Link>
+                  <Link
+                    to="/register"
+                    className="px-3 py-1.5 rounded-lg text-sm font-medium bg-primary text-primary-foreground hover:opacity-90 transition-opacity"
+                  >
+                    Sign up
+                  </Link>
+                </div>
+              )}
 
               <button
-                onClick={openCart}
+                onClick={onCartClick ?? openCart}
                 className="relative p-2 text-foreground hover:text-primary transition-colors"
                 aria-label="Cart"
               >
@@ -217,7 +339,7 @@ const Header: React.FC = () => {
           </div>
         </div>
 
-        {isMenuOpen && (
+        {!onMenuClick && isMenuOpen && (
           <div className="lg:hidden border-t border-border animate-fade-in">
             <nav className="container-custom py-4 flex flex-col gap-2">
               {navLinks.map((link) => (

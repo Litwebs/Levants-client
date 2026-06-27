@@ -16,6 +16,8 @@ import {
 import { useProducts } from "@/context/Products/ProductsContext";
 import { resolveImageUrl } from "@/api/client";
 import ProductCard from "@/components/products/ProductCard";
+import { Product, ProductVariant } from "@/data/products";
+import { cn } from "@/lib/utils";
 import {
   Pagination,
   PaginationContent,
@@ -42,7 +44,40 @@ const guessCategoryNameFromSlug = (slug: string) =>
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(" ");
 
-const ShopPage: React.FC = () => {
+interface ShopPageProps {
+  cardActionLabel?: (params: {
+    product: Product;
+    lockedVariantId?: string;
+  }) => string;
+  cardActionClassName?: (params: {
+    product: Product;
+    lockedVariantId?: string;
+  }) => string | undefined;
+  onCardAction?: (params: {
+    product: Product;
+    variant: ProductVariant | undefined;
+    quantity: number;
+    lockedVariantId?: string;
+  }) => void;
+  hideCardQuantityStepper?: boolean;
+  productGridClassName?: string;
+  contentGapClassName?: string;
+  embedded?: boolean;
+  sidebarStickyTopClassName?: string;
+  sidebarStickyTopOffset?: number;
+}
+
+const ShopPage: React.FC<ShopPageProps> = ({
+  cardActionLabel,
+  cardActionClassName,
+  onCardAction,
+  hideCardQuantityStepper = false,
+  productGridClassName,
+  contentGapClassName,
+  embedded = false,
+  sidebarStickyTopClassName,
+  sidebarStickyTopOffset,
+}) => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const { products, meta, loading, error, fetchProducts } = useProducts();
@@ -297,24 +332,40 @@ const ShopPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="bg-secondary/30 py-12 lg:py-16">
-        <div className="container-custom">
-          <h1 className="font-heading text-3xl lg:text-4xl font-semibold mb-2">
-            Shop All Products
-          </h1>
-          <p className="text-muted-foreground">
-            Fresh dairy delivered to your door. {totalAvailable} products
-            available.
-          </p>
+    <div className={embedded ? "bg-background" : "min-h-screen bg-background"}>
+      {!embedded && (
+        <div className="bg-secondary/30 py-12 lg:py-16">
+          <div className="container-custom">
+            <h1 className="font-heading text-3xl lg:text-4xl font-semibold mb-2">
+              Shop All Products
+            </h1>
+            <p className="text-muted-foreground">
+              Fresh dairy delivered to your door. {totalAvailable} products
+              available.
+            </p>
+          </div>
         </div>
-      </div>
+      )}
 
-      <div className="container-custom py-8 lg:py-12">
-        <div className="flex flex-col lg:flex-row gap-8">
+      <div className={embedded ? "py-0" : "container-custom py-8 lg:py-12"}>
+        <div
+          className={contentGapClassName || "flex flex-col lg:flex-row gap-8"}
+        >
           {/* Desktop Sidebar */}
           <aside className="hidden lg:block w-64 flex-shrink-0">
-            <div className="sticky top-24 space-y-8">
+            <div
+              className={cn(
+                "sticky space-y-8",
+                sidebarStickyTopOffset != null
+                  ? undefined
+                  : sidebarStickyTopClassName || "top-24",
+              )}
+              style={
+                sidebarStickyTopOffset != null
+                  ? { top: sidebarStickyTopOffset }
+                  : undefined
+              }
+            >
               <div>
                 <h3 className="font-medium mb-4 flex items-center gap-2">
                   <Filter className="w-4 h-4" /> Categories
@@ -423,7 +474,12 @@ const ShopPage: React.FC = () => {
             {/* Product Grid */}
             {!loading && !error && productVariantCards.length > 0 && (
               <>
-                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
+                <div
+                  className={
+                    productGridClassName ||
+                    "grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6"
+                  }
+                >
                   {productVariantCards.map(
                     ({ product, lockedVariantId }, index) => (
                       <div
@@ -435,6 +491,26 @@ const ShopPage: React.FC = () => {
                           product={product}
                           lockedVariantId={lockedVariantId}
                           hideVariantSelector
+                          hideQuantityStepper={hideCardQuantityStepper}
+                          actionLabel={cardActionLabel?.({
+                            product,
+                            lockedVariantId,
+                          })}
+                          actionClassName={cardActionClassName?.({
+                            product,
+                            lockedVariantId,
+                          })}
+                          onAction={
+                            onCardAction
+                              ? ({ product, variant, quantity }) =>
+                                  onCardAction({
+                                    product,
+                                    variant,
+                                    quantity,
+                                    lockedVariantId,
+                                  })
+                              : undefined
+                          }
                         />
                       </div>
                     ),
