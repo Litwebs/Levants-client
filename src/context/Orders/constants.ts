@@ -47,11 +47,22 @@ export interface CreateOrderPayload {
    */
   // deliveryInstructions?: string;
   discountCode?: string;
+  /**
+   * Store credit to apply, in MINOR units (pence).
+   */
+  creditToApplyMinor?: number;
 }
 
 export interface CreateOrderResponse {
   orderId: string;
-  checkoutUrl: string;
+  /**
+   * Null when the order was paid in full with store credit (no Stripe redirect).
+   */
+  checkoutUrl: string | null;
+  /**
+   * True when the order was settled entirely with store credit.
+   */
+  paidWithCredit?: boolean;
 }
 
 export interface OrderState {

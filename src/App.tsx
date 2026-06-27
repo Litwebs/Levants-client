@@ -41,11 +41,13 @@ import OrderDetailPage from "@/portal/pages/OrderDetailPage";
 import SubscriptionsPage from "@/portal/pages/SubscriptionsPage";
 import NewSubscriptionPage from "@/portal/pages/NewSubscriptionPage";
 import SubscriptionDetailPage from "@/portal/pages/SubscriptionDetailPage";
+import SubscriptionAddProductsPage from "@/portal/pages/SubscriptionAddProductsPage";
 import DeliveriesPage from "@/portal/pages/DeliveriesPage";
 import PaymentsPage from "@/portal/pages/PaymentsPage";
 import AddressesPage from "@/portal/pages/AddressesPage";
 import SupportPage from "@/portal/pages/SupportPage";
 import AccountSettingsPage from "@/portal/pages/AccountSettingsPage";
+import StoreCreditPage from "@/portal/pages/StoreCreditPage";
 import NotificationsPage from "@/portal/pages/NotificationsPage";
 import {
   PORTAL_AUTH_CHANGED_EVENT,
@@ -420,6 +422,16 @@ const App = () => {
                     }
                   />
                   <Route
+                    path="/portal/subscriptions/:id/add-products"
+                    element={
+                      <RequirePortalAuth>
+                        <PortalLayout>
+                          <SubscriptionAddProductsPage />
+                        </PortalLayout>
+                      </RequirePortalAuth>
+                    }
+                  />
+                  <Route
                     path="/portal/deliveries"
                     element={
                       <RequirePortalAuth>
@@ -465,6 +477,16 @@ const App = () => {
                       <RequirePortalAuth>
                         <PortalLayout>
                           <AccountSettingsPage />
+                        </PortalLayout>
+                      </RequirePortalAuth>
+                    }
+                  />
+                  <Route
+                    path="/portal/credit"
+                    element={
+                      <RequirePortalAuth>
+                        <PortalLayout>
+                          <StoreCreditPage />
                         </PortalLayout>
                       </RequirePortalAuth>
                     }

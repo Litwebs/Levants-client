@@ -50,6 +50,8 @@ export type PortalOrder = {
   deliveryDate?: string | null;
   paidAt?: string | null;
   amountPaid?: number;
+  stripePaymentIntentId?: string;
+  stripeCheckoutSessionId?: string;
   items: PortalOrderItem[];
   refund?: PortalLegacyRefund;
   refunds?: PortalOrderRefund[];
@@ -92,6 +94,10 @@ type GetOrderResponse = {
   order: PortalOrder;
 };
 
+type GetReceiptUrlResponse = {
+  receiptUrl: string;
+};
+
 export type ListOrdersQuery = {
   page?: number;
   pageSize?: number;
@@ -107,4 +113,7 @@ export const portalOrdersApi = {
 
   getById: (orderId: string) =>
     api.get<ApiEnvelope<GetOrderResponse>>(`${base}/${orderId}`),
+
+  getReceiptUrl: (orderId: string) =>
+    api.get<ApiEnvelope<GetReceiptUrlResponse>>(`${base}/${orderId}/receipt-url`),
 };

@@ -6,8 +6,8 @@ import {
   RefreshCcw,
   Truck,
   CreditCard,
+  Wallet,
   MapPin,
-  HeadphonesIcon,
   Settings,
   Bell,
   LogOut,
@@ -42,8 +42,8 @@ const navItems = [
   { label: "My Orders", href: "/portal/orders", icon: ClipboardList },
   { label: "Deliveries", href: "/portal/deliveries", icon: Truck },
   { label: "Payments", href: "/portal/payments", icon: CreditCard },
+  { label: "Store Credit", href: "/portal/credit", icon: Wallet },
   { label: "Addresses", href: "/portal/addresses", icon: MapPin },
-  { label: "Support", href: "/portal/support", icon: HeadphonesIcon },
   { label: "Account", href: "/portal/account", icon: Settings },
 ];
 

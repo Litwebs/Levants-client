@@ -16,7 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ApiError } from "@/api/client";
+import { ApiError, resolveApiUrl } from "@/api/client";
 import { portalOrdersApi, type PortalOrder } from "@/api/portalOrders";
 import {
   EmptyState,
@@ -111,6 +111,9 @@ const formatDeliveryAddress = (order: PortalOrder) => {
     .join(", ");
 };
 
+const canDownloadReceipt = (order: PortalOrder) =>
+  Boolean(order.stripePaymentIntentId || order.stripeCheckoutSessionId);
+
 const OrdersPage: React.FC = () => {
   const [orders, setOrders] = useState<PortalOrder[]>([]);
   const [page, setPage] = useState(1);
@@ -123,6 +126,7 @@ const OrdersPage: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<"all" | ApiOrderStatus>(
     "all",
   );
+  const [receiptLoadingId, setReceiptLoadingId] = useState<string | null>(null);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -181,44 +185,65 @@ const OrdersPage: React.FC = () => {
   );
   const showPagination = total > PAGE_SIZE;
 
+  const handleDownloadReceipt = async (orderId: string) => {
+    try {
+      setReceiptLoadingId(orderId);
+      const res = await portalOrdersApi.getReceiptUrl(orderId);
+      const receiptUrl = (res as any)?.data?.receiptUrl as string | undefined;
+      if (receiptUrl) {
+        window.open(resolveApiUrl(receiptUrl), "_blank", "noopener,noreferrer");
+      }
+    } catch (err) {
+      const msg =
+        err instanceof ApiError
+          ? err.message
+          : "Unable to download receipt right now.";
+      setError(msg);
+    } finally {
+      setReceiptLoadingId((current) => (current === orderId ? null : current));
+    }
+  };
+
   return (
     <div className="max-w-4xl mx-auto">
-      <PageHeader
-        title="My Orders"
-        description="View and manage your order history"
-        action={
-          <Button asChild size="sm">
-            <Link to="/portal/products">Place New Order</Link>
-          </Button>
-        }
-      />
+      <div className="sticky top-14 z-20 -mx-2 px-2 pt-2 pb-4 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+        <PageHeader
+          title="My Orders"
+          description="View and manage your order history"
+          action={
+            <Button asChild size="sm">
+              <Link to="/portal/products">Place New Order</Link>
+            </Button>
+          }
+        />
 
-      <div className="flex flex-col sm:flex-row gap-3 mb-5">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search orders..."
-            className="pl-9"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search orders..."
+              className="pl-9"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+          <Select
+            value={statusFilter}
+            onValueChange={(v) => setStatusFilter(v as "all" | ApiOrderStatus)}
+          >
+            <SelectTrigger className="w-full sm:w-56">
+              <Filter className="h-4 w-4 mr-2" />
+              <SelectValue placeholder="Filter by status" />
+            </SelectTrigger>
+            <SelectContent>
+              {ORDER_STATUS_OPTIONS.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
-        <Select
-          value={statusFilter}
-          onValueChange={(v) => setStatusFilter(v as "all" | ApiOrderStatus)}
-        >
-          <SelectTrigger className="w-full sm:w-56">
-            <Filter className="h-4 w-4 mr-2" />
-            <SelectValue placeholder="Filter by status" />
-          </SelectTrigger>
-          <SelectContent>
-            {ORDER_STATUS_OPTIONS.map((option) => (
-              <SelectItem key={option.value} value={option.value}>
-                {option.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
       </div>
 
       {error && (
@@ -248,7 +273,7 @@ const OrdersPage: React.FC = () => {
         />
       ) : (
         <>
-          <div className="space-y-3">
+          <div className="space-y-3 pb-24 lg:pb-20">
             {orders.map((order) => (
               <div
                 key={order._id}
@@ -292,18 +317,32 @@ const OrdersPage: React.FC = () => {
                   {formatDeliveryAddress(order)}
                 </p>
 
-                <Button asChild variant="outline" size="sm">
-                  <Link to={`/portal/orders/${order._id}`}>
-                    View details
-                    <ArrowRight className="h-3.5 w-3.5" />
-                  </Link>
-                </Button>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Button asChild variant="outline" size="sm">
+                    <Link to={`/portal/orders/${order._id}`}>
+                      View details
+                      <ArrowRight className="h-3.5 w-3.5" />
+                    </Link>
+                  </Button>
+                  {canDownloadReceipt(order) && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => void handleDownloadReceipt(order._id)}
+                      disabled={receiptLoadingId === order._id}
+                    >
+                      {receiptLoadingId === order._id
+                        ? "Preparing..."
+                        : "Download Receipt"}
+                    </Button>
+                  )}
+                </div>
               </div>
             ))}
           </div>
 
           {showPagination && (
-            <div className="mt-6 flex items-center justify-between gap-3">
+            <div className="sticky bottom-16 lg:bottom-0 z-20 mt-6 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 border-t border-border rounded-t-xl px-3 py-3 flex items-center justify-between gap-3">
               <p className="text-xs text-muted-foreground">
                 Showing page {page} of {totalPages} ({total} orders)
               </p>

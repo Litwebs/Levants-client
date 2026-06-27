@@ -39,6 +39,8 @@ const CheckoutPage: React.FC = () => {
   const [loggedInCustomerId, setLoggedInCustomerId] = useState<string | null>(
     null,
   );
+  const [availableCreditMinor, setAvailableCreditMinor] = useState(0);
+  const [applyCredit, setApplyCredit] = useState(false);
   const [skipDeliveryStep, setSkipDeliveryStep] = useState(false);
   const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>([]);
   const [selectedSavedAddressId, setSelectedSavedAddressId] = useState<
@@ -133,6 +135,9 @@ const CheckoutPage: React.FC = () => {
 
         setLoggedInCheckout(true);
         setLoggedInCustomerId(profile._id || null);
+        setAvailableCreditMinor(
+          Math.max(0, Math.round(Number(profile.creditBalance) || 0)),
+        );
         setSavedAddresses(addresses);
         setSelectedSavedAddressId(defaultAddress?.id || null);
         const hasDefaultAddress = Boolean(
@@ -377,10 +382,15 @@ const CheckoutPage: React.FC = () => {
       }
 
       // If a code is entered, require it to be validated before sending to order creation.
-      const ok = await ensureDiscountValidatedIfNeeded(activeCustomerId);
-      if (!ok) {
-        toast.error("Please fix your discount code before placing the order.");
-        return;
+      const usingCredit = applyCredit && canUseCredit && creditAppliedMinor > 0;
+      if (!usingCredit) {
+        const ok = await ensureDiscountValidatedIfNeeded(activeCustomerId);
+        if (!ok) {
+          toast.error(
+            "Please fix your discount code before placing the order.",
+          );
+          return;
+        }
       }
 
       // 2. Create order → get Stripe checkout URL
@@ -389,7 +399,7 @@ const CheckoutPage: React.FC = () => {
         quantity: item.quantity,
       }));
 
-      const checkoutUrl = await createOrder({
+      const result = await createOrder({
         customerId: activeCustomerId,
         items: orderItems,
         deliveryAddress: {
@@ -400,13 +410,21 @@ const CheckoutPage: React.FC = () => {
           country: "UK",
         },
         customerInstructions: formData.customerInstructions || undefined,
-        discountCode:
-          validatedDiscount?.code || discountCode.trim() || undefined,
+        discountCode: usingCredit
+          ? undefined
+          : validatedDiscount?.code || discountCode.trim() || undefined,
+        creditToApplyMinor: usingCredit ? creditAppliedMinor : undefined,
       });
 
-      if (checkoutUrl) {
+      if (result?.paidWithCredit) {
+        // Fully paid with store credit — no Stripe redirect needed.
+        navigate("/checkout/success");
+        return;
+      }
+
+      if (result?.checkoutUrl) {
         // Redirect to Stripe Checkout
-        window.location.href = checkoutUrl;
+        window.location.href = result.checkoutUrl;
       } else {
         toast.error("Failed to create order. Please try again.");
       }
@@ -419,6 +437,25 @@ const CheckoutPage: React.FC = () => {
   const displaySubtotal = Math.max(0, subtotal - discountAmount);
   const deliveryFee = 1;
   const displayTotal = displaySubtotal + deliveryFee;
+
+  // Store credit (in MINOR units / pence). Cannot be combined with a discount.
+  const STRIPE_MIN_CHARGE_MINOR = 30;
+  const canUseCredit =
+    loggedInCheckout && availableCreditMinor > 0 && !validatedDiscount;
+  const orderTotalMinor = Math.round(displayTotal * 100);
+  let creditAppliedMinor = 0;
+  if (applyCredit && canUseCredit) {
+    creditAppliedMinor = Math.min(availableCreditMinor, orderTotalMinor);
+    const amountDueMinor = orderTotalMinor - creditAppliedMinor;
+    if (amountDueMinor > 0 && amountDueMinor < STRIPE_MIN_CHARGE_MINOR) {
+      creditAppliedMinor = Math.max(
+        0,
+        creditAppliedMinor - (STRIPE_MIN_CHARGE_MINOR - amountDueMinor),
+      );
+    }
+  }
+  const creditApplied = creditAppliedMinor / 100;
+  const amountDueTotal = Math.max(0, displayTotal - creditApplied);
 
   if (items.length === 0) {
     return (
@@ -748,45 +785,78 @@ const CheckoutPage: React.FC = () => {
                   })}
                 </div>
 
-                <div className="mb-4">
-                  <label className="block text-sm font-medium mb-2">
-                    Discount Code
-                  </label>
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      placeholder="Enter code"
-                      className="flex-1 input-field py-2.5"
-                      value={discountCode}
-                      onChange={(e) => {
-                        setDiscountCode(e.target.value);
-                        setValidatedDiscount(null);
-                      }}
-                    />
-                    <button
-                      type="button"
-                      className="btn-outline py-2.5 px-4"
-                      disabled={loading}
-                      onClick={async () => {
-                        if (!discountCode.trim()) {
-                          toast.error("Enter a discount code first.");
-                          return;
-                        }
-                        const activeCustomerId =
-                          customer?._id || loggedInCustomerId;
-                        if (!activeCustomerId) {
-                          toast.error(
-                            "Complete checkout details first, then apply the code.",
+                {!applyCredit && (
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium mb-2">
+                      Discount Code
+                    </label>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        placeholder="Enter code"
+                        className="flex-1 input-field py-2.5"
+                        value={discountCode}
+                        onChange={(e) => {
+                          setDiscountCode(e.target.value);
+                          setValidatedDiscount(null);
+                        }}
+                      />
+                      <button
+                        type="button"
+                        className="btn-outline py-2.5 px-4"
+                        disabled={loading}
+                        onClick={async () => {
+                          if (!discountCode.trim()) {
+                            toast.error("Enter a discount code first.");
+                            return;
+                          }
+                          const activeCustomerId =
+                            customer?._id || loggedInCustomerId;
+                          if (!activeCustomerId) {
+                            toast.error(
+                              "Complete checkout details first, then apply the code.",
+                            );
+                            return;
+                          }
+                          await ensureDiscountValidatedIfNeeded(
+                            activeCustomerId,
                           );
-                          return;
-                        }
-                        await ensureDiscountValidatedIfNeeded(activeCustomerId);
-                      }}
-                    >
-                      Apply
-                    </button>
+                        }}
+                      >
+                        Apply
+                      </button>
+                    </div>
                   </div>
-                </div>
+                )}
+
+                {canUseCredit && (
+                  <div className="mb-4 p-4 rounded-xl border border-border bg-secondary/20">
+                    <label className="flex items-start gap-3 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        className="mt-1 h-4 w-4 accent-primary"
+                        checked={applyCredit}
+                        onChange={(e) => {
+                          const checked = e.target.checked;
+                          setApplyCredit(checked);
+                          if (checked) {
+                            // Store credit can't be combined with a discount.
+                            setDiscountCode("");
+                            setValidatedDiscount(null);
+                          }
+                        }}
+                      />
+                      <span className="text-sm">
+                        <span className="font-medium">Apply store credit</span>
+                        <span className="block text-muted-foreground">
+                          You have £{(availableCreditMinor / 100).toFixed(2)}{" "}
+                          available. Credit can't be combined with a discount
+                          code.
+                        </span>
+                      </span>
+                    </label>
+                  </div>
+                )}
 
                 <div className="border-t border-border pt-4 space-y-2">
                   <div className="flex justify-between text-sm">
@@ -803,9 +873,17 @@ const CheckoutPage: React.FC = () => {
                     <span className="text-muted-foreground">Delivery</span>
                     <span>£{deliveryFee.toFixed(2)}</span>
                   </div>
+                  {creditApplied > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">
+                        Store credit
+                      </span>
+                      <span>-£{creditApplied.toFixed(2)}</span>
+                    </div>
+                  )}
                   <div className="border-t border-border pt-2 flex justify-between font-semibold">
                     <span>Total</span>
-                    <span>£{displayTotal.toFixed(2)}</span>
+                    <span>£{amountDueTotal.toFixed(2)}</span>
                   </div>
                 </div>
               </div>
@@ -892,7 +970,7 @@ const CheckoutPage: React.FC = () => {
                     Processing...
                   </>
                 ) : (
-                  `Place Order - £${displayTotal.toFixed(2)}`
+                  `Place Order - £${amountDueTotal.toFixed(2)}`
                 )}
               </button>
             )}

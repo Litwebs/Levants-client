@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { ApiError, resolveImageUrl } from "@/api/client";
+import { ApiError, resolveApiUrl, resolveImageUrl } from "@/api/client";
 import { portalOrdersApi, type PortalOrder } from "@/api/portalOrders";
 
 const formatDate = (iso?: string | null) => {
@@ -126,11 +126,15 @@ const formatAddress = (order: PortalOrder) => {
     .join(", ");
 };
 
+const canDownloadReceipt = (order: PortalOrder) =>
+  Boolean(order.stripePaymentIntentId || order.stripeCheckoutSessionId);
+
 const OrderDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const [order, setOrder] = useState<PortalOrder | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [receiptLoading, setReceiptLoading] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -243,6 +247,26 @@ const OrderDetailPage: React.FC = () => {
       ]
     : DELIVERY_FLOW;
   const currentStepIndex = flowSteps.findIndex((s) => s.key === deliveryStatus);
+
+  const handleDownloadReceipt = async () => {
+    if (!order) return;
+    try {
+      setReceiptLoading(true);
+      const res = await portalOrdersApi.getReceiptUrl(order._id);
+      const receiptUrl = (res as any)?.data?.receiptUrl as string | undefined;
+      if (receiptUrl) {
+        window.open(resolveApiUrl(receiptUrl), "_blank", "noopener,noreferrer");
+      }
+    } catch (err) {
+      const msg =
+        err instanceof ApiError
+          ? err.message
+          : "Unable to download receipt right now.";
+      setError(msg);
+    } finally {
+      setReceiptLoading(false);
+    }
+  };
 
   return (
     <div className="max-w-2xl mx-auto">
@@ -453,6 +477,18 @@ const OrderDetailPage: React.FC = () => {
           <p className="text-xs text-muted-foreground uppercase tracking-wide mb-2">
             Items Ordered
           </p>
+          {canDownloadReceipt(order) && (
+            <div className="mb-3">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => void handleDownloadReceipt()}
+                disabled={receiptLoading}
+              >
+                {receiptLoading ? "Preparing..." : "Download Receipt"}
+              </Button>
+            </div>
+          )}
           <div className="space-y-3">
             {order.items.map((item, i) => (
               <div

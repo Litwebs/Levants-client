@@ -6,6 +6,20 @@ function getDefaultApiBaseUrl(): string {
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || getDefaultApiBaseUrl();
 
+export function getApiBaseUrl(): string {
+  return API_BASE_URL;
+}
+
+export function resolveApiUrl(pathOrUrl: string): string {
+  const value = String(pathOrUrl || "").trim();
+  if (!value) return value;
+  if (value.startsWith("http://") || value.startsWith("https://")) return value;
+
+  const apiOrigin = API_BASE_URL.replace(/\/api\/?$/, "");
+  const normalizedPath = value.startsWith("/") ? value : `/${value}`;
+  return `${apiOrigin}${normalizedPath}`;
+}
+
 type QueryParamPrimitive = string | number | boolean;
 type QueryParamValue = QueryParamPrimitive | QueryParamPrimitive[] | undefined;
 
@@ -160,8 +174,11 @@ const api = {
       body: body ? JSON.stringify(body) : undefined,
     }),
 
-  delete: <T>(endpoint: string) =>
-    request<T>(endpoint, { method: 'DELETE' }),
+  delete: <T>(endpoint: string, body?: unknown) =>
+    request<T>(endpoint, {
+      method: 'DELETE',
+      body: body ? JSON.stringify(body) : undefined,
+    }),
 };
 
 export default api;

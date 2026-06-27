@@ -125,8 +125,8 @@ const ProductDetailModal: React.FC<{
                 Quantity
               </p>
               <QuantityStepper
-                value={quantity}
-                onChange={setQuantity}
+                quantity={quantity}
+                onQuantityChange={setQuantity}
                 min={1}
                 max={20}
               />

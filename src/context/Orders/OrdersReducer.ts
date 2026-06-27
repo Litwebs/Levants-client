@@ -19,7 +19,7 @@ export type OrderAction =
   | { type: typeof ORDER_REQUEST }
   | { type: typeof ORDER_FAILURE; payload: string }
   | { type: typeof CUSTOMER_SUCCESS; payload: Customer }
-  | { type: typeof CHECKOUT_SUCCESS; payload: string }
+  | { type: typeof CHECKOUT_SUCCESS; payload: string | null }
   | { type: typeof ORDER_IDLE }
   | { type: typeof ORDER_RESET };
 

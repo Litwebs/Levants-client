@@ -7,6 +7,7 @@ import {
   Loader2,
   AlertCircle,
   Search,
+  CreditCard,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -21,7 +22,19 @@ import {
 } from "@/components/ui/select";
 import { useAddresses } from "@/portal/context/AddressesContext";
 import { cn } from "@/lib/utils";
-import api from "@/api/client";
+import api, { ApiError } from "@/api/client";
+import { portalSubscriptionsApi } from "@/api/portalSubscriptions";
+import {
+  portalPaymentsApi,
+  type PortalPaymentMethod,
+} from "@/api/portalPayments";
+import {
+  Elements,
+  PaymentElement,
+  useElements,
+  useStripe,
+} from "@stripe/react-stripe-js";
+import { loadStripe } from "@stripe/stripe-js";
 
 // ── API types ────────────────────────────────────────────────────────────────
 interface ApiVariant {
@@ -55,9 +68,209 @@ const steps = [
   "Review & Confirm",
 ];
 
+const paymentElementOptions = {
+  layout: "tabs" as const,
+  // Limit to card + wallets — excludes Stripe Link / Onelink entirely
+  paymentMethodOrder: ["apple_pay", "google_pay", "card"],
+  wallets: { applePay: "auto" as const, googlePay: "auto" as const },
+  terms: {
+    card: "never" as const,
+    applePay: "never" as const,
+    googlePay: "never" as const,
+  },
+};
+
+/**
+ * Build a Stripe appearance object from the app's live CSS custom properties.
+ * Called once per Elements mount so it picks up the current light/dark mode.
+ */
+function buildStripeAppearance(): object {
+  const s = getComputedStyle(document.documentElement);
+  const v = (name: string) => `hsl(${s.getPropertyValue(name).trim()})`;
+
+  return {
+    theme: "none",
+    variables: {
+      colorBackground: v("--background"),
+      colorText: v("--foreground"),
+      colorTextSecondary: v("--muted-foreground"),
+      colorTextPlaceholder: v("--muted-foreground"),
+      colorPrimary: v("--forest"),
+      colorDanger: v("--destructive"),
+      colorIconTab: v("--muted-foreground"),
+      colorIconTabSelected: v("--forest"),
+      borderRadius: "12px",
+      fontSizeBase: "14px",
+      fontFamily: "inherit",
+      spacingUnit: "4px",
+    },
+    rules: {
+      ".Input": {
+        backgroundColor: v("--background"),
+        border: `1px solid hsl(${s.getPropertyValue("--border").trim()})`,
+        borderRadius: "10px",
+        color: v("--foreground"),
+        padding: "10px 12px",
+        boxShadow: "none",
+        outline: "none",
+      },
+      ".Input:focus": {
+        border: `1px solid hsl(${s.getPropertyValue("--forest").trim()} / 0.7)`,
+        boxShadow: "none",
+        outline: "none",
+      },
+      ".Input--invalid": {
+        border: `1px solid hsl(${s.getPropertyValue("--destructive").trim()})`,
+      },
+      ".Label": {
+        color: v("--muted-foreground"),
+        fontSize: "11px",
+        fontWeight: "500",
+        textTransform: "uppercase",
+        letterSpacing: "0.12em",
+        marginBottom: "6px",
+      },
+      ".Tab": {
+        backgroundColor: v("--card"),
+        border: `1px solid hsl(${s.getPropertyValue("--border").trim()})`,
+        borderRadius: "10px",
+        color: v("--muted-foreground"),
+        boxShadow: "none",
+      },
+      ".Tab:hover": {
+        border: `1px solid hsl(${s.getPropertyValue("--forest").trim()} / 0.5)`,
+        color: v("--foreground"),
+      },
+      ".Tab--selected": {
+        backgroundColor: v("--card"),
+        border: `1px solid hsl(${s.getPropertyValue("--forest").trim()})`,
+        color: v("--forest"),
+        boxShadow: "none",
+      },
+      ".TabIcon--selected": {
+        fill: v("--forest"),
+      },
+      ".TabLabel--selected": {
+        color: v("--forest"),
+      },
+      ".Block": {
+        backgroundColor: v("--card"),
+        border: `1px solid hsl(${s.getPropertyValue("--border").trim()})`,
+        borderRadius: "12px",
+        boxShadow: "none",
+      },
+      ".CheckboxInput": {
+        backgroundColor: v("--background"),
+        border: `1px solid hsl(${s.getPropertyValue("--border").trim()})`,
+        borderRadius: "4px",
+      },
+      ".CheckboxInput--checked": {
+        backgroundColor: v("--forest"),
+        border: `1px solid hsl(${s.getPropertyValue("--forest").trim()})`,
+      },
+    },
+  };
+}
+
+const cardBrandLabel = (brand?: string | null) => {
+  const map: Record<string, string> = {
+    visa: "Visa",
+    mastercard: "Mastercard",
+    amex: "Amex",
+    discover: "Discover",
+    jcb: "JCB",
+    unionpay: "UnionPay",
+    unknown: "Card",
+  };
+  return map[brand?.toLowerCase() ?? ""] ?? brand ?? "Card";
+};
+
+const fmtMethod = (pm: PortalPaymentMethod) =>
+  `${cardBrandLabel(pm.cardBrand)} ···· ${pm.lastFour ?? "----"}  exp ${
+    pm.expiryMonth ? String(pm.expiryMonth).padStart(2, "0") : "--"
+  }/${pm.expiryYear ? String(pm.expiryYear).slice(-2) : "--"}`;
+
+const SubscriptionPaymentForm: React.FC<{
+  onComplete: (paymentMethodId: string) => Promise<void>;
+  onError: (message: string) => void;
+  submitLoading?: boolean;
+}> = ({ onComplete, onError, submitLoading = false }) => {
+  const stripe = useStripe();
+  const elements = useElements();
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!stripe || !elements) return;
+
+    try {
+      setLoading(true);
+      const result = await stripe.confirmSetup({
+        elements,
+        confirmParams: {
+          return_url: window.location.href,
+        },
+        redirect: "if_required",
+      });
+
+      if (result.error) {
+        onError(result.error.message || "Failed to save payment method.");
+        return;
+      }
+
+      const paymentMethodId = result.setupIntent?.payment_method;
+      if (typeof paymentMethodId !== "string") {
+        onError("Stripe did not return a payment method.");
+        return;
+      }
+
+      await onComplete(paymentMethodId);
+    } catch {
+      onError("Failed to save payment method. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-3">
+      <PaymentElement options={paymentElementOptions} />
+      <Button
+        type="submit"
+        className="w-full mt-1"
+        disabled={!stripe || loading || submitLoading}
+      >
+        {loading || submitLoading ? (
+          <>
+            <Loader2 className="h-4 w-4 animate-spin" />
+            {submitLoading ? "Subscribing…" : "Saving…"}
+          </>
+        ) : (
+          <>
+            <CreditCard className="h-4 w-4" />
+            Save &amp; Subscribe
+          </>
+        )}
+      </Button>
+    </form>
+  );
+};
+
+const DRAFT_KEY = "levants_subscription_draft";
+
+function readDraft() {
+  try {
+    const raw = sessionStorage.getItem(DRAFT_KEY);
+    return raw ? (JSON.parse(raw) as Record<string, unknown>) : null;
+  } catch {
+    return null;
+  }
+}
+
 const NewSubscriptionPage: React.FC = () => {
   const navigate = useNavigate();
-  const [step, setStep] = useState(0);
+  const draft = readDraft();
+  const [step, setStep] = useState(() => Number(draft?.step ?? 0));
 
   // ── Product data from API ─────────────────────────────────────────────────
   const [products, setProducts] = useState<ApiProduct[]>([]);
@@ -65,6 +278,7 @@ const NewSubscriptionPage: React.FC = () => {
   const [productError, setProductError] = useState<string | null>(null);
   const [categoryFilter, setCategoryFilter] = useState<string>("All");
   const [searchQuery, setSearchQuery] = useState("");
+  const [availableDays, setAvailableDays] = useState<string[] | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -88,20 +302,165 @@ const NewSubscriptionPage: React.FC = () => {
     };
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+    const dayNames = [
+      "Sunday",
+      "Monday",
+      "Tuesday",
+      "Wednesday",
+      "Thursday",
+      "Friday",
+      "Saturday",
+    ];
+    const fetchSettings = async () => {
+      try {
+        const res = await portalSubscriptionsApi.getSettings();
+        const days = (res as any)?.data?.settings?.deliveryDays as
+          | number[]
+          | undefined;
+        if (cancelled || !Array.isArray(days) || days.length === 0) return;
+        const names = days
+          .map((d) => dayNames[d])
+          .filter((n): n is string => Boolean(n));
+        setAvailableDays(names);
+        setDeliveryDay((prev) => (names.includes(prev) ? prev : names[0]));
+      } catch {
+        /* fall back to default day list */
+      }
+    };
+    void fetchSettings();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   // ── Wizard state ─────────────────────────────────────────────────────────
   const {
     addresses,
     loading: addressesLoading,
     fetchAddresses,
   } = useAddresses();
-  const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
+  const [selectedProducts, setSelectedProducts] = useState<string[]>(
+    () => (draft?.selectedProducts as string[] | undefined) ?? [],
+  );
   const [quantities, setQuantities] = useState<
     Record<string, { qty: number; variantIdx: number }>
-  >({});
-  const [frequency, setFrequency] = useState("weekly");
-  const [deliveryDay, setDeliveryDay] = useState("Tuesday");
-  const [selectedAddress, setSelectedAddress] = useState<string>("");
-  const [subscriptionName, setSubscriptionName] = useState("");
+  >(
+    () =>
+      (draft?.quantities as
+        | Record<string, { qty: number; variantIdx: number }>
+        | undefined) ?? {},
+  );
+  const [frequency, setFrequency] = useState(
+    () => (draft?.frequency as string | undefined) ?? "weekly",
+  );
+  const [deliveryDay, setDeliveryDay] = useState(
+    () => (draft?.deliveryDay as string | undefined) ?? "Tuesday",
+  );
+  const [selectedAddress, setSelectedAddress] = useState<string>(
+    () => (draft?.selectedAddress as string | undefined) ?? "",
+  );
+  const [subscriptionName, setSubscriptionName] = useState(
+    () => (draft?.subscriptionName as string | undefined) ?? "",
+  );
+  const [submitLoading, setSubmitLoading] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
+  // ── Dark-mode watcher — remounts Stripe Elements when theme toggles ────
+  const [isDark, setIsDark] = useState(() =>
+    document.documentElement.classList.contains("dark"),
+  );
+  useEffect(() => {
+    const observer = new MutationObserver(() => {
+      setIsDark(document.documentElement.classList.contains("dark"));
+    });
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["class"],
+    });
+    return () => observer.disconnect();
+  }, []);
+
+  // ── Payment state ──────────────────────────────────────────────────────
+  const [savedMethods, setSavedMethods] = useState<PortalPaymentMethod[]>([]);
+  const [methodsLoading, setMethodsLoading] = useState(true);
+  // ID of the method the customer picks to use for this subscription
+  const [selectedMethodId, setSelectedMethodId] = useState<string | null>(null);
+  // Whether the "add new" Stripe form is expanded
+  const [showNewForm, setShowNewForm] = useState(false);
+  const [setupLoading, setSetupLoading] = useState(true);
+  const [setupClientSecret, setSetupClientSecret] = useState<string | null>(
+    null,
+  );
+  const [stripePromise, setStripePromise] = useState<ReturnType<
+    typeof loadStripe
+  > | null>(null);
+
+  const loadSavedMethods = async () => {
+    try {
+      setMethodsLoading(true);
+      const res = await portalPaymentsApi.listPaymentMethods();
+      const methods: PortalPaymentMethod[] =
+        (res as any)?.data?.paymentMethods ?? [];
+      setSavedMethods(methods);
+      // Auto-select the default method
+      const def = methods.find((m) => m.isDefault) ?? methods[0] ?? null;
+      if (def) setSelectedMethodId(def._id);
+    } catch {
+      setSavedMethods([]);
+    } finally {
+      setMethodsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void loadSavedMethods();
+  }, []);
+
+  // Load a fresh SetupIntent when the new-payment form becomes visible
+  useEffect(() => {
+    const needsForm = (showNewForm || savedMethods.length === 0) && step === 5;
+    if (!needsForm) return;
+    if (setupClientSecret) return; // already loaded
+
+    let cancelled = false;
+
+    const loadSetupIntent = async () => {
+      try {
+        setSetupLoading(true);
+        const res = await portalPaymentsApi.createSetupIntent();
+        const data = (res as any)?.data;
+        const publishableKey = String(data?.publishableKey || "");
+        const clientSecret = String(data?.clientSecret || "");
+        if (!publishableKey || !clientSecret) {
+          throw new Error("Stripe setup data missing");
+        }
+
+        if (!cancelled) {
+          setStripePromise(loadStripe(publishableKey));
+          setSetupClientSecret(clientSecret);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          const msg =
+            err instanceof ApiError
+              ? err.message
+              : "Failed to initialize payment options.";
+          setSubmitError(msg);
+          setSetupClientSecret(null);
+        }
+      } finally {
+        if (!cancelled) setSetupLoading(false);
+      }
+    };
+
+    void loadSetupIntent();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [showNewForm, savedMethods.length, step, setupClientSecret]);
 
   // Fetch addresses on mount
   useEffect(() => {
@@ -120,6 +479,42 @@ const NewSubscriptionPage: React.FC = () => {
     setSelectedProducts((prev) =>
       prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id],
     );
+
+  // Persist draft on every relevant state change
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(
+        DRAFT_KEY,
+        JSON.stringify({
+          step,
+          selectedProducts,
+          quantities,
+          frequency,
+          deliveryDay,
+          selectedAddress,
+          subscriptionName,
+        }),
+      );
+    } catch {
+      // storage quota exceeded — ignore
+    }
+  }, [
+    step,
+    selectedProducts,
+    quantities,
+    frequency,
+    deliveryDay,
+    selectedAddress,
+    subscriptionName,
+  ]);
+
+  const clearDraft = () => {
+    try {
+      sessionStorage.removeItem(DRAFT_KEY);
+    } catch {
+      /* ignore */
+    }
+  };
 
   const handleNext = () => setStep((s) => Math.min(steps.length - 1, s + 1));
   const handleBack = () => setStep((s) => Math.max(0, s - 1));
@@ -140,6 +535,112 @@ const NewSubscriptionPage: React.FC = () => {
   const selectedProductObjects = products.filter((p) =>
     selectedProducts.includes(p.id),
   );
+
+  const frequencyToApi = (value: string) => {
+    if (value === "fortnightly") return "every_two_weeks";
+    if (value === "monthly") return "monthly";
+    return "weekly";
+  };
+
+  const dayToIndex = (value: string) => {
+    const map: Record<string, number> = {
+      Sunday: 0,
+      Monday: 1,
+      Tuesday: 2,
+      Wednesday: 3,
+      Thursday: 4,
+      Friday: 5,
+      Saturday: 6,
+    };
+    return map[value] ?? 2;
+  };
+
+  const buildSubscriptionPayload = () => {
+    if (!selectedAddress) {
+      throw new Error("Please select a delivery address.");
+    }
+
+    if (selectedProductObjects.length === 0) {
+      throw new Error("Please select at least one product.");
+    }
+
+    const items = selectedProductObjects.map((product) => {
+      const variantIdx = quantities[product.id]?.variantIdx ?? 0;
+      const qty = Math.max(1, quantities[product.id]?.qty ?? 1);
+      const variant = product.variants[variantIdx] || product.variants[0];
+
+      return {
+        variantId: variant.id,
+        quantity: qty,
+      };
+    });
+
+    return {
+      frequency: frequencyToApi(frequency) as
+        | "weekly"
+        | "every_two_weeks"
+        | "monthly",
+      preferredDeliveryDay: dayToIndex(deliveryDay),
+      deliveryAddressId: selectedAddress,
+      notes: subscriptionName || undefined,
+      items,
+    };
+  };
+
+  const completeSubscription = async () => {
+    const payload = buildSubscriptionPayload();
+    await portalSubscriptionsApi.create(payload);
+    clearDraft();
+    navigate("/portal/subscriptions");
+  };
+
+  // Use an existing saved method and complete subscription
+  const handleCreateSubscription = async () => {
+    try {
+      setSubmitLoading(true);
+      setSubmitError(null);
+      if (!selectedMethodId) {
+        throw new Error(
+          "Please select or add a payment method before subscribing.",
+        );
+      }
+      // Ensure the selected method is the Stripe default
+      await portalPaymentsApi.setDefaultPaymentMethod(selectedMethodId);
+      await completeSubscription();
+    } catch (err) {
+      const msg =
+        err instanceof ApiError
+          ? err.message
+          : err instanceof Error
+            ? err.message
+            : "Failed to create subscription.";
+      setSubmitError(msg);
+    } finally {
+      setSubmitLoading(false);
+    }
+  };
+
+  // Save a brand-new method from the Stripe form, then complete subscription
+  const handleSaveAndSubscribe = async (paymentMethodId: string) => {
+    try {
+      setSubmitLoading(true);
+      setSubmitError(null);
+      await portalPaymentsApi.attachPaymentMethod({
+        stripePaymentMethodId: paymentMethodId,
+        setDefault: true,
+      });
+      await loadSavedMethods();
+      await completeSubscription();
+    } catch (err) {
+      const msg =
+        err instanceof ApiError
+          ? err.message
+          : "Failed to save payment method and complete subscription.";
+      setSubmitError(msg);
+    } finally {
+      setSubmitLoading(false);
+    }
+  };
 
   return (
     <div className="max-w-2xl mx-auto">
@@ -459,11 +960,13 @@ const NewSubscriptionPage: React.FC = () => {
                 <button
                   key={opt.value}
                   onClick={() => setFrequency(opt.value)}
+                  disabled={opt.value === "custom"}
                   className={cn(
                     "p-4 rounded-xl border text-left transition-colors",
                     frequency === opt.value
                       ? "border-forest bg-forest/5"
                       : "border-border hover:border-forest/40",
+                    opt.value === "custom" && "opacity-40 cursor-not-allowed",
                   )}
                 >
                   <p className="text-sm font-semibold text-foreground">
@@ -486,14 +989,16 @@ const NewSubscriptionPage: React.FC = () => {
               Which day would you prefer for deliveries?
             </p>
             <div className="grid grid-cols-3 gap-2">
-              {[
-                "Monday",
-                "Tuesday",
-                "Wednesday",
-                "Thursday",
-                "Friday",
-                "Saturday",
-              ].map((day) => (
+              {(
+                availableDays ?? [
+                  "Monday",
+                  "Tuesday",
+                  "Wednesday",
+                  "Thursday",
+                  "Friday",
+                  "Saturday",
+                ]
+              ).map((day) => (
                 <button
                   key={day}
                   onClick={() => setDeliveryDay(day)}
@@ -606,6 +1111,139 @@ const NewSubscriptionPage: React.FC = () => {
                 </span>
               </div>
             </div>
+
+            {/* ── Payment method ───────────────────────────────────────── */}
+            <div className="mt-5 rounded-2xl border border-border bg-background/70 p-4 space-y-3">
+              <h3 className="font-semibold text-foreground">Payment method</h3>
+
+              {methodsLoading ? (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Loading saved methods…
+                </div>
+              ) : savedMethods.length > 0 ? (
+                <div className="space-y-2">
+                  {savedMethods.map((pm) => (
+                    <button
+                      key={pm._id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedMethodId(pm._id);
+                        setShowNewForm(false);
+                      }}
+                      className={cn(
+                        "w-full flex items-center gap-3 p-3 rounded-xl border text-left transition-colors",
+                        selectedMethodId === pm._id && !showNewForm
+                          ? "border-forest bg-forest/5"
+                          : "border-border hover:border-forest/40",
+                      )}
+                    >
+                      <div
+                        className={cn(
+                          "w-4 h-4 rounded-full border-2 flex-shrink-0 flex items-center justify-center",
+                          selectedMethodId === pm._id && !showNewForm
+                            ? "border-forest"
+                            : "border-muted-foreground/40",
+                        )}
+                      >
+                        {selectedMethodId === pm._id && !showNewForm && (
+                          <div className="w-2 h-2 rounded-full bg-forest" />
+                        )}
+                      </div>
+                      <CreditCard className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-foreground">
+                          {fmtMethod(pm)}
+                        </p>
+                      </div>
+                      {pm.isDefault && (
+                        <span className="text-[10px] bg-forest/10 text-forest rounded-full px-1.5 py-0.5 font-medium flex-shrink-0">
+                          Default
+                        </span>
+                      )}
+                    </button>
+                  ))}
+
+                  {/* Add new method toggle */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowNewForm((v) => !v);
+                      if (!showNewForm) setSelectedMethodId(null);
+                    }}
+                    className={cn(
+                      "w-full flex items-center gap-3 p-3 rounded-xl border text-left transition-colors",
+                      showNewForm
+                        ? "border-forest bg-forest/5"
+                        : "border-dashed border-border hover:border-forest/40",
+                    )}
+                  >
+                    <div
+                      className={cn(
+                        "w-4 h-4 rounded-full border-2 flex-shrink-0 flex items-center justify-center",
+                        showNewForm
+                          ? "border-forest"
+                          : "border-muted-foreground/40",
+                      )}
+                    >
+                      {showNewForm && (
+                        <div className="w-2 h-2 rounded-full bg-forest" />
+                      )}
+                    </div>
+                    <span className="text-sm font-medium text-foreground">
+                      + Add new payment method
+                    </span>
+                  </button>
+                </div>
+              ) : (
+                /* No saved methods — always show the new-method form */
+                <p className="text-xs text-muted-foreground">
+                  No saved payment methods. Add one below.
+                </p>
+              )}
+
+              {/* Stripe new-method form */}
+              {(showNewForm || savedMethods.length === 0) && (
+                <div className="pt-2 space-y-2">
+                  <p className="text-xs text-muted-foreground">
+                    Apple Pay and Google Pay appear automatically when your
+                    device and browser support them. Card entry is always
+                    available as a fallback.
+                    {window.location.protocol !== "https:" && (
+                      <span className="block mt-0.5 text-amber-600 dark:text-amber-400">
+                        ⚠ Wallet buttons require HTTPS — use the card form on
+                        localhost.
+                      </span>
+                    )}
+                  </p>
+                  {setupLoading ? (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground py-3">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Preparing secure payment form…
+                    </div>
+                  ) : stripePromise && setupClientSecret ? (
+                    <Elements
+                      key={`${setupClientSecret}-${isDark ? "dark" : "light"}`}
+                      stripe={stripePromise}
+                      options={{
+                        clientSecret: setupClientSecret,
+                        appearance: buildStripeAppearance(),
+                      }}
+                    >
+                      <SubscriptionPaymentForm
+                        onComplete={handleSaveAndSubscribe}
+                        onError={setSubmitError}
+                        submitLoading={submitLoading}
+                      />
+                    </Elements>
+                  ) : null}
+                </div>
+              )}
+            </div>
+
+            {submitError && (
+              <p className="mt-3 text-sm text-destructive">{submitError}</p>
+            )}
           </div>
         )}
       </div>
@@ -615,7 +1253,12 @@ const NewSubscriptionPage: React.FC = () => {
         <Button
           variant="outline"
           onClick={
-            step === 0 ? () => navigate("/portal/subscriptions") : handleBack
+            step === 0
+              ? () => {
+                  clearDraft();
+                  navigate("/portal/subscriptions");
+                }
+              : handleBack
           }
         >
           <ArrowLeft className="h-4 w-4" />
@@ -630,9 +1273,12 @@ const NewSubscriptionPage: React.FC = () => {
             <ArrowRight className="h-4 w-4" />
           </Button>
         ) : (
-          <Button onClick={() => navigate("/portal/subscriptions")}>
+          <Button
+            onClick={() => void handleCreateSubscription()}
+            disabled={submitLoading || showNewForm || !selectedMethodId}
+          >
             <Check className="h-4 w-4" />
-            Create Subscription
+            {submitLoading ? "Creating..." : "Create Subscription"}
           </Button>
         )}
       </div>

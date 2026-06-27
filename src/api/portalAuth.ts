@@ -16,6 +16,8 @@ export type PortalCustomer = {
   emailVerifiedAt?: string | null;
   pendingEmail?: string | null;
   pendingEmailTokenExpiresAt?: string | null;
+  /** Store-credit balance in MINOR units (pence). 100 = £1.00 */
+  creditBalance?: number;
   createdAt?: string;
   updatedAt?: string;
 };
