@@ -28,6 +28,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
 import {
   SubscriptionStatusBadge,
   DeliveryStatusBadge,
@@ -146,6 +148,13 @@ const formatDate = (iso?: string | null) => {
   });
 };
 
+const formatInputDate = (value: Date) => {
+  const year = value.getFullYear();
+  const month = `${value.getMonth() + 1}`.padStart(2, "0");
+  const day = `${value.getDate()}`.padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
 const formatMoney = (amount: number) =>
   new Intl.NumberFormat("en-GB", {
     style: "currency",
@@ -199,6 +208,8 @@ const SubscriptionDetailPage: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [pauseResumeOn, setPauseResumeOn] = useState("");
+  const [pauseError, setPauseError] = useState<string | null>(null);
 
   const [pauseOpen, setPauseOpen] = useState(false);
   const [resumeOpen, setResumeOpen] = useState(false);
@@ -231,6 +242,16 @@ const SubscriptionDetailPage: React.FC = () => {
     };
   }, []);
   const stickyTopOffset = siteHeaderHeight + 16;
+  const pauseMinDate = useMemo(() => {
+    const value = new Date();
+    value.setDate(value.getDate() + 1);
+    return formatInputDate(value);
+  }, []);
+  const pauseMaxDate = useMemo(() => {
+    const value = new Date();
+    value.setDate(value.getDate() + 28);
+    return formatInputDate(value);
+  }, []);
 
   const load = async () => {
     if (!id) return;
@@ -299,6 +320,25 @@ const SubscriptionDetailPage: React.FC = () => {
 
     setSelectedAddressId(getAddressId(fallbackAddress));
   }, [addresses, subscription]);
+
+  useEffect(() => {
+    if (!pauseOpen) {
+      setPauseError(null);
+      return;
+    }
+
+    if (pauseResumeOn) return;
+
+    const defaultResumeOn = new Date();
+    defaultResumeOn.setDate(defaultResumeOn.getDate() + 7);
+    const maxResumeOn = new Date();
+    maxResumeOn.setDate(maxResumeOn.getDate() + 28);
+    setPauseResumeOn(
+      formatInputDate(
+        defaultResumeOn > maxResumeOn ? maxResumeOn : defaultResumeOn,
+      ),
+    );
+  }, [pauseOpen, pauseResumeOn]);
 
   const updateQty = (localId: string, quantity: number) => {
     setProductDraft((prev) =>
@@ -408,10 +448,23 @@ const SubscriptionDetailPage: React.FC = () => {
 
   const handlePause = async () => {
     if (!id) return;
+    if (!pauseResumeOn) {
+      setPauseError("Please choose when the subscription should resume.");
+      return;
+    }
     setSaving(true);
     try {
-      await portalSubscriptionsApi.pause(id);
+      setError(null);
+      setNotice(null);
+      setPauseError(null);
+      const res = await portalSubscriptionsApi.pause(id, pauseResumeOn);
       await load();
+      setPauseOpen(false);
+      setNotice((res as any)?.message || "Subscription paused.");
+    } catch (err) {
+      setError(
+        err instanceof ApiError ? err.message : "Failed to pause subscription.",
+      );
     } finally {
       setSaving(false);
     }
@@ -618,6 +671,7 @@ const SubscriptionDetailPage: React.FC = () => {
   const canSaveDeliveryDetails =
     !saving &&
     !addressesLoading &&
+    subscription.status === "active" &&
     Boolean(selectedAddressId) &&
     (!isSelectedAddressCurrent || !isDeliveryDayCurrent);
 
@@ -657,7 +711,10 @@ const SubscriptionDetailPage: React.FC = () => {
             </p>
           </div>
         </div>
-        <SubscriptionStatusBadge status={subscription.status} />
+        <SubscriptionStatusBadge
+          status={subscription.status}
+          isCancellationScheduled={subscription.isCancellationScheduled}
+        />
       </div>
 
       {error && (
@@ -669,6 +726,23 @@ const SubscriptionDetailPage: React.FC = () => {
       {notice && (
         <div className="mb-4 rounded-xl border border-forest/20 bg-forest/10 p-3 text-sm text-forest dark:border-emerald-500/30 dark:bg-emerald-500/15 dark:text-emerald-200">
           {notice}
+        </div>
+      )}
+
+      {subscription.status === "paused" && (
+        <div className="mb-4 rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-100">
+          This subscription is paused
+          {subscription.pausedUntil
+            ? ` until ${formatDate(subscription.pausedUntil)}`
+            : ""}
+          . No changes can be made while paused, and it will resume
+          automatically when the pause period ends.
+        </div>
+      )}
+
+      {subscription.status === "cancelled" && (
+        <div className="mb-4 rounded-xl border border-red-300 bg-red-50 p-3 text-sm text-red-800 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-100">
+          This subscription is cancelled and cannot be modified.
         </div>
       )}
 
@@ -703,7 +777,14 @@ const SubscriptionDetailPage: React.FC = () => {
         </div>
       )}
 
-      <div className="rounded-2xl border border-border bg-gradient-to-r from-card via-card to-muted/30 p-4 sm:p-5 mb-4">
+      <div
+        className={cn(
+          "rounded-2xl border bg-gradient-to-r p-4 sm:p-5 mb-4",
+          subscription.status === "cancelled"
+            ? "border-red-200 bg-red-50/40 from-red-50/60 via-card to-red-50/40 dark:border-red-500/40 dark:bg-red-500/10 dark:from-red-500/15 dark:via-card dark:to-red-500/10"
+            : "border-border from-card via-card to-muted/30",
+        )}
+      >
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
           <div className="rounded-xl border border-border/70 bg-background/70 px-3 py-2.5">
             <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">
@@ -749,12 +830,14 @@ const SubscriptionDetailPage: React.FC = () => {
               <h3 className="font-semibold text-foreground text-base sm:text-lg">
                 Products in Subscription
               </h3>
-              <Button variant="outline" size="sm" className="h-8" asChild>
-                <Link to={`/portal/subscriptions/${id}/add-products`}>
-                  <Plus className="h-3.5 w-3.5" />
-                  Add product
-                </Link>
-              </Button>
+              {subscription.status === "active" && (
+                <Button variant="outline" size="sm" className="h-8" asChild>
+                  <Link to={`/portal/subscriptions/${id}/add-products`}>
+                    <Plus className="h-3.5 w-3.5" />
+                    Add product
+                  </Link>
+                </Button>
+              )}
             </div>
 
             <div className="space-y-2.5">
@@ -814,7 +897,7 @@ const SubscriptionDetailPage: React.FC = () => {
                           onClick={() =>
                             updateQty(item.localId, item.quantity - 1)
                           }
-                          disabled={saving}
+                          disabled={saving || subscription.status !== "active"}
                           className="w-7 h-7 rounded-md border border-border flex items-center justify-center hover:bg-muted transition-colors"
                         >
                           <Minus className="h-3 w-3" />
@@ -826,7 +909,7 @@ const SubscriptionDetailPage: React.FC = () => {
                           onClick={() =>
                             updateQty(item.localId, item.quantity + 1)
                           }
-                          disabled={saving}
+                          disabled={saving || subscription.status !== "active"}
                           className="w-7 h-7 rounded-md border border-border flex items-center justify-center hover:bg-muted transition-colors"
                         >
                           <Plus className="h-3 w-3" />
@@ -834,7 +917,7 @@ const SubscriptionDetailPage: React.FC = () => {
                         <button
                           className="text-muted-foreground hover:text-destructive transition-colors"
                           onClick={() => setRemoveProductId(item.localId)}
-                          disabled={saving}
+                          disabled={saving || subscription.status !== "active"}
                           aria-label={`Remove ${item.name}`}
                         >
                           <Trash2 className="h-4 w-4" />
@@ -935,14 +1018,22 @@ const SubscriptionDetailPage: React.FC = () => {
                   variant="outline"
                   size="sm"
                   onClick={() => setProductDraft(editableBaseline)}
-                  disabled={!hasUnsavedProductChanges || saving}
+                  disabled={
+                    !hasUnsavedProductChanges ||
+                    saving ||
+                    subscription.status !== "active"
+                  }
                 >
                   Discard
                 </Button>
                 <Button
                   size="sm"
                   onClick={() => void handleSaveProductChanges()}
-                  disabled={!hasUnsavedProductChanges || saving}
+                  disabled={
+                    !hasUnsavedProductChanges ||
+                    saving ||
+                    subscription.status !== "active"
+                  }
                 >
                   {saving ? "Saving..." : "Save product changes"}
                 </Button>
@@ -966,6 +1057,7 @@ const SubscriptionDetailPage: React.FC = () => {
                       <Select
                         value={selectedAddressId}
                         onValueChange={setSelectedAddressId}
+                        disabled={subscription.status !== "active"}
                       >
                         <SelectTrigger>
                           <SelectValue placeholder="Select an address" />
@@ -1026,7 +1118,11 @@ const SubscriptionDetailPage: React.FC = () => {
                     <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                       Preferred Day
                     </p>
-                    <Select value={deliveryDay} onValueChange={setDeliveryDay}>
+                    <Select
+                      value={deliveryDay}
+                      onValueChange={setDeliveryDay}
+                      disabled={subscription.status !== "active"}
+                    >
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
@@ -1151,7 +1247,9 @@ const SubscriptionDetailPage: React.FC = () => {
                 <div className="flex items-center justify-between">
                   <span className="text-muted-foreground">Status</span>
                   <span className="font-medium text-foreground capitalize">
-                    {subscription.status}
+                    {subscription.isCancellationScheduled
+                      ? "scheduled for cancellation"
+                      : subscription.status}
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
@@ -1166,14 +1264,60 @@ const SubscriptionDetailPage: React.FC = () => {
         </aside>
       </div>
 
-      <ConfirmationModal
+      <Dialog
         open={pauseOpen}
-        onOpenChange={setPauseOpen}
-        title="Pause Subscription?"
-        description="Deliveries will be paused from the next scheduled date. You can resume anytime."
-        confirmLabel="Pause"
-        onConfirm={handlePause}
-      />
+        onOpenChange={(open) => {
+          setPauseOpen(open);
+          if (!open) {
+            setPauseError(null);
+          }
+        }}
+      >
+        <DialogContent className="max-w-md p-6">
+          <DialogHeader>
+            <DialogTitle>Pause Subscription?</DialogTitle>
+            <DialogDescription>
+              Choose when this subscription should resume. Pauses can last up to
+              28 days. Any already-billed upcoming delivery remains scheduled,
+              and no changes can be made while the subscription is paused.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 pt-2">
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-foreground">
+                Resume on
+              </label>
+              <Input
+                type="date"
+                min={pauseMinDate}
+                max={pauseMaxDate}
+                value={pauseResumeOn}
+                onChange={(event) => setPauseResumeOn(event.target.value)}
+                disabled={saving}
+              />
+              <p className="text-xs text-muted-foreground">
+                Choose a date between {formatDate(pauseMinDate)} and{" "}
+                {formatDate(pauseMaxDate)}.
+              </p>
+              {pauseError && (
+                <p className="text-xs text-destructive">{pauseError}</p>
+              )}
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button
+                variant="outline"
+                onClick={() => setPauseOpen(false)}
+                disabled={saving}
+              >
+                Keep active
+              </Button>
+              <Button onClick={() => void handlePause()} disabled={saving}>
+                {saving ? "Pausing..." : "Pause subscription"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
       <ConfirmationModal
         open={resumeOpen}
         onOpenChange={setResumeOpen}

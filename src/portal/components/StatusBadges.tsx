@@ -87,13 +87,23 @@ const subStatusConfig: Record<
 > = {
   active: { label: "Active", dot: "bg-emerald-500" },
   paused: { label: "Paused", dot: "bg-amber-400" },
-  cancelled: { label: "Cancelled", dot: "bg-gray-400" },
+  cancelled: { label: "Cancelled", dot: "bg-red-500" },
 };
 
 export const SubscriptionStatusBadge: React.FC<{
   status: SubscriptionStatus;
+  isCancellationScheduled?: boolean;
   className?: string;
-}> = ({ status, className }) => {
+}> = ({ status, isCancellationScheduled, className }) => {
+  if (isCancellationScheduled) {
+    return (
+      <StatusDot
+        label="Scheduled for cancellation"
+        dotClass="bg-amber-500"
+        className={className}
+      />
+    );
+  }
   const cfg = subStatusConfig[status] ?? { label: status, dot: "bg-gray-400" };
   return (
     <StatusDot label={cfg.label} dotClass={cfg.dot} className={className} />

@@ -738,7 +738,7 @@ const NewSubscriptionPage: React.FC = () => {
         className={cn(
           step === 0
             ? "flex-1 pb-6"
-            : "flex-1 bg-card border border-border rounded-2xl p-6 mb-6",
+            : "flex-1 bg-card border border-border rounded-2xl p-6 mb-6 xl:w-1/2 xl:mx-auto",
         )}
       >
         {/* Step 0: Select Products */}
@@ -1152,8 +1152,8 @@ const NewSubscriptionPage: React.FC = () => {
       </div>
 
       {/* Navigation */}
-      <div className="sticky bottom-0 z-30 mt-6 -mx-4 sm:-mx-6 lg:-mx-8">
-        <div className="rounded-none border border-border bg-background/95 px-4 py-4 shadow-sm backdrop-blur-sm sm:px-6 lg:px-8">
+      <div className="sticky bottom-0 z-30 mt-6 -mx-4 sm:-mx-6 lg:-mx-8 xl:w-1/2 xl:mx-auto">
+        <div className="rounded-none border border-border bg-background/95 px-3 py-3 shadow-sm backdrop-blur-sm sm:px-6 lg:px-3">
           <div className="flex justify-between">
             <Button
               variant="outline"

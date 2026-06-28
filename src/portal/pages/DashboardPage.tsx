@@ -19,6 +19,7 @@ import {
   SubscriptionStatusBadge,
   OrderStatusBadge,
 } from "@/portal/components/StatusBadges";
+import type { OrderStatus } from "@/portal/data/mockData";
 import { ApiError } from "@/api/client";
 import { portalOrdersApi, type PortalOrder } from "@/api/portalOrders";
 import { portalPaymentsApi, type PortalPayment } from "@/api/portalPayments";
@@ -281,7 +282,10 @@ const DashboardPage: React.FC = () => {
                         </p>
                       </div>
                       <div className="flex items-center gap-2 ml-3 flex-shrink-0">
-                        <SubscriptionStatusBadge status={sub.status} />
+                        <SubscriptionStatusBadge
+                          status={sub.status}
+                          isCancellationScheduled={sub.isCancellationScheduled}
+                        />
                         <Button
                           asChild
                           variant="ghost"
@@ -338,7 +342,9 @@ const DashboardPage: React.FC = () => {
                           <p className="text-sm font-medium text-foreground truncate min-w-0">
                             {order.orderId}
                           </p>
-                          <OrderStatusBadge status={order.status} />
+                          <OrderStatusBadge
+                            status={order.status as OrderStatus}
+                          />
                         </div>
 
                         {order.orderType === "subscription_generated" && (

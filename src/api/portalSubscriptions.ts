@@ -27,6 +27,9 @@ export type PortalSubscription = {
   _id: string;
   subscriptionNumber?: string;
   status: PortalSubscriptionStatus;
+  pausedUntil?: string | null;
+  isCancellationScheduled?: boolean;
+  cancellationEffectiveAfter?: string | null;
   frequency: PortalSubscriptionFrequency;
   preferredDeliveryDay: number;
   nextDeliveryDate?: string | null;
@@ -159,8 +162,10 @@ export const portalSubscriptionsApi = {
     }>,
   ) => api.patch<ApiEnvelope<SubscriptionResponse>>(`${base}/${subscriptionId}`, payload),
 
-  pause: (subscriptionId: string) =>
-    api.post<ApiEnvelope<SubscriptionResponse>>(`${base}/${subscriptionId}/pause`),
+  pause: (subscriptionId: string, resumeOn: string) =>
+    api.post<ApiEnvelope<SubscriptionResponse>>(`${base}/${subscriptionId}/pause`, {
+      resumeOn,
+    }),
 
   resume: (subscriptionId: string) =>
     api.post<ApiEnvelope<SubscriptionResponse>>(`${base}/${subscriptionId}/resume`),

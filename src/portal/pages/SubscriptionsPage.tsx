@@ -61,7 +61,7 @@ const formatDate = (value?: string | null) => {
 const statusAccent: Record<string, string> = {
   active: "border-l-forest",
   paused: "border-l-amber-400",
-  cancelled: "border-l-border",
+  cancelled: "border-l-red-500",
 };
 
 const SubscriptionCard: React.FC<{
@@ -92,6 +92,8 @@ const SubscriptionCard: React.FC<{
     <div
       className={cn(
         "bg-card border border-border border-l-4 rounded-2xl overflow-hidden transition-shadow hover:shadow-md",
+        sub.status === "cancelled" &&
+          "border-red-200/80 bg-red-50/30 dark:border-red-500/40 dark:bg-red-500/10",
         statusAccent[sub.status] ?? "border-l-border",
       )}
     >
@@ -105,7 +107,10 @@ const SubscriptionCard: React.FC<{
                 {sub.subscriptionNumber ??
                   `SUB-${sub._id.slice(-6).toUpperCase()}`}
               </span>
-              <SubscriptionStatusBadge status={sub.status} />
+              <SubscriptionStatusBadge
+                status={sub.status}
+                isCancellationScheduled={sub.isCancellationScheduled}
+              />
             </div>
             <p className="text-xs text-muted-foreground mt-1 ml-[22px]">
               {frequencyLabel(sub.frequency)} · Every{" "}
