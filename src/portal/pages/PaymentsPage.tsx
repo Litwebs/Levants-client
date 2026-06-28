@@ -604,67 +604,71 @@ const PaymentsPage: React.FC = () => {
         ) : (
           <>
             <div className="divide-y divide-border">
-              {payments.map((pay) => (
-                <div
-                  key={pay._id}
-                  className="py-3 flex items-center justify-between gap-3"
-                >
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-foreground">
-                      {paymentReference(pay)}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {formatDateTime(pay.paidAt || pay.createdAt)} ·{" "}
-                      {paymentReferenceType(pay)}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-3 flex-shrink-0">
-                    <PaymentStatusBadge status={pay.status as any} />
-                    <span className="text-sm font-bold text-foreground">
-                      {formatMoney(pay.amount, pay.currency || "GBP")}
-                    </span>
-                    {pay.order?._id && (
-                      <Button
-                        asChild
-                        variant="outline"
-                        size="sm"
-                        className="h-7 px-2 text-xs"
-                      >
-                        <Link to={`/portal/orders/${pay.order._id}`}>
-                          View Order
-                        </Link>
-                      </Button>
-                    )}
-                    {pay.order?._id && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 w-7 p-0"
-                        onClick={() => void handleDownloadReceipt(pay)}
-                        disabled={receiptLoadingId === pay._id}
-                        title="Download receipt"
-                      >
-                        <Receipt className="h-3.5 w-3.5" />
-                      </Button>
-                    )}
-                  </div>
+              {payments.map((pay) => {
+                const summary = getRefundSummary(pay);
 
-                  {(() => {
-                    const summary = getRefundSummary(pay);
-                    if (summary.refunded <= 0) return null;
-                    return (
-                      <p className="mt-2 text-xs text-muted-foreground">
-                        Refunded{" "}
-                        {formatMoney(summary.refunded, pay.currency || "GBP")} ·
-                        Before{" "}
-                        {formatMoney(summary.original, pay.currency || "GBP")} ·
-                        After{" "}
-                        {formatMoney(summary.after, pay.currency || "GBP")}
-                      </p>
-                    );
-                  })()}
-                </div>
-              ))}
+                return (
+                  <div key={pay._id} className="py-3">
+                    <div className="space-y-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1 pr-2">
+                          <p className="text-sm font-medium text-foreground">
+                            {paymentReference(pay)}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {formatDateTime(pay.paidAt || pay.createdAt)} ·{" "}
+                            {paymentReferenceType(pay)}
+                          </p>
+                        </div>
+                        <div className="flex shrink-0 items-center gap-3 whitespace-nowrap">
+                          <PaymentStatusBadge status={pay.status as any} />
+                          <span className="text-sm font-bold text-foreground">
+                            {formatMoney(pay.amount, pay.currency || "GBP")}
+                          </span>
+                        </div>
+                      </div>
+
+                      {summary.refunded > 0 && (
+                        <p className="truncate whitespace-nowrap text-xs text-muted-foreground">
+                          Refunded{" "}
+                          {formatMoney(summary.refunded, pay.currency || "GBP")}{" "}
+                          · Before{" "}
+                          {formatMoney(summary.original, pay.currency || "GBP")}{" "}
+                          · After{" "}
+                          {formatMoney(summary.after, pay.currency || "GBP")}
+                        </p>
+                      )}
+
+                      <div className="flex items-center justify-end gap-2 border-t border-border pt-3 whitespace-nowrap">
+                        {pay.order?._id && (
+                          <Button
+                            asChild
+                            variant="outline"
+                            size="sm"
+                            className="h-7 px-2 text-xs"
+                          >
+                            <Link to={`/portal/orders/${pay.order._id}`}>
+                              View Order
+                            </Link>
+                          </Button>
+                        )}
+                        {/* {pay.order?._id && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 w-7 p-0"
+                            onClick={() => void handleDownloadReceipt(pay)}
+                            disabled={receiptLoadingId === pay._id}
+                            title="Download receipt"
+                          >
+                            <Receipt className="h-3.5 w-3.5" />
+                          </Button>
+                        )} */}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
 
             {showPagination && (

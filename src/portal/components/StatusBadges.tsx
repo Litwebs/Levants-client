@@ -14,7 +14,12 @@ const StatusDot: React.FC<{
   dotClass: string;
   className?: string;
 }> = ({ label, dotClass, className }) => (
-  <span className={cn("inline-flex items-center gap-1.5", className)}>
+  <span
+    className={cn(
+      "inline-flex items-center gap-1.5 whitespace-nowrap",
+      className,
+    )}
+  >
     <span className={cn("w-2 h-2 rounded-full flex-shrink-0", dotClass)} />
     <span className="text-xs font-medium text-foreground">{label}</span>
   </span>

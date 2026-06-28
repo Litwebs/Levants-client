@@ -1,43 +1,12 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
-import {
-  ArrowLeft,
-  Loader2,
-  Minus,
-  Plus,
-  Search,
-  ShoppingBag,
-  Trash2,
-} from "lucide-react";
+import { Link, useNavigate, useParams } from "react-router-dom";import { ArrowLeft, Loader2, Minus, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import api, { ApiError } from "@/api/client";
+import ShopPage from "@/pages/ShopPage";
+import { ApiError } from "@/api/client";
 import {
   portalSubscriptionsApi,
   type PortalSubscriptionCutoff,
 } from "@/api/portalSubscriptions";
-
-type ApiVariant = {
-  id: string;
-  name: string;
-  price: number;
-  thumbnailImage?: { url: string } | null;
-};
-
-type ApiProduct = {
-  id: string;
-  name: string;
-  category?: string;
-  thumbnailImage?: { url: string } | null;
-  variants: ApiVariant[];
-};
 
 type SelectedAddItem = {
   variantId: string;
@@ -70,19 +39,32 @@ const SubscriptionAddProductsPage: React.FC = () => {
   const [nextDeliveryDate, setNextDeliveryDate] = useState<string | null>(null);
   const [currentPerDelivery, setCurrentPerDelivery] = useState(0);
   const [cutoff, setCutoff] = useState<PortalSubscriptionCutoff | null>(null);
-  const [products, setProducts] = useState<ApiProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [search, setSearch] = useState("");
-  const [category, setCategory] = useState("All");
-  const [pickerState, setPickerState] = useState<
-    Record<string, { variantId: string; qty: number }>
-  >({});
   const [selectedAdds, setSelectedAdds] = useState<
     Record<string, SelectedAddItem>
   >({});
+
+  // Measure the sticky site header so the sidebar can sit right below it
+  // instead of sliding underneath the navbar.
+  const [siteHeaderHeight, setSiteHeaderHeight] = useState(0);
+  useEffect(() => {
+    const headerEl = document.querySelector("header");
+    if (!headerEl) return;
+    const update = () =>
+      setSiteHeaderHeight(headerEl.getBoundingClientRect().height);
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(headerEl);
+    window.addEventListener("resize", update);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", update);
+    };
+  }, []);
+  const stickyTopOffset = siteHeaderHeight + 16;
 
   useEffect(() => {
     if (!id) return;
@@ -93,13 +75,7 @@ const SubscriptionAddProductsPage: React.FC = () => {
         setLoading(true);
         setError(null);
 
-        const [subRes, productsRes] = await Promise.all([
-          portalSubscriptionsApi.get(id),
-          api.get<{ data?: { items?: ApiProduct[] } }>("/products", {
-            page: 1,
-            pageSize: 50,
-          }),
-        ]);
+        const subRes = await portalSubscriptionsApi.get(id);
 
         if (cancelled) return;
 
@@ -111,7 +87,9 @@ const SubscriptionAddProductsPage: React.FC = () => {
             .toUpperCase()}`;
         setSubscriptionLabel(label);
         setNextDeliveryDate(subscription?.nextDeliveryDate ?? null);
-        setCutoff(((subRes as any)?.data?.cutoff as PortalSubscriptionCutoff) || null);
+        setCutoff(
+          ((subRes as any)?.data?.cutoff as PortalSubscriptionCutoff) || null,
+        );
         const currentItems = Array.isArray(subscription?.items)
           ? subscription.items
           : [];
@@ -122,7 +100,6 @@ const SubscriptionAddProductsPage: React.FC = () => {
             0,
           ),
         );
-        setProducts(productsRes?.data?.items ?? []);
       } catch (err) {
         if (cancelled) return;
         setError(
@@ -139,62 +116,37 @@ const SubscriptionAddProductsPage: React.FC = () => {
     };
   }, [id]);
 
-  const categories = useMemo(
-    () => [
-      "All",
-      ...Array.from(
-        new Set(
-          products
-            .map((p) => p.category)
-            .filter((c): c is string => Boolean(c)),
-        ),
-      ).sort(),
-    ],
-    [products],
-  );
-
-  const filteredProducts = useMemo(() => {
-    const query = search.trim().toLowerCase();
-    return products
-      .filter((p) => (p.variants?.length ?? 0) > 0)
-      .filter((p) => category === "All" || p.category === category)
-      .filter((p) => {
-        if (!query) return true;
-        const haystack = `${p.name} ${p.category ?? ""} ${p.variants
-          .map((v) => v.name)
-          .join(" ")}`.toLowerCase();
-        return haystack.includes(query);
-      });
-  }, [products, category, search]);
-
-  const getPicker = (product: ApiProduct) => {
-    const state = pickerState[product.id];
-    const fallbackVariantId = product.variants[0]?.id ?? "";
-    const variantId =
-      state?.variantId && product.variants.some((v) => v.id === state.variantId)
-        ? state.variantId
-        : fallbackVariantId;
-    const qty = Math.max(1, Number(state?.qty || 1));
-    return { variantId, qty };
-  };
-
-  const addToSelection = (product: ApiProduct) => {
-    const picker = getPicker(product);
-    const variant = product.variants.find((v) => v.id === picker.variantId);
-    if (!variant) return;
-
+  const toggleVariantSelection = (
+    variantId: string,
+    productName: string,
+    variantName: string,
+    unitPrice: number,
+  ) => {
     setSelectedAdds((prev) => {
-      const existing = prev[variant.id];
+      if (prev[variantId]) {
+        const next = { ...prev };
+        delete next[variantId];
+        return next;
+      }
       return {
         ...prev,
-        [variant.id]: {
-          variantId: variant.id,
-          productName: product.name,
-          variantName: variant.name,
-          quantity: (existing?.quantity || 0) + picker.qty,
-          unitPrice: Number(variant.price || 0),
+        [variantId]: {
+          variantId,
+          productName,
+          variantName,
+          quantity: 1,
+          unitPrice,
         },
       };
+    });
+  };
+
+  const updateSelectedQty = (variantId: string, delta: number) => {
+    setSelectedAdds((prev) => {
+      const existing = prev[variantId];
+      if (!existing) return prev;
+      const quantity = Math.max(1, existing.quantity + delta);
+      return { ...prev, [variantId]: { ...existing, quantity } };
     });
   };
 
@@ -241,7 +193,7 @@ const SubscriptionAddProductsPage: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="max-w-5xl mx-auto bg-card border border-border rounded-2xl p-8 text-sm text-muted-foreground flex items-center gap-2">
+      <div className="max-w-7xl mx-auto bg-card border border-border rounded-2xl p-8 text-sm text-muted-foreground flex items-center gap-2">
         <Loader2 className="h-4 w-4 animate-spin" />
         Loading products...
       </div>
@@ -249,7 +201,7 @@ const SubscriptionAddProductsPage: React.FC = () => {
   }
 
   return (
-    <div className="max-w-5xl mx-auto">
+    <div className="max-w-7xl mx-auto">
       <div className="flex items-start justify-between gap-3 mb-5">
         <div className="min-w-0">
           <Button asChild variant="ghost" size="sm" className="mb-2 -ml-2">
@@ -273,183 +225,42 @@ const SubscriptionAddProductsPage: React.FC = () => {
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        <div className="lg:col-span-8 space-y-4">
-          <section className="bg-card border border-border rounded-xl p-4">
-            <div className="relative mb-3">
-              <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-9"
-                placeholder="Search products..."
-              />
-            </div>
-
-            <div className="flex items-center gap-2 flex-wrap">
-              {categories.map((cat) => (
-                <Button
-                  key={cat}
-                  type="button"
-                  size="sm"
-                  variant={category === cat ? "default" : "outline"}
-                  onClick={() => setCategory(cat)}
-                >
-                  {cat}
-                </Button>
-              ))}
-            </div>
-          </section>
-
-          <section className="bg-card border border-border rounded-xl p-4">
-            {filteredProducts.length === 0 ? (
-              <div className="text-center py-16 text-muted-foreground">
-                <p className="text-lg font-medium">No products found</p>
-                <p className="text-sm mt-1">
-                  Try adjusting your search or category filter
-                </p>
-              </div>
-            ) : (
-              <>
-                <p className="text-sm text-muted-foreground mb-4">
-                  Showing {filteredProducts.length} items
-                </p>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-              {filteredProducts.map((product) => {
-                const picker = getPicker(product);
-                const activeVariant =
-                  product.variants.find((v) => v.id === picker.variantId) ||
-                  product.variants[0];
-
-                return (
-                  <div
-                    key={product.id}
-                    className="bg-card border border-border rounded-2xl overflow-hidden group hover:shadow-md transition-shadow flex flex-col"
-                  >
-                    {/* Image */}
-                    <div className="aspect-square bg-muted overflow-hidden block">
-                      <img
-                        src={
-                          product.thumbnailImage?.url ||
-                          activeVariant?.thumbnailImage?.url ||
-                          "https://images.unsplash.com/photo-1550583724-b2692b85b150?w=300&q=80"
-                        }
-                        alt={product.name}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).src =
-                            "https://images.unsplash.com/photo-1550583724-b2692b85b150?w=300&q=80";
-                        }}
-                      />
-                    </div>
-
-                    {/* Content */}
-                    <div className="p-3 flex-1 flex flex-col">
-                      <div className="flex items-start justify-between gap-1 mb-1">
-                        <p className="text-xs text-muted-foreground">
-                          {product.category}
-                        </p>
-                      </div>
-                      <h3 className="text-sm font-semibold text-foreground leading-tight mb-1">
-                        {product.name}
-                      </h3>
-
-                      {product.variants.length > 1 ? (
-                        <div className="mb-2">
-                          <Select
-                            value={picker.variantId}
-                            onValueChange={(value) =>
-                              setPickerState((prev) => ({
-                                ...prev,
-                                [product.id]: {
-                                  variantId: value,
-                                  qty: prev[product.id]?.qty || 1,
-                                },
-                              }))
-                            }
-                          >
-                            <SelectTrigger className="h-8 text-xs">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {product.variants.map((variant) => (
-                                <SelectItem key={variant.id} value={variant.id}>
-                                  {variant.name} - {formatMoney(variant.price)}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      ) : (
-                        <p className="text-xs text-muted-foreground mb-2 line-clamp-2 flex-1">
-                          {activeVariant?.name}
-                        </p>
-                      )}
-
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-sm font-bold text-foreground">
-                          {formatMoney(activeVariant?.price || 0)}
-                        </span>
-                      </div>
-
-                      <div className="flex gap-1.5">
-                        <div className="flex items-center border border-border rounded-md h-8 shrink-0">
-                          <button
-                            type="button"
-                            className="h-8 w-7 flex items-center justify-center hover:bg-muted"
-                            onClick={() =>
-                              setPickerState((prev) => ({
-                                ...prev,
-                                [product.id]: {
-                                  variantId: picker.variantId,
-                                  qty: Math.max(1, picker.qty - 1),
-                                },
-                              }))
-                            }
-                          >
-                            <Minus className="h-3 w-3" />
-                          </button>
-                          <span className="w-6 text-center text-xs font-medium">
-                            {picker.qty}
-                          </span>
-                          <button
-                            type="button"
-                            className="h-8 w-7 flex items-center justify-center hover:bg-muted"
-                            onClick={() =>
-                              setPickerState((prev) => ({
-                                ...prev,
-                                [product.id]: {
-                                  variantId: picker.variantId,
-                                  qty: picker.qty + 1,
-                                },
-                              }))
-                            }
-                          >
-                            <Plus className="h-3 w-3" />
-                          </button>
-                        </div>
-                        <Button
-                          size="sm"
-                          className="flex-1 h-8 text-xs"
-                          type="button"
-                          onClick={() => addToSelection(product)}
-                        >
-                          <ShoppingBag className="h-3.5 w-3.5" />
-                          Add
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-                </div>
-              </>
-            )}
-          </section>
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <div className="lg:col-span-8">
+          <ShopPage
+            embedded
+            hideCardQuantityStepper
+            contentGapClassName="flex flex-col lg:flex-row gap-4"
+            productGridClassName="grid grid-cols-1 sm:grid-cols-2 gap-6"
+            sidebarStickyTopOffset={stickyTopOffset}
+            cardActionLabel={({ lockedVariantId }) =>
+              lockedVariantId && selectedAdds[lockedVariantId]
+                ? "Remove from subscription"
+                : "Add to subscription"
+            }
+            cardActionClassName={({ lockedVariantId }) =>
+              lockedVariantId && selectedAdds[lockedVariantId]
+                ? "!bg-destructive/10 !text-destructive hover:!bg-destructive/20"
+                : undefined
+            }
+            onCardAction={({ product, variant, lockedVariantId }) => {
+              const variantId = variant?.id ?? lockedVariantId;
+              if (!variantId) return;
+              toggleVariantSelection(
+                variantId,
+                product.name,
+                variant?.name ?? "",
+                Number(variant?.price ?? 0),
+              );
+            }}
+          />
         </div>
 
-        <aside className="lg:col-span-4">
-          <div className="lg:sticky lg:top-6">
+        <aside className="sticky bottom-0 z-40 lg:static lg:z-auto lg:col-span-4">
+          <div
+            className="max-h-[60vh] overflow-y-auto rounded-t-xl shadow-2xl lg:max-h-[calc(100vh-var(--sticky-top)-16px)] lg:overflow-y-auto lg:rounded-none lg:shadow-none lg:sticky lg:top-[var(--sticky-top)]"
+            style={{ ["--sticky-top" as string]: `${stickyTopOffset}px` } as React.CSSProperties}
+          >
             <section className="bg-card border border-border rounded-xl p-4">
               <h2 className="text-base font-semibold text-foreground">
                 Selected Products
@@ -464,20 +275,43 @@ const SubscriptionAddProductsPage: React.FC = () => {
                   {selectedList.map((item) => (
                     <div
                       key={item.variantId}
-                      className="border border-border rounded-lg p-2.5 flex items-center justify-between gap-2"
+                      className="border border-border rounded-lg p-2.5 space-y-2"
                     >
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium text-foreground truncate">
-                          {item.productName}
-                        </p>
-                        <p className="text-xs text-muted-foreground truncate">
-                          {item.variantName} · Qty {item.quantity}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-semibold text-foreground">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-foreground">
+                            {item.productName}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {item.variantName}
+                          </p>
+                        </div>
+                        <span className="text-sm font-semibold text-foreground shrink-0">
                           {formatMoney(item.quantity * item.unitPrice)}
                         </span>
+                      </div>
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center border border-border rounded-md h-8">
+                          <button
+                            type="button"
+                            className="h-8 w-8 flex items-center justify-center hover:bg-muted"
+                            onClick={() =>
+                              updateSelectedQty(item.variantId, -1)
+                            }
+                          >
+                            <Minus className="h-3 w-3" />
+                          </button>
+                          <span className="w-8 text-center text-xs font-medium">
+                            {item.quantity}
+                          </span>
+                          <button
+                            type="button"
+                            className="h-8 w-8 flex items-center justify-center hover:bg-muted"
+                            onClick={() => updateSelectedQty(item.variantId, 1)}
+                          >
+                            <Plus className="h-3 w-3" />
+                          </button>
+                        </div>
                         <button
                           type="button"
                           className="text-muted-foreground hover:text-destructive"

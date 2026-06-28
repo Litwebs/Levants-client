@@ -65,8 +65,31 @@ const PortalLayoutInner: React.FC<PortalLayoutProps> = ({ children }) => {
   const navigate = useNavigate();
   const isSubscriptionBuilderRoute =
     location.pathname === "/portal/subscriptions/new";
+  const isAddProductsRoute = /\/portal\/subscriptions\/.+\/add-products$/.test(
+    location.pathname,
+  );
+  const hideDesktopSidebar = isSubscriptionBuilderRoute || isAddProductsRoute;
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+
+  // Measure the sticky site header so the desktop sidebar sits below it
+  // instead of sliding underneath the navbar.
+  const [siteHeaderHeight, setSiteHeaderHeight] = useState(0);
+  useEffect(() => {
+    const headerEl = document.querySelector("header");
+    if (!headerEl) return;
+    const update = () =>
+      setSiteHeaderHeight(headerEl.getBoundingClientRect().height);
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(headerEl);
+    window.addEventListener("resize", update);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", update);
+    };
+  }, []);
+  const sidebarTopOffset = siteHeaderHeight + 16;
   const { theme, setThemePreference } = useTheme();
   const { customer, updateCustomerProfile } = usePortalCustomer();
 
@@ -291,12 +314,18 @@ const PortalLayoutInner: React.FC<PortalLayoutProps> = ({ children }) => {
       <div
         className={cn(
           "container-custom py-4 lg:py-6 flex flex-1 items-start",
-          isSubscriptionBuilderRoute ? "gap-0" : "gap-4 lg:gap-6",
+          hideDesktopSidebar ? "gap-0" : "gap-4 lg:gap-6",
         )}
       >
         {/* Desktop Sidebar */}
-        {!isSubscriptionBuilderRoute && (
-          <aside className="hidden lg:flex flex-col w-60 rounded-2xl border border-border bg-card/90 backdrop-blur-sm flex-shrink-0 lg:sticky lg:top-24 max-h-[calc(100vh-7rem)] overflow-hidden">
+        {!hideDesktopSidebar && (
+          <aside
+            className="hidden lg:flex flex-col w-60 rounded-2xl border border-border bg-card/90 backdrop-blur-sm flex-shrink-0 lg:sticky overflow-hidden"
+            style={{
+              top: sidebarTopOffset,
+              maxHeight: `calc(100vh - ${sidebarTopOffset + 16}px)`,
+            }}
+          >
             <SidebarContent />
           </aside>
         )}

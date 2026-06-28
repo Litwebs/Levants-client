@@ -213,6 +213,25 @@ const SubscriptionDetailPage: React.FC = () => {
   );
   const [selectedAddressId, setSelectedAddressId] = useState("");
 
+  // Measure the sticky site header so the actions sidebar sits below it
+  // instead of sliding underneath the navbar.
+  const [siteHeaderHeight, setSiteHeaderHeight] = useState(0);
+  useEffect(() => {
+    const headerEl = document.querySelector("header");
+    if (!headerEl) return;
+    const update = () =>
+      setSiteHeaderHeight(headerEl.getBoundingClientRect().height);
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(headerEl);
+    window.addEventListener("resize", update);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", update);
+    };
+  }, []);
+  const stickyTopOffset = siteHeaderHeight + 16;
+
   const load = async () => {
     if (!id) return;
 
@@ -755,17 +774,17 @@ const SubscriptionDetailPage: React.FC = () => {
                   return (
                     <div
                       key={item.localId || idx}
-                      className="rounded-xl border border-border/70 bg-muted/20 px-3 py-2.5 flex items-center gap-2.5"
+                      className="rounded-xl border border-border/70 bg-muted/20 px-3 py-3 space-y-3"
                     >
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-foreground text-sm sm:text-base truncate">
+                      <div className="min-w-0">
+                        <p className="font-medium text-foreground text-sm sm:text-base">
                           {item.name}
                         </p>
-                        <p className="text-xs text-muted-foreground truncate">
+                        <p className="text-xs text-muted-foreground">
                           {item.sku} · {formatMoney(item.unitPrice)} each
                         </p>
                         {hasScheduledChange && (
-                          <p className="mt-1 text-xs text-blue-700 truncate dark:text-sky-300">
+                          <p className="mt-1 text-xs text-blue-700 dark:text-sky-300">
                             {liveItem
                               ? `Scheduled quantity ${
                                   item.quantity < liveItem.quantity
@@ -790,35 +809,37 @@ const SubscriptionDetailPage: React.FC = () => {
                           </p>
                         )}
                       </div>
-                      <button
-                        onClick={() =>
-                          updateQty(item.localId, item.quantity - 1)
-                        }
-                        disabled={saving}
-                        className="w-7 h-7 rounded-md border border-border flex items-center justify-center hover:bg-muted transition-colors"
-                      >
-                        <Minus className="h-3 w-3" />
-                      </button>
-                      <span className="w-6 text-center text-sm font-semibold text-foreground">
-                        {item.quantity}
-                      </span>
-                      <button
-                        onClick={() =>
-                          updateQty(item.localId, item.quantity + 1)
-                        }
-                        disabled={saving}
-                        className="w-7 h-7 rounded-md border border-border flex items-center justify-center hover:bg-muted transition-colors"
-                      >
-                        <Plus className="h-3 w-3" />
-                      </button>
-                      <button
-                        className="text-muted-foreground hover:text-destructive transition-colors"
-                        onClick={() => setRemoveProductId(item.localId)}
-                        disabled={saving}
-                        aria-label={`Remove ${item.name}`}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
+                      <div className="flex items-center justify-end gap-2 border-t border-border/70 pt-3">
+                        <button
+                          onClick={() =>
+                            updateQty(item.localId, item.quantity - 1)
+                          }
+                          disabled={saving}
+                          className="w-7 h-7 rounded-md border border-border flex items-center justify-center hover:bg-muted transition-colors"
+                        >
+                          <Minus className="h-3 w-3" />
+                        </button>
+                        <span className="w-6 text-center text-sm font-semibold text-foreground">
+                          {item.quantity}
+                        </span>
+                        <button
+                          onClick={() =>
+                            updateQty(item.localId, item.quantity + 1)
+                          }
+                          disabled={saving}
+                          className="w-7 h-7 rounded-md border border-border flex items-center justify-center hover:bg-muted transition-colors"
+                        >
+                          <Plus className="h-3 w-3" />
+                        </button>
+                        <button
+                          className="text-muted-foreground hover:text-destructive transition-colors"
+                          onClick={() => setRemoveProductId(item.localId)}
+                          disabled={saving}
+                          aria-label={`Remove ${item.name}`}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
                     </div>
                   );
                 })(),
@@ -826,13 +847,13 @@ const SubscriptionDetailPage: React.FC = () => {
               {scheduledRemovedItems.map((item) => (
                 <div
                   key={`removed:${item._id}`}
-                  className="rounded-xl border border-blue-200 bg-blue-50 px-3 py-2.5 flex items-center gap-2.5 dark:border-sky-500/30 dark:bg-sky-500/10"
+                  className="rounded-xl border border-blue-200 bg-blue-50 px-3 py-3 dark:border-sky-500/30 dark:bg-sky-500/10"
                 >
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-blue-900 text-sm sm:text-base truncate line-through dark:text-sky-100">
+                  <div className="min-w-0 space-y-1">
+                    <p className="font-medium text-blue-900 text-sm sm:text-base line-through dark:text-sky-100">
                       {item.name}
                     </p>
-                    <p className="text-xs text-blue-700 truncate dark:text-sky-300">
+                    <p className="text-xs text-blue-700 dark:text-sky-300">
                       {item.sku} · scheduled for removal from{" "}
                       {subscription.pendingChanges?.effectiveFrom
                         ? formatDate(subscription.pendingChanges.effectiveFrom)
@@ -1070,7 +1091,10 @@ const SubscriptionDetailPage: React.FC = () => {
         </div>
 
         <aside className="xl:col-span-4">
-          <div className="space-y-4 xl:sticky xl:top-4">
+          <div
+            className="space-y-4 xl:sticky"
+            style={{ top: stickyTopOffset } as React.CSSProperties}
+          >
             <div className="bg-card border border-border rounded-2xl p-4 sm:p-5">
               <h3 className="font-semibold text-foreground mb-3 text-base sm:text-lg">
                 Subscription Actions
