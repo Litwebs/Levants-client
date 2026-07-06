@@ -110,6 +110,41 @@ const buildEditableItems = (
   return subscription.items.map(toEditableItem);
 };
 
+const cloneEditableItem = (
+  item: EditableSubscriptionItem,
+): EditableSubscriptionItem => ({
+  ...item,
+});
+
+const buildEditableDayPlans = (
+  subscription: PortalSubscription,
+  isPastCutoff: boolean,
+  selectedDays: string[],
+) => {
+  const sourcePlans =
+    isPastCutoff && subscription.pendingChanges?.deliveryDayPlans?.length
+      ? subscription.pendingChanges.deliveryDayPlans
+      : subscription.deliveryDayPlans;
+  const fallbackItems = buildEditableItems(subscription, isPastCutoff);
+
+  const planByDay = new Map(
+    (sourcePlans || []).map((plan) => [toDayName(plan.day), plan.items || []]),
+  );
+
+  return selectedDays.reduce<Record<string, EditableSubscriptionItem[]>>(
+    (acc, dayName) => {
+      const planItems = planByDay.get(dayName);
+      if (Array.isArray(planItems) && planItems.length > 0) {
+        acc[dayName] = planItems.map(toEditableItem);
+        return acc;
+      }
+      acc[dayName] = fallbackItems.map(cloneEditableItem);
+      return acc;
+    },
+    {},
+  );
+};
+
 const getDraftIdentityKey = (item: EditableSubscriptionItem) =>
   item.existingItemId || getItemMatchKey(item);
 
@@ -138,6 +173,11 @@ const dayNameToIndex = (value: string) => {
   };
   return map[value] ?? 2;
 };
+
+const normalizeDayIndexes = (days: number[]) =>
+  [...new Set(days)]
+    .filter((day) => Number.isInteger(day) && day >= 0 && day <= 6)
+    .sort((a, b) => a - b);
 
 const formatDate = (iso?: string | null) => {
   if (!iso) return "-";
@@ -216,12 +256,15 @@ const SubscriptionDetailPage: React.FC = () => {
   const [cancelOpen, setCancelOpen] = useState(false);
   const [removeProductId, setRemoveProductId] = useState<string | null>(null);
   const [frequency, setFrequency] = useState("weekly");
-  const [deliveryDay, setDeliveryDay] = useState("Tuesday");
+  const [deliveryDays, setDeliveryDays] = useState<string[]>(["Tuesday"]);
   const [cutoff, setCutoff] = useState<PortalSubscriptionCutoff | null>(null);
   const [refundChoiceOpen, setRefundChoiceOpen] = useState(false);
   const [productDraft, setProductDraft] = useState<EditableSubscriptionItem[]>(
     [],
   );
+  const [dayProductDraft, setDayProductDraft] = useState<
+    Record<string, EditableSubscriptionItem[]>
+  >({});
   const [selectedAddressId, setSelectedAddressId] = useState("");
 
   // Measure the sticky site header so the actions sidebar sits below it
@@ -253,6 +296,26 @@ const SubscriptionDetailPage: React.FC = () => {
     return formatInputDate(value);
   }, []);
 
+  useEffect(() => {
+    if (frequency === "weekly") return;
+    setDeliveryDays((prev) => (prev.length > 1 ? [prev[0]] : prev));
+  }, [frequency]);
+
+  useEffect(() => {
+    if (frequency !== "weekly" || deliveryDays.length <= 1) return;
+
+    setDayProductDraft((prev) => {
+      const next: Record<string, EditableSubscriptionItem[]> = {};
+      for (const day of deliveryDays) {
+        const existing = prev[day];
+        next[day] = (existing?.length ? existing : productDraft).map(
+          cloneEditableItem,
+        );
+      }
+      return next;
+    });
+  }, [deliveryDays, frequency, productDraft]);
+
   const load = async () => {
     if (!id) return;
 
@@ -278,9 +341,26 @@ const SubscriptionDetailPage: React.FC = () => {
 
       if (sub) {
         setFrequency(sub.frequency);
-        setDeliveryDay(toDayName(sub.preferredDeliveryDay));
-        setProductDraft(
-          buildEditableItems(sub, Boolean(nextCutoff?.isPastCutoff)),
+        const subDays = normalizeDayIndexes(
+          Array.isArray(sub.preferredDeliveryDays) &&
+            sub.preferredDeliveryDays.length > 0
+            ? sub.preferredDeliveryDays
+            : [sub.preferredDeliveryDay],
+        );
+        const selectedDayNames = subDays.map((day) => toDayName(day));
+        setDeliveryDays(selectedDayNames);
+
+        const nextProductDraft = buildEditableItems(
+          sub,
+          Boolean(nextCutoff?.isPastCutoff),
+        );
+        setProductDraft(nextProductDraft);
+        setDayProductDraft(
+          buildEditableDayPlans(
+            sub,
+            Boolean(nextCutoff?.isPastCutoff),
+            selectedDayNames,
+          ),
         );
       }
     } catch (err) {
@@ -350,19 +430,112 @@ const SubscriptionDetailPage: React.FC = () => {
     );
   };
 
+  const updateDayQty = (day: string, localId: string, quantity: number) => {
+    setDayProductDraft((prev) => {
+      const dayItems = prev[day] || [];
+      return {
+        ...prev,
+        [day]: dayItems.map((item) =>
+          item.localId === localId
+            ? { ...item, quantity: Math.max(0, quantity) }
+            : item,
+        ),
+      };
+    });
+  };
+
+  const toggleDayItemIncluded = (day: string, localId: string) => {
+    setDayProductDraft((prev) => {
+      const dayItems = prev[day] || [];
+      return {
+        ...prev,
+        [day]: dayItems.map((item) => {
+          if (item.localId !== localId) return item;
+          return {
+            ...item,
+            quantity: item.quantity > 0 ? 0 : Math.max(1, item.quantity || 1),
+          };
+        }),
+      };
+    });
+  };
+
+  const selectedDayIndexes = useMemo(
+    () => normalizeDayIndexes(deliveryDays.map(dayNameToIndex)),
+    [deliveryDays],
+  );
+  const isMultiDayWeekly =
+    frequency === "weekly" && selectedDayIndexes.length > 1;
+
+  const mergedDayDraft = useMemo(() => {
+    if (!isMultiDayWeekly) return [] as EditableSubscriptionItem[];
+
+    const mergedByVariant = new Map<string, EditableSubscriptionItem>();
+    for (const day of deliveryDays) {
+      for (const item of dayProductDraft[day] || []) {
+        const qty = Number(item.quantity || 0);
+        const key = item.variantId || item.existingItemId || item.localId;
+        const existing = mergedByVariant.get(key);
+        if (existing) {
+          existing.quantity += Math.max(0, qty);
+        } else {
+          mergedByVariant.set(key, {
+            ...item,
+            quantity: Math.max(0, qty),
+          });
+        }
+      }
+    }
+
+    return Array.from(mergedByVariant.values()).filter(
+      (item) => item.quantity > 0,
+    );
+  }, [dayProductDraft, deliveryDays, isMultiDayWeekly]);
+
+  const effectiveProductDraft = isMultiDayWeekly
+    ? mergedDayDraft
+    : productDraft;
+
   const total = useMemo(() => {
-    if (!productDraft.length) return 0;
-    return productDraft.reduce(
+    if (!effectiveProductDraft.length) return 0;
+    return effectiveProductDraft.reduce(
       (sum, item) =>
         sum + Number(item.unitPrice || 0) * Number(item.quantity || 0),
       0,
     );
-  }, [productDraft]);
+  }, [effectiveProductDraft]);
 
   const editableBaseline = useMemo(() => {
     if (!subscription) return [];
     return buildEditableItems(subscription, Boolean(cutoff?.isPastCutoff));
   }, [subscription, cutoff]);
+
+  const dayPlanBaseline = useMemo(() => {
+    if (!subscription) return {} as Record<string, EditableSubscriptionItem[]>;
+    return buildEditableDayPlans(
+      subscription,
+      Boolean(cutoff?.isPastCutoff),
+      deliveryDays,
+    );
+  }, [subscription, cutoff, deliveryDays]);
+
+  const buildComparableDayPlans = (
+    source: Record<string, EditableSubscriptionItem[]>,
+  ) =>
+    JSON.stringify(
+      deliveryDays
+        .map((day) => ({
+          day: dayNameToIndex(day),
+          items: (source[day] || [])
+            .filter((item) => Number(item.quantity || 0) > 0)
+            .map((item) => ({
+              variantId: item.variantId,
+              quantity: Number(item.quantity || 0),
+            }))
+            .sort((a, b) => a.variantId.localeCompare(b.variantId)),
+        }))
+        .sort((a, b) => a.day - b.day),
+    );
 
   const originalTotal = useMemo(() => {
     if (!subscription) return 0;
@@ -375,6 +548,14 @@ const SubscriptionDetailPage: React.FC = () => {
 
   const hasUnsavedProductChanges = useMemo(() => {
     if (!subscription) return false;
+
+    if (isMultiDayWeekly) {
+      return (
+        buildComparableDayPlans(dayProductDraft) !==
+        buildComparableDayPlans(dayPlanBaseline)
+      );
+    }
+
     if (productDraft.length !== editableBaseline.length) return true;
 
     const byId = new Map(
@@ -388,7 +569,14 @@ const SubscriptionDetailPage: React.FC = () => {
       }
     }
     return false;
-  }, [editableBaseline, productDraft, subscription]);
+  }, [
+    dayPlanBaseline,
+    dayProductDraft,
+    editableBaseline,
+    isMultiDayWeekly,
+    productDraft,
+    subscription,
+  ]);
 
   const liveItemsByKey = useMemo(
     () =>
@@ -413,6 +601,7 @@ const SubscriptionDetailPage: React.FC = () => {
   );
 
   const scheduledRemovedItems = useMemo(() => {
+    if (isMultiDayWeekly) return [] as PortalSubscriptionItem[];
     if (!cutoff?.isPastCutoff || !subscription?.pendingChanges?.items?.length) {
       return [] as PortalSubscriptionItem[];
     }
@@ -420,17 +609,46 @@ const SubscriptionDetailPage: React.FC = () => {
     return subscription.items.filter(
       (item) => !pendingItemsByKey.has(getItemMatchKey(item)),
     );
-  }, [cutoff, pendingItemsByKey, subscription]);
+  }, [cutoff, isMultiDayWeekly, pendingItemsByKey, subscription]);
 
   const handleSaveDeliveryDetails = async () => {
     if (!id || !selectedAddressId) return;
+
+    const buildDeliveryDayPlansPayload = () => {
+      if (!isMultiDayWeekly) return undefined;
+
+      return deliveryDays.map((dayName) => {
+        const dayItems = (dayProductDraft[dayName] || [])
+          .filter((item) => Number(item.quantity || 0) > 0)
+          .map((item) => ({
+            variantId: item.variantId,
+            quantity: Number(item.quantity || 0),
+          }));
+
+        if (dayItems.length === 0) {
+          throw new Error(
+            `Please keep at least one product in ${dayName} delivery order.`,
+          );
+        }
+
+        return {
+          day: dayNameToIndex(dayName),
+          items: dayItems,
+        };
+      });
+    };
 
     try {
       setSaving(true);
       setError(null);
       setNotice(null);
+      const deliveryDayPlans = buildDeliveryDayPlansPayload();
       await portalSubscriptionsApi.update(id, {
-        preferredDeliveryDay: dayNameToIndex(deliveryDay),
+        preferredDeliveryDay: dayNameToIndex(deliveryDays[0] || "Tuesday"),
+        preferredDeliveryDays: normalizeDayIndexes(
+          deliveryDays.map(dayNameToIndex),
+        ),
+        deliveryDayPlans,
         deliveryAddressId: selectedAddressId,
       });
       await load();
@@ -502,6 +720,58 @@ const SubscriptionDetailPage: React.FC = () => {
 
   const handleSaveProductChanges = async () => {
     if (!id || !subscription || !hasUnsavedProductChanges) return;
+
+    if (isMultiDayWeekly) {
+      try {
+        const deliveryDayPlans = deliveryDays.map((dayName) => {
+          const items = (dayProductDraft[dayName] || [])
+            .filter((item) => Number(item.quantity || 0) > 0)
+            .map((item) => ({
+              variantId: item.variantId,
+              quantity: Number(item.quantity || 0),
+            }));
+
+          if (items.length === 0) {
+            throw new Error(
+              `Please keep at least one product in ${dayName} delivery order.`,
+            );
+          }
+
+          return { day: dayNameToIndex(dayName), items };
+        });
+
+        setSaving(true);
+        setError(null);
+        setNotice(null);
+
+        await portalSubscriptionsApi.update(id, {
+          deliveryDayPlans,
+          preferredDeliveryDay: dayNameToIndex(deliveryDays[0] || "Tuesday"),
+          preferredDeliveryDays: normalizeDayIndexes(
+            deliveryDays.map(dayNameToIndex),
+          ),
+        });
+
+        await load();
+        await refreshCustomer().catch(() => {});
+        setNotice(
+          cutoff?.isPastCutoff
+            ? "Product changes were scheduled for deliveries after the upcoming one."
+            : "Product changes saved.",
+        );
+      } catch (err) {
+        setError(
+          err instanceof ApiError
+            ? err.message
+            : err instanceof Error
+              ? err.message
+              : "Failed to save product changes.",
+        );
+      } finally {
+        setSaving(false);
+      }
+      return;
+    }
 
     const originalById = new Map(
       subscription.items.map((item) => [item._id, item]),
@@ -665,8 +935,16 @@ const SubscriptionDetailPage: React.FC = () => {
       ),
   );
 
+  const currentDayIndexes = normalizeDayIndexes(
+    Array.isArray(subscription.preferredDeliveryDays) &&
+      subscription.preferredDeliveryDays.length > 0
+      ? subscription.preferredDeliveryDays
+      : [Number(subscription.preferredDeliveryDay)],
+  );
+
   const isDeliveryDayCurrent =
-    dayNameToIndex(deliveryDay) === Number(subscription.preferredDeliveryDay);
+    selectedDayIndexes.length === currentDayIndexes.length &&
+    selectedDayIndexes.every((day, index) => day === currentDayIndexes[index]);
 
   const canSaveDeliveryDetails =
     !saving &&
@@ -809,7 +1087,7 @@ const SubscriptionDetailPage: React.FC = () => {
               Delivery day
             </p>
             <p className="text-sm sm:text-base font-semibold text-foreground mt-1">
-              {deliveryDay}
+              {deliveryDays.join(", ")}
             </p>
           </div>
           <div className="rounded-xl border border-border/70 bg-background/70 px-3 py-2.5">
@@ -841,110 +1119,249 @@ const SubscriptionDetailPage: React.FC = () => {
             </div>
 
             <div className="space-y-2.5">
-              {productDraft.map((item, idx) =>
-                (() => {
-                  const liveItem = liveItemsByKey.get(getItemMatchKey(item));
-                  const hasScheduledChange = Boolean(
-                    cutoff?.isPastCutoff &&
-                    subscription.pendingChanges?.items?.length &&
-                    (!liveItem ||
-                      Number(liveItem.quantity || 0) !==
-                        Number(item.quantity || 0) ||
-                      Number(liveItem.unitPrice || 0) !==
-                        Number(item.unitPrice || 0)),
+              {isMultiDayWeekly ? (
+                deliveryDays.map((dayName, dayIndex) => {
+                  const dayItems = dayProductDraft[dayName] || [];
+                  const includedCount = dayItems.filter(
+                    (item) => Number(item.quantity || 0) > 0,
+                  ).length;
+                  const totalQty = dayItems.reduce(
+                    (sum, item) =>
+                      sum + Math.max(0, Number(item.quantity || 0)),
+                    0,
                   );
 
                   return (
                     <div
-                      key={item.localId || idx}
-                      className="rounded-xl border border-border/70 bg-muted/20 px-3 py-3 space-y-3"
+                      key={dayName}
+                      className="rounded-xl border border-border bg-muted/15 p-3 space-y-2.5"
                     >
-                      <div className="min-w-0">
-                        <p className="font-medium text-foreground text-sm sm:text-base">
-                          {item.name}
+                      <div className="rounded-lg border border-border/70 bg-background px-3 py-2">
+                        <p className="text-sm font-semibold text-foreground">
+                          Order {dayIndex + 1}: {dayName}
                         </p>
-                        <p className="text-xs text-muted-foreground">
-                          {item.sku} · {formatMoney(item.unitPrice)} each
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {includedCount} selected · {totalQty} total qty
                         </p>
-                        {hasScheduledChange && (
-                          <p className="mt-1 text-xs text-blue-700 dark:text-sky-300">
-                            {liveItem
-                              ? `Scheduled quantity ${
-                                  item.quantity < liveItem.quantity
-                                    ? "decrease"
-                                    : "increase"
-                                } from ${
-                                  subscription.pendingChanges?.effectiveFrom
-                                    ? formatDate(
-                                        subscription.pendingChanges
-                                          .effectiveFrom,
-                                      )
-                                    : "your next delivery"
-                                }: ${liveItem.quantity} to ${item.quantity}`
-                              : `Scheduled from ${
-                                  subscription.pendingChanges?.effectiveFrom
-                                    ? formatDate(
-                                        subscription.pendingChanges
-                                          .effectiveFrom,
-                                      )
-                                    : "your next delivery"
-                                }: ${item.quantity} per delivery`}
-                          </p>
-                        )}
                       </div>
-                      <div className="flex items-center justify-end gap-2 border-t border-border/70 pt-3">
-                        <button
-                          onClick={() =>
-                            updateQty(item.localId, item.quantity - 1)
-                          }
-                          disabled={saving || subscription.status !== "active"}
-                          className="w-7 h-7 rounded-md border border-border flex items-center justify-center hover:bg-muted transition-colors"
-                        >
-                          <Minus className="h-3 w-3" />
-                        </button>
-                        <span className="w-6 text-center text-sm font-semibold text-foreground">
-                          {item.quantity}
-                        </span>
-                        <button
-                          onClick={() =>
-                            updateQty(item.localId, item.quantity + 1)
-                          }
-                          disabled={saving || subscription.status !== "active"}
-                          className="w-7 h-7 rounded-md border border-border flex items-center justify-center hover:bg-muted transition-colors"
-                        >
-                          <Plus className="h-3 w-3" />
-                        </button>
-                        <button
-                          className="text-muted-foreground hover:text-destructive transition-colors"
-                          onClick={() => setRemoveProductId(item.localId)}
-                          disabled={saving || subscription.status !== "active"}
-                          aria-label={`Remove ${item.name}`}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
+
+                      <div className="space-y-2">
+                        {dayItems.map((item, idx) => {
+                          const isIncluded = Number(item.quantity || 0) > 0;
+
+                          return (
+                            <div
+                              key={`${dayName}:${item.localId || idx}`}
+                              className={cn(
+                                "rounded-lg border border-border/70 bg-background p-2.5",
+                                !isIncluded && "opacity-65",
+                              )}
+                            >
+                              <div className="flex items-center justify-between gap-2">
+                                <div className="flex items-center gap-2 min-w-0">
+                                  {item.imageUrl ? (
+                                    <img
+                                      src={item.imageUrl}
+                                      alt={item.name}
+                                      className="w-10 h-10 rounded-lg object-cover flex-shrink-0"
+                                    />
+                                  ) : (
+                                    <div className="w-10 h-10 rounded-lg bg-muted/40 border border-border/50 flex-shrink-0" />
+                                  )}
+                                  <div className="min-w-0">
+                                    <p className="text-sm font-medium text-foreground truncate">
+                                      {item.name}
+                                    </p>
+                                    <p className="text-xs text-muted-foreground truncate">
+                                      {item.sku} · {formatMoney(item.unitPrice)}{" "}
+                                      each
+                                    </p>
+                                  </div>
+                                </div>
+
+                                <button
+                                  type="button"
+                                  className={cn(
+                                    "h-7 px-2 rounded-lg border text-xs font-medium min-w-[78px]",
+                                    isIncluded
+                                      ? "border-forest/60 bg-forest/10 text-foreground"
+                                      : "border-border text-muted-foreground hover:border-forest/40",
+                                  )}
+                                  onClick={() =>
+                                    toggleDayItemIncluded(dayName, item.localId)
+                                  }
+                                  disabled={
+                                    saving || subscription.status !== "active"
+                                  }
+                                >
+                                  {isIncluded ? "Included" : "Excluded"}
+                                </button>
+                              </div>
+
+                              <div className="mt-2 flex items-center justify-end gap-2 border-t border-border/70 pt-2">
+                                <button
+                                  onClick={() =>
+                                    updateDayQty(
+                                      dayName,
+                                      item.localId,
+                                      Number(item.quantity || 0) - 1,
+                                    )
+                                  }
+                                  disabled={
+                                    !isIncluded ||
+                                    saving ||
+                                    subscription.status !== "active"
+                                  }
+                                  className="w-7 h-7 rounded-md border border-border flex items-center justify-center hover:bg-muted transition-colors"
+                                >
+                                  <Minus className="h-3 w-3" />
+                                </button>
+                                <span className="w-6 text-center text-sm font-semibold text-foreground">
+                                  {Number(item.quantity || 0)}
+                                </span>
+                                <button
+                                  onClick={() =>
+                                    updateDayQty(
+                                      dayName,
+                                      item.localId,
+                                      Number(item.quantity || 0) + 1,
+                                    )
+                                  }
+                                  disabled={
+                                    !isIncluded ||
+                                    saving ||
+                                    subscription.status !== "active"
+                                  }
+                                  className="w-7 h-7 rounded-md border border-border flex items-center justify-center hover:bg-muted transition-colors"
+                                >
+                                  <Plus className="h-3 w-3" />
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
                   );
-                })(),
+                })
+              ) : (
+                <>
+                  {productDraft.map((item, idx) =>
+                    (() => {
+                      const liveItem = liveItemsByKey.get(
+                        getItemMatchKey(item),
+                      );
+                      const hasScheduledChange = Boolean(
+                        cutoff?.isPastCutoff &&
+                        subscription.pendingChanges?.items?.length &&
+                        (!liveItem ||
+                          Number(liveItem.quantity || 0) !==
+                            Number(item.quantity || 0) ||
+                          Number(liveItem.unitPrice || 0) !==
+                            Number(item.unitPrice || 0)),
+                      );
+
+                      return (
+                        <div
+                          key={item.localId || idx}
+                          className="rounded-xl border border-border/70 bg-muted/20 px-3 py-3 space-y-3"
+                        >
+                          <div className="min-w-0">
+                            <p className="font-medium text-foreground text-sm sm:text-base">
+                              {item.name}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {item.sku} · {formatMoney(item.unitPrice)} each
+                            </p>
+                            {hasScheduledChange && (
+                              <p className="mt-1 text-xs text-blue-700 dark:text-sky-300">
+                                {liveItem
+                                  ? `Scheduled quantity ${
+                                      item.quantity < liveItem.quantity
+                                        ? "decrease"
+                                        : "increase"
+                                    } from ${
+                                      subscription.pendingChanges?.effectiveFrom
+                                        ? formatDate(
+                                            subscription.pendingChanges
+                                              .effectiveFrom,
+                                          )
+                                        : "your next delivery"
+                                    }: ${liveItem.quantity} to ${item.quantity}`
+                                  : `Scheduled from ${
+                                      subscription.pendingChanges?.effectiveFrom
+                                        ? formatDate(
+                                            subscription.pendingChanges
+                                              .effectiveFrom,
+                                          )
+                                        : "your next delivery"
+                                    }: ${item.quantity} per delivery`}
+                              </p>
+                            )}
+                          </div>
+                          <div className="flex items-center justify-end gap-2 border-t border-border/70 pt-3">
+                            <button
+                              onClick={() =>
+                                updateQty(item.localId, item.quantity - 1)
+                              }
+                              disabled={
+                                saving || subscription.status !== "active"
+                              }
+                              className="w-7 h-7 rounded-md border border-border flex items-center justify-center hover:bg-muted transition-colors"
+                            >
+                              <Minus className="h-3 w-3" />
+                            </button>
+                            <span className="w-6 text-center text-sm font-semibold text-foreground">
+                              {item.quantity}
+                            </span>
+                            <button
+                              onClick={() =>
+                                updateQty(item.localId, item.quantity + 1)
+                              }
+                              disabled={
+                                saving || subscription.status !== "active"
+                              }
+                              className="w-7 h-7 rounded-md border border-border flex items-center justify-center hover:bg-muted transition-colors"
+                            >
+                              <Plus className="h-3 w-3" />
+                            </button>
+                            <button
+                              className="text-muted-foreground hover:text-destructive transition-colors"
+                              onClick={() => setRemoveProductId(item.localId)}
+                              disabled={
+                                saving || subscription.status !== "active"
+                              }
+                              aria-label={`Remove ${item.name}`}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })(),
+                  )}
+                  {scheduledRemovedItems.map((item) => (
+                    <div
+                      key={`removed:${item._id}`}
+                      className="rounded-xl border border-blue-200 bg-blue-50 px-3 py-3 dark:border-sky-500/30 dark:bg-sky-500/10"
+                    >
+                      <div className="min-w-0 space-y-1">
+                        <p className="font-medium text-blue-900 text-sm sm:text-base line-through dark:text-sky-100">
+                          {item.name}
+                        </p>
+                        <p className="text-xs text-blue-700 dark:text-sky-300">
+                          {item.sku} · scheduled for removal from{" "}
+                          {subscription.pendingChanges?.effectiveFrom
+                            ? formatDate(
+                                subscription.pendingChanges.effectiveFrom,
+                              )
+                            : "your next delivery"}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </>
               )}
-              {scheduledRemovedItems.map((item) => (
-                <div
-                  key={`removed:${item._id}`}
-                  className="rounded-xl border border-blue-200 bg-blue-50 px-3 py-3 dark:border-sky-500/30 dark:bg-sky-500/10"
-                >
-                  <div className="min-w-0 space-y-1">
-                    <p className="font-medium text-blue-900 text-sm sm:text-base line-through dark:text-sky-100">
-                      {item.name}
-                    </p>
-                    <p className="text-xs text-blue-700 dark:text-sky-300">
-                      {item.sku} · scheduled for removal from{" "}
-                      {subscription.pendingChanges?.effectiveFrom
-                        ? formatDate(subscription.pendingChanges.effectiveFrom)
-                        : "your next delivery"}
-                    </p>
-                  </div>
-                </div>
-              ))}
             </div>
 
             <Separator className="my-3" />
@@ -1017,7 +1434,13 @@ const SubscriptionDetailPage: React.FC = () => {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setProductDraft(editableBaseline)}
+                  onClick={() => {
+                    if (isMultiDayWeekly) {
+                      setDayProductDraft(dayPlanBaseline);
+                      return;
+                    }
+                    setProductDraft(editableBaseline);
+                  }}
                   disabled={
                     !hasUnsavedProductChanges ||
                     saving ||
@@ -1116,34 +1539,54 @@ const SubscriptionDetailPage: React.FC = () => {
                 <div className="space-y-3">
                   <div className="space-y-1.5">
                     <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                      Preferred Day
+                      {frequency === "weekly"
+                        ? "Preferred Days"
+                        : "Preferred Day"}
                     </p>
-                    <Select
-                      value={deliveryDay}
-                      onValueChange={setDeliveryDay}
-                      disabled={subscription.status !== "active"}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {(cutoff?.deliveryDays?.length
-                          ? cutoff.deliveryDays.map((d) => toDayName(d))
-                          : [
-                              "Monday",
-                              "Tuesday",
-                              "Wednesday",
-                              "Thursday",
-                              "Friday",
-                              "Saturday",
-                            ]
-                        ).map((d) => (
-                          <SelectItem key={d} value={d}>
-                            {d}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <div className="flex flex-wrap gap-2">
+                      {(cutoff?.deliveryDays?.length
+                        ? cutoff.deliveryDays.map((d) => toDayName(d))
+                        : [
+                            "Monday",
+                            "Tuesday",
+                            "Wednesday",
+                            "Thursday",
+                            "Friday",
+                            "Saturday",
+                          ]
+                      ).map((day) => (
+                        <button
+                          key={day}
+                          type="button"
+                          disabled={subscription.status !== "active"}
+                          onClick={() => {
+                            if (frequency === "weekly") {
+                              setDeliveryDays((prev) => {
+                                if (prev.includes(day)) {
+                                  return prev.length > 1
+                                    ? prev.filter((d) => d !== day)
+                                    : prev;
+                                }
+                                return [...prev, day];
+                              });
+                              return;
+                            }
+
+                            setDeliveryDays([day]);
+                          }}
+                          className={cn(
+                            "rounded-lg border px-3 py-2 text-sm font-medium leading-tight min-h-[42px] whitespace-nowrap transition-colors",
+                            deliveryDays.includes(day)
+                              ? "border-forest bg-forest text-primary-foreground"
+                              : "border-border hover:border-forest/40",
+                            subscription.status !== "active" &&
+                              "opacity-60 cursor-not-allowed",
+                          )}
+                        >
+                          {day}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1241,7 +1684,7 @@ const SubscriptionDetailPage: React.FC = () => {
                 <div className="flex items-center justify-between">
                   <span className="text-muted-foreground">Items</span>
                   <span className="font-medium text-foreground">
-                    {productDraft.length}
+                    {effectiveProductDraft.length}
                   </span>
                 </div>
                 <div className="flex items-center justify-between">

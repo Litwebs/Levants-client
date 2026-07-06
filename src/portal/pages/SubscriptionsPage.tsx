@@ -114,7 +114,13 @@ const SubscriptionCard: React.FC<{
             </div>
             <p className="text-xs text-muted-foreground mt-1 ml-[22px]">
               {frequencyLabel(sub.frequency)} · Every{" "}
-              {dayName(sub.preferredDeliveryDay)}
+              {(Array.isArray(sub.preferredDeliveryDays) &&
+              sub.preferredDeliveryDays.length > 0
+                ? sub.preferredDeliveryDays
+                : [sub.preferredDeliveryDay]
+              )
+                .map((day) => dayName(day))
+                .join(", ")}
             </p>
           </div>
         </div>

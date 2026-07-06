@@ -355,7 +355,11 @@ const NewSubscriptionPage: React.FC = () => {
           .map((d) => dayNames[d])
           .filter((n): n is string => Boolean(n));
         setAvailableDays(names);
-        setDeliveryDay((prev) => (names.includes(prev) ? prev : names[0]));
+        setDeliveryDays((prev) => {
+          const filtered = prev.filter((day) => names.includes(day));
+          if (filtered.length > 0) return filtered;
+          return names[0] ? [names[0]] : prev;
+        });
       } catch {
         /* fall back to default day list */
       }
@@ -378,12 +382,30 @@ const NewSubscriptionPage: React.FC = () => {
   const [quantities, setQuantities] = useState<Record<string, number>>(
     () => (draft?.quantities as Record<string, number> | undefined) ?? {},
   );
-  const [frequency, setFrequency] = useState(
-    () => (draft?.frequency as string | undefined) ?? "weekly",
+  const [dayQuantities, setDayQuantities] = useState<
+    Record<string, Record<string, number>>
+  >(
+    () =>
+      (draft?.dayQuantities as
+        | Record<string, Record<string, number>>
+        | undefined) ?? {},
   );
-  const [deliveryDay, setDeliveryDay] = useState(
-    () => (draft?.deliveryDay as string | undefined) ?? "Tuesday",
-  );
+  const [frequency, setFrequency] = useState(() => {
+    const draftFrequency = draft?.frequency as string | undefined;
+    return draftFrequency === "fortnightly" ? "fortnightly" : "weekly";
+  });
+  const [deliveryDays, setDeliveryDays] = useState<string[]>(() => {
+    const draftDays = draft?.deliveryDays;
+    if (Array.isArray(draftDays) && draftDays.length > 0) {
+      return draftDays.filter(
+        (value): value is string => typeof value === "string",
+      );
+    }
+    const legacyDay = draft?.deliveryDay;
+    return typeof legacyDay === "string" && legacyDay
+      ? [legacyDay]
+      : ["Tuesday"];
+  });
   const [selectedAddress, setSelectedAddress] = useState<string>(
     () => (draft?.selectedAddress as string | undefined) ?? "",
   );
@@ -505,6 +527,33 @@ const NewSubscriptionPage: React.FC = () => {
         : [...prev, variantId],
     );
 
+  useEffect(() => {
+    if (frequency === "weekly") return;
+    setDeliveryDays((prev) => (prev.length > 1 ? [prev[0]] : prev));
+  }, [frequency]);
+
+  useEffect(() => {
+    if (frequency !== "weekly" || deliveryDays.length <= 1) return;
+
+    setDayQuantities((prev) => {
+      const next: Record<string, Record<string, number>> = {};
+
+      for (const day of deliveryDays) {
+        const previousForDay = prev[day] || {};
+        next[day] = {};
+
+        for (const variantId of selectedVariantIds) {
+          const baseQuantity = Math.max(1, quantities[variantId] ?? 1);
+          const existing = previousForDay[variantId];
+          next[day][variantId] =
+            typeof existing === "number" ? Math.max(0, existing) : baseQuantity;
+        }
+      }
+
+      return next;
+    });
+  }, [frequency, deliveryDays, selectedVariantIds, quantities]);
+
   // Persist draft on every relevant state change
   useEffect(() => {
     try {
@@ -514,8 +563,9 @@ const NewSubscriptionPage: React.FC = () => {
           step,
           selectedVariantIds,
           quantities,
+          dayQuantities,
           frequency,
-          deliveryDay,
+          deliveryDays,
           selectedAddress,
         }),
       );
@@ -526,8 +576,9 @@ const NewSubscriptionPage: React.FC = () => {
     step,
     selectedVariantIds,
     quantities,
+    dayQuantities,
     frequency,
-    deliveryDay,
+    deliveryDays,
     selectedAddress,
   ]);
 
@@ -586,19 +637,86 @@ const NewSubscriptionPage: React.FC = () => {
       throw new Error("Please select at least one product.");
     }
 
-    const items = selectedFlatVariants.map((sv) => ({
+    const selectedDays = deliveryDays.length > 0 ? deliveryDays : ["Tuesday"];
+    const selectedDayIndexes = selectedDays.map(dayToIndex);
+    const isMultiDayWeekly = frequency === "weekly" && selectedDays.length > 1;
+
+    const baseItems = selectedFlatVariants.map((sv) => ({
       variantId: sv.variantId,
       quantity: Math.max(1, quantities[sv.variantId] ?? 1),
     }));
+
+    let deliveryDayPlans:
+      | Array<{
+          day: number;
+          items: Array<{ variantId: string; quantity: number }>;
+        }>
+      | undefined;
+
+    if (isMultiDayWeekly) {
+      deliveryDayPlans = selectedDays.map((dayName) => {
+        const planItems = selectedFlatVariants
+          .map((sv) => ({
+            variantId: sv.variantId,
+            quantity: Math.max(
+              0,
+              dayQuantities[dayName]?.[sv.variantId] ??
+                Math.max(1, quantities[sv.variantId] ?? 1),
+            ),
+          }))
+          .filter((item) => item.quantity > 0);
+
+        if (planItems.length === 0) {
+          throw new Error(
+            `Please add at least one product for ${dayName} deliveries.`,
+          );
+        }
+
+        return {
+          day: dayToIndex(dayName),
+          items: planItems,
+        };
+      });
+
+      const mergedByVariant = new Map<string, number>();
+      for (const plan of deliveryDayPlans) {
+        for (const item of plan.items) {
+          mergedByVariant.set(
+            item.variantId,
+            (mergedByVariant.get(item.variantId) || 0) + item.quantity,
+          );
+        }
+      }
+
+      const mergedItems = Array.from(mergedByVariant.entries()).map(
+        ([variantId, quantity]) => ({ variantId, quantity }),
+      );
+
+      return {
+        frequency: frequencyToApi(frequency) as
+          | "weekly"
+          | "every_two_weeks"
+          | "monthly",
+        preferredDeliveryDay: selectedDayIndexes[0],
+        preferredDeliveryDays: Array.from(new Set(selectedDayIndexes)),
+        deliveryDayPlans,
+        deliveryAddressId: selectedAddress,
+        items: mergedItems,
+      };
+    }
 
     return {
       frequency: frequencyToApi(frequency) as
         | "weekly"
         | "every_two_weeks"
         | "monthly",
-      preferredDeliveryDay: dayToIndex(deliveryDay),
+      preferredDeliveryDay: selectedDayIndexes[0],
+      preferredDeliveryDays:
+        frequency === "weekly"
+          ? Array.from(new Set(selectedDayIndexes))
+          : [selectedDayIndexes[0]],
       deliveryAddressId: selectedAddress,
-      items,
+      items: baseItems,
     };
   };
 
@@ -738,7 +856,9 @@ const NewSubscriptionPage: React.FC = () => {
         className={cn(
           step === 0
             ? "flex-1 pb-6"
-            : "flex-1 bg-card border border-border rounded-2xl p-6 mb-6 xl:w-1/2 xl:mx-auto",
+            : step === 3
+              ? "flex-1 bg-card border border-border rounded-2xl p-6 mb-6 xl:w-5/6 xl:max-w-6xl xl:mx-auto"
+              : "flex-1 bg-card border border-border rounded-2xl p-6 mb-6 xl:w-1/2 xl:mx-auto",
         )}
       >
         {/* Step 0: Select Products */}
@@ -856,23 +976,15 @@ const NewSubscriptionPage: React.FC = () => {
                   label: "Every 2 weeks",
                   desc: "Fortnightly",
                 },
-                { value: "monthly", label: "Monthly", desc: "Once a month" },
-                {
-                  value: "custom",
-                  label: "Custom",
-                  desc: "Set your own schedule",
-                },
               ].map((opt) => (
                 <button
                   key={opt.value}
                   onClick={() => setFrequency(opt.value)}
-                  disabled={opt.value === "custom"}
                   className={cn(
                     "p-4 rounded-xl border text-left transition-colors",
                     frequency === opt.value
                       ? "border-forest bg-forest/5"
                       : "border-border hover:border-forest/40",
-                    opt.value === "custom" && "opacity-40 cursor-not-allowed",
                   )}
                 >
                   <p className="text-sm font-semibold text-foreground">
@@ -889,10 +1001,14 @@ const NewSubscriptionPage: React.FC = () => {
         {step === 3 && (
           <div>
             <h2 className="font-semibold text-foreground mb-1">
-              Preferred Delivery Day
+              {frequency === "weekly"
+                ? "Preferred Delivery Days"
+                : "Preferred Delivery Day"}
             </h2>
             <p className="text-sm text-muted-foreground mb-4">
-              Which day would you prefer for deliveries?
+              {frequency === "weekly"
+                ? "Choose one or more delivery days for your weekly subscription."
+                : "Which day would you prefer for deliveries?"}
             </p>
             <div className="grid grid-cols-3 gap-2">
               {(
@@ -907,10 +1023,24 @@ const NewSubscriptionPage: React.FC = () => {
               ).map((day) => (
                 <button
                   key={day}
-                  onClick={() => setDeliveryDay(day)}
+                  onClick={() => {
+                    if (frequency === "weekly") {
+                      setDeliveryDays((prev) => {
+                        if (prev.includes(day)) {
+                          return prev.length > 1
+                            ? prev.filter((d) => d !== day)
+                            : prev;
+                        }
+                        return [...prev, day];
+                      });
+                      return;
+                    }
+
+                    setDeliveryDays([day]);
+                  }}
                   className={cn(
                     "p-3 rounded-xl border text-sm font-medium transition-colors",
-                    deliveryDay === day
+                    deliveryDays.includes(day)
                       ? "border-forest bg-forest text-primary-foreground"
                       : "border-border hover:border-forest/40",
                   )}
@@ -919,6 +1049,167 @@ const NewSubscriptionPage: React.FC = () => {
                 </button>
               ))}
             </div>
+
+            {frequency === "weekly" &&
+              deliveryDays.length > 1 &&
+              selectedFlatVariants.length > 0 && (
+                <div className="mt-5 space-y-3">
+                  <div>
+                    <h3 className="text-sm font-semibold text-foreground">
+                      Products per day
+                    </h3>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Each card below is one delivery order. Choose which
+                      products are included for that specific day.
+                    </p>
+                  </div>
+
+                  {deliveryDays.map((day, dayIndex) => {
+                    const summaryRows = selectedFlatVariants.map((sv) => ({
+                      quantity:
+                        dayQuantities[day]?.[sv.variantId] ??
+                        Math.max(1, quantities[sv.variantId] ?? 1),
+                    }));
+                    const includedCount = summaryRows.filter(
+                      (row) => row.quantity > 0,
+                    ).length;
+                    const totalQty = summaryRows.reduce(
+                      (sum, row) => sum + Math.max(0, row.quantity),
+                      0,
+                    );
+
+                    return (
+                      <div
+                        key={day}
+                        className="rounded-xl border border-border p-3 space-y-2"
+                      >
+                        <div className="rounded-lg border border-border/70 bg-muted/15 px-3 py-2">
+                          <p className="text-sm font-semibold text-foreground">
+                            {day} delivery order
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            {includedCount} product
+                            {includedCount === 1 ? "" : "s"} selected ·{" "}
+                            {totalQty} total item{totalQty === 1 ? "" : "s"}
+                          </p>
+                        </div>
+
+                        <div className="flex items-center justify-between gap-2 flex-wrap">
+                          <p className="text-sm font-semibold text-foreground">
+                            Order {dayIndex + 1}: {day}
+                          </p>
+                          <span className="text-xs text-muted-foreground">
+                            {includedCount} selected · {totalQty} total qty
+                          </span>
+                        </div>
+                        <div className="space-y-2">
+                          {selectedFlatVariants.map((sv) => {
+                            const currentQty =
+                              dayQuantities[day]?.[sv.variantId] ??
+                              Math.max(1, quantities[sv.variantId] ?? 1);
+                            const isIncluded = currentQty > 0;
+
+                            return (
+                              <div
+                                key={`${day}-${sv.variantId}`}
+                                className={cn(
+                                  "flex items-center justify-between gap-3 rounded-lg border border-border/60 p-2",
+                                  !isIncluded && "opacity-65",
+                                )}
+                              >
+                                <div className="flex items-center gap-2 min-w-0 flex-1">
+                                  {sv.image ? (
+                                    <img
+                                      src={sv.image}
+                                      alt={sv.variantName}
+                                      className="w-10 h-10 rounded-lg object-cover flex-shrink-0"
+                                    />
+                                  ) : (
+                                    <div className="w-10 h-10 rounded-lg bg-muted/40 border border-border/50 flex-shrink-0" />
+                                  )}
+                                  <div className="min-w-0">
+                                    <p className="text-sm font-medium text-foreground truncate">
+                                      {sv.variantName}
+                                    </p>
+                                    <p className="text-xs text-muted-foreground truncate">
+                                      {sv.productName}
+                                    </p>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-2 flex-shrink-0">
+                                  <button
+                                    type="button"
+                                    className={cn(
+                                      "h-7 px-2 rounded-lg border text-xs font-medium min-w-[78px]",
+                                      isIncluded
+                                        ? "border-forest/60 bg-forest/10 text-foreground"
+                                        : "border-border text-muted-foreground hover:border-forest/40",
+                                    )}
+                                    onClick={() =>
+                                      setDayQuantities((prev) => ({
+                                        ...prev,
+                                        [day]: {
+                                          ...(prev[day] || {}),
+                                          [sv.variantId]: isIncluded
+                                            ? 0
+                                            : Math.max(
+                                                1,
+                                                quantities[sv.variantId] ?? 1,
+                                              ),
+                                        },
+                                      }))
+                                    }
+                                  >
+                                    {isIncluded ? "Included" : "Excluded"}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="w-7 h-7 rounded-lg border border-border flex items-center justify-center hover:bg-muted"
+                                    disabled={!isIncluded}
+                                    onClick={() =>
+                                      setDayQuantities((prev) => ({
+                                        ...prev,
+                                        [day]: {
+                                          ...(prev[day] || {}),
+                                          [sv.variantId]: Math.max(
+                                            0,
+                                            currentQty - 1,
+                                          ),
+                                        },
+                                      }))
+                                    }
+                                  >
+                                    <span className="text-sm">-</span>
+                                  </button>
+                                  <span className="text-sm font-medium w-6 text-center">
+                                    {currentQty}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    className="w-7 h-7 rounded-lg border border-border flex items-center justify-center hover:bg-muted"
+                                    disabled={!isIncluded}
+                                    onClick={() =>
+                                      setDayQuantities((prev) => ({
+                                        ...prev,
+                                        [day]: {
+                                          ...(prev[day] || {}),
+                                          [sv.variantId]: currentQty + 1,
+                                        },
+                                      }))
+                                    }
+                                  >
+                                    <span className="text-sm">+</span>
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
           </div>
         )}
 
@@ -985,6 +1276,38 @@ const NewSubscriptionPage: React.FC = () => {
                 <p className="text-muted-foreground mb-1">Products</p>
                 {selectedFlatVariants.length === 0 ? (
                   <p className="font-medium">None</p>
+                ) : frequency === "weekly" && deliveryDays.length > 1 ? (
+                  <div className="space-y-2">
+                    {deliveryDays.map((day) => {
+                      const dayItems = selectedFlatVariants
+                        .map((sv) => ({
+                          name: sv.variantName,
+                          quantity:
+                            dayQuantities[day]?.[sv.variantId] ??
+                            Math.max(1, quantities[sv.variantId] ?? 1),
+                        }))
+                        .filter((item) => item.quantity > 0);
+
+                      return (
+                        <div key={`review-${day}`}>
+                          <p className="text-xs text-muted-foreground mb-1">
+                            {day}
+                          </p>
+                          {dayItems.length === 0 ? (
+                            <p className="font-medium">No products selected</p>
+                          ) : (
+                            <ul className="list-disc pl-5 space-y-1 font-medium">
+                              {dayItems.map((item) => (
+                                <li key={`${day}-${item.name}`}>
+                                  {item.name} x {item.quantity}
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
                 ) : (
                   <ul className="list-disc pl-5 space-y-1 font-medium">
                     {selectedFlatVariants.map((sv) => (
@@ -1004,7 +1327,9 @@ const NewSubscriptionPage: React.FC = () => {
               </div>
               <div className="flex justify-between py-1.5 border-b border-border">
                 <span className="text-muted-foreground">Delivery day</span>
-                <span className="font-medium">{deliveryDay}</span>
+                <span className="font-medium">
+                  {deliveryDays.length > 0 ? deliveryDays.join(", ") : "—"}
+                </span>
               </div>
               <div className="flex justify-between py-1.5 border-b border-border">
                 <span className="text-muted-foreground">Address</span>

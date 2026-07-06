@@ -32,6 +32,11 @@ export type PortalSubscription = {
   cancellationEffectiveAfter?: string | null;
   frequency: PortalSubscriptionFrequency;
   preferredDeliveryDay: number;
+  preferredDeliveryDays?: number[];
+  deliveryDayPlans?: Array<{
+    day: number;
+    items: PortalSubscriptionItem[];
+  }>;
   nextDeliveryDate?: string | null;
   startDate?: string | null;
   deliveryAddress: {
@@ -51,6 +56,12 @@ export type PortalSubscription = {
       sku?: string;
       quantity: number;
       unitPrice: number;
+      variant?: string;
+      imageUrl?: string | null;
+    }>;
+    deliveryDayPlans?: Array<{
+      day: number;
+      items: PortalSubscriptionItem[];
     }>;
     deliveryAddress?: {
       line1: string;
@@ -131,7 +142,12 @@ type DeliveriesResponse = {
 
 export type CreateSubscriptionPayload = {
   frequency: PortalSubscriptionFrequency;
-  preferredDeliveryDay: number;
+  preferredDeliveryDay?: number;
+  preferredDeliveryDays?: number[];
+  deliveryDayPlans?: Array<{
+    day: number;
+    items: Array<{ variantId: string; quantity: number }>;
+  }>;
   deliveryAddressId: string;
   notes?: string;
   items: Array<{ variantId: string; quantity: number }>;
@@ -157,6 +173,11 @@ export const portalSubscriptionsApi = {
     payload: Partial<{
       frequency: PortalSubscriptionFrequency;
       preferredDeliveryDay: number;
+      preferredDeliveryDays: number[];
+      deliveryDayPlans: Array<{
+        day: number;
+        items: Array<{ variantId: string; quantity: number }>;
+      }>;
       deliveryAddressId: string;
       notes: string;
     }>,
