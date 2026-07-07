@@ -58,6 +58,9 @@ const formatDate = (value?: string | null) => {
   });
 };
 
+const getDisplayNextDeliveryDate = (subscription: PortalSubscription) =>
+  subscription.upcomingDeliveryDate ?? subscription.nextDeliveryDate;
+
 const statusAccent: Record<string, string> = {
   active: "border-l-forest",
   paused: "border-l-amber-400",
@@ -143,7 +146,7 @@ const SubscriptionCard: React.FC<{
               >
                 {sub.status === "paused"
                   ? "Paused"
-                  : formatDate(sub.nextDeliveryDate)}
+                  : formatDate(getDisplayNextDeliveryDate(sub))}
               </p>
             </div>
           </div>

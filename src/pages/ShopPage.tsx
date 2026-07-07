@@ -59,6 +59,10 @@ interface ShopPageProps {
     quantity: number;
     lockedVariantId?: string;
   }) => void;
+  cardAfterActionContent?: (params: {
+    product: Product;
+    lockedVariantId?: string;
+  }) => React.ReactNode;
   hideCardQuantityStepper?: boolean;
   productGridClassName?: string;
   contentGapClassName?: string;
@@ -71,6 +75,7 @@ const ShopPage: React.FC<ShopPageProps> = ({
   cardActionLabel,
   cardActionClassName,
   onCardAction,
+  cardAfterActionContent,
   hideCardQuantityStepper = false,
   productGridClassName,
   contentGapClassName,
@@ -507,6 +512,15 @@ const ShopPage: React.FC<ShopPageProps> = ({
                                     product,
                                     variant,
                                     quantity,
+                                    lockedVariantId,
+                                  })
+                              : undefined
+                          }
+                          afterActionContent={
+                            cardAfterActionContent
+                              ? () =>
+                                  cardAfterActionContent({
+                                    product,
                                     lockedVariantId,
                                   })
                               : undefined

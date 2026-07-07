@@ -18,6 +18,11 @@ interface ProductCardProps {
   }) => void;
   hideQuantityStepper?: boolean;
   actionClassName?: string;
+  afterActionContent?: (params: {
+    product: Product;
+    variant: ProductVariant | undefined;
+    quantity: number;
+  }) => React.ReactNode;
 }
 
 const ProductCard: React.FC<ProductCardProps> = ({
@@ -28,6 +33,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
   onAction,
   hideQuantityStepper,
   actionClassName,
+  afterActionContent,
 }) => {
   const navigate = useNavigate();
   const [quantity, setQuantity] = useState(1);
@@ -274,6 +280,16 @@ const ProductCard: React.FC<ProductCardProps> = ({
             <span className="text-sm">{actionLabel || "Subscribe"}</span>
           </button>
         </div>
+
+        {afterActionContent && (
+          <div className="mt-3">
+            {afterActionContent({
+              product,
+              variant: selectedVariant,
+              quantity,
+            })}
+          </div>
+        )}
       </div>
     </div>
   );

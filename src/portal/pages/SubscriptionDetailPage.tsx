@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 import {
   SubscriptionStatusBadge,
   DeliveryStatusBadge,
@@ -201,6 +202,83 @@ const formatMoney = (amount: number) =>
     currency: "GBP",
   }).format(amount || 0);
 
+const formatDayList = (days: string[]) => {
+  if (days.length <= 1) return days[0] || "the selected day";
+  if (days.length === 2) return `${days[0]} and ${days[1]}`;
+  return `${days.slice(0, -1).join(", ")}, and ${days[days.length - 1]}`;
+};
+
+const formatDateOnly = (value: Date) =>
+  new Intl.DateTimeFormat("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  }).format(value);
+
+const getNextWeekdayDate = (dayIndex: number, referenceDate = new Date()) => {
+  const date = new Date(referenceDate);
+  date.setHours(0, 0, 0, 0);
+  const currentDay = date.getDay();
+  let daysUntil = (dayIndex - currentDay + 7) % 7;
+  if (daysUntil === 0) daysUntil = 7;
+  date.setDate(date.getDate() + daysUntil);
+  return date;
+};
+
+const getDayCutoffLabel = (
+  dayName: string,
+  dayIndex: number,
+  cutoff: PortalSubscriptionCutoff,
+) => {
+  const deliveryDate = getNextWeekdayDate(dayIndex);
+  const cutoffDate = new Date(deliveryDate);
+  cutoffDate.setDate(
+    cutoffDate.getDate() - (Number(cutoff.cutoffDaysBefore) || 0),
+  );
+
+  const [hours, minutes] = String(cutoff.cutoffTime || "00:00")
+    .split(":")
+    .map((part) => Number(part));
+  cutoffDate.setHours(
+    Number.isFinite(hours) ? hours : 0,
+    Number.isFinite(minutes) ? minutes : 0,
+    0,
+    0,
+  );
+
+  const isPastCutoff = Date.now() >= cutoffDate.getTime();
+
+  return `${dayName}: ${isPastCutoff ? "Locked after" : "Editable until"} ${formatDateOnly(cutoffDate)} at ${cutoff.cutoffTime}`;
+};
+
+const getDisplayNextDeliveryDate = (subscription: PortalSubscription) =>
+  subscription.upcomingDeliveryDate ?? subscription.nextDeliveryDate;
+
+const getDisplayCutoffDate = (
+  nextDeliveryDate?: string | null,
+  cutoff?: PortalSubscriptionCutoff | null,
+) => {
+  if (!nextDeliveryDate || !cutoff) return null;
+
+  const cutoffDate = new Date(nextDeliveryDate);
+  cutoffDate.setDate(
+    cutoffDate.getDate() - (Number(cutoff.cutoffDaysBefore) || 0),
+  );
+
+  const [hours, minutes] = String(cutoff.cutoffTime || "00:00")
+    .split(":")
+    .map((part) => Number(part));
+
+  cutoffDate.setHours(
+    Number.isFinite(hours) ? hours : 0,
+    Number.isFinite(minutes) ? minutes : 0,
+    0,
+    0,
+  );
+
+  return cutoffDate;
+};
+
 const getAddressId = (address?: { _id?: string; id?: string } | null) =>
   address?._id || address?.id || "";
 
@@ -364,11 +442,12 @@ const SubscriptionDetailPage: React.FC = () => {
         );
       }
     } catch (err) {
-      setError(
+      const message =
         err instanceof ApiError
           ? err.message
-          : "Failed to load subscription details.",
-      );
+          : "Failed to load subscription details.";
+      setError(message);
+      toast.error(message);
       setSubscription(null);
     } finally {
       setLoading(false);
@@ -537,6 +616,23 @@ const SubscriptionDetailPage: React.FC = () => {
         .sort((a, b) => a.day - b.day),
     );
 
+  const calculateDayPlanTotal = (
+    source: Record<string, EditableSubscriptionItem[]>,
+  ) =>
+    deliveryDays.reduce((sum, dayName) => {
+      const dayItems = source[dayName] || [];
+      return (
+        sum +
+        dayItems.reduce(
+          (daySum, item) =>
+            daySum +
+            Math.max(0, Number(item.quantity || 0)) *
+              Number(item.unitPrice || 0),
+          0,
+        )
+      );
+    }, 0);
+
   const originalTotal = useMemo(() => {
     if (!subscription) return 0;
     return subscription.items.reduce(
@@ -653,12 +749,14 @@ const SubscriptionDetailPage: React.FC = () => {
       });
       await load();
       setNotice("Delivery details updated.");
+      toast.success("Delivery details updated.");
     } catch (err) {
-      setError(
+      const message =
         err instanceof ApiError
           ? err.message
-          : "Failed to update delivery details.",
-      );
+          : "Failed to update delivery details.";
+      setError(message);
+      toast.error(message);
     } finally {
       setSaving(false);
     }
@@ -678,11 +776,14 @@ const SubscriptionDetailPage: React.FC = () => {
       const res = await portalSubscriptionsApi.pause(id, pauseResumeOn);
       await load();
       setPauseOpen(false);
-      setNotice((res as any)?.message || "Subscription paused.");
+      const message = (res as any)?.message || "Subscription paused.";
+      setNotice(message);
+      toast.success(message);
     } catch (err) {
-      setError(
-        err instanceof ApiError ? err.message : "Failed to pause subscription.",
-      );
+      const message =
+        err instanceof ApiError ? err.message : "Failed to pause subscription.";
+      setError(message);
+      toast.error(message);
     } finally {
       setSaving(false);
     }
@@ -694,6 +795,8 @@ const SubscriptionDetailPage: React.FC = () => {
     try {
       await portalSubscriptionsApi.resume(id);
       await load();
+      setNotice("Subscription resumed.");
+      toast.success("Subscription resumed.");
     } finally {
       setSaving(false);
     }
@@ -705,6 +808,8 @@ const SubscriptionDetailPage: React.FC = () => {
     try {
       await portalSubscriptionsApi.cancel(id);
       await load();
+      setNotice("Subscription cancelled.");
+      toast.success("Subscription cancelled.");
     } finally {
       setSaving(false);
     }
@@ -722,54 +827,16 @@ const SubscriptionDetailPage: React.FC = () => {
     if (!id || !subscription || !hasUnsavedProductChanges) return;
 
     if (isMultiDayWeekly) {
-      try {
-        const deliveryDayPlans = deliveryDays.map((dayName) => {
-          const items = (dayProductDraft[dayName] || [])
-            .filter((item) => Number(item.quantity || 0) > 0)
-            .map((item) => ({
-              variantId: item.variantId,
-              quantity: Number(item.quantity || 0),
-            }));
+      const baselineTotal = calculateDayPlanTotal(dayPlanBaseline);
+      const draftTotal = calculateDayPlanTotal(dayProductDraft);
+      const hasMultiDayDecrease = draftTotal < baselineTotal;
 
-          if (items.length === 0) {
-            throw new Error(
-              `Please keep at least one product in ${dayName} delivery order.`,
-            );
-          }
-
-          return { day: dayNameToIndex(dayName), items };
-        });
-
-        setSaving(true);
-        setError(null);
-        setNotice(null);
-
-        await portalSubscriptionsApi.update(id, {
-          deliveryDayPlans,
-          preferredDeliveryDay: dayNameToIndex(deliveryDays[0] || "Tuesday"),
-          preferredDeliveryDays: normalizeDayIndexes(
-            deliveryDays.map(dayNameToIndex),
-          ),
-        });
-
-        await load();
-        await refreshCustomer().catch(() => {});
-        setNotice(
-          cutoff?.isPastCutoff
-            ? "Product changes were scheduled for deliveries after the upcoming one."
-            : "Product changes saved.",
-        );
-      } catch (err) {
-        setError(
-          err instanceof ApiError
-            ? err.message
-            : err instanceof Error
-              ? err.message
-              : "Failed to save product changes.",
-        );
-      } finally {
-        setSaving(false);
+      if (hasMultiDayDecrease && !displayIsPastCutoff) {
+        setRefundChoiceOpen(true);
+        return;
       }
+
+      await performSaveProductChanges("credit");
       return;
     }
 
@@ -805,7 +872,7 @@ const SubscriptionDetailPage: React.FC = () => {
         );
       });
 
-    if (hasDecrease && cutoff && !cutoff.isPastCutoff) {
+    if (hasDecrease && cutoff && !displayIsPastCutoff) {
       setRefundChoiceOpen(true);
       return;
     }
@@ -817,6 +884,62 @@ const SubscriptionDetailPage: React.FC = () => {
     refundMethod: "credit" | "refund",
   ) => {
     if (!id || !subscription || !hasUnsavedProductChanges) return;
+
+    if (isMultiDayWeekly) {
+      try {
+        const deliveryDayPlans = deliveryDays.map((dayName) => {
+          const items = (dayProductDraft[dayName] || [])
+            .filter((item) => Number(item.quantity || 0) > 0)
+            .map((item) => ({
+              variantId: item.variantId,
+              quantity: Number(item.quantity || 0),
+            }));
+
+          if (items.length === 0) {
+            throw new Error(
+              `Please keep at least one product in ${dayName} delivery order.`,
+            );
+          }
+
+          return { day: dayNameToIndex(dayName), items };
+        });
+
+        setSaving(true);
+        setError(null);
+        setNotice(null);
+
+        const res = await portalSubscriptionsApi.update(id, {
+          deliveryDayPlans,
+          preferredDeliveryDay: dayNameToIndex(deliveryDays[0] || "Tuesday"),
+          preferredDeliveryDays: normalizeDayIndexes(
+            deliveryDays.map(dayNameToIndex),
+          ),
+          refundMethod,
+        });
+
+        await load();
+        await refreshCustomer().catch(() => {});
+        const message =
+          (res as any)?.message ||
+          (displayIsPastCutoff
+            ? "Product changes were scheduled for deliveries after the upcoming one."
+            : "Product changes saved.");
+        setNotice(message);
+        toast.success(message);
+      } catch (err) {
+        const message =
+          err instanceof ApiError
+            ? err.message
+            : err instanceof Error
+              ? err.message
+              : "Failed to save product changes.";
+        setError(message);
+        toast.error(message);
+      } finally {
+        setSaving(false);
+      }
+      return;
+    }
 
     const originalById = new Map(
       subscription.items.map((item) => [item._id, item]),
@@ -864,13 +987,17 @@ const SubscriptionDetailPage: React.FC = () => {
 
       await load();
       await refreshCustomer().catch(() => {});
-      if (lastMessage) setNotice(lastMessage);
+      if (lastMessage) {
+        setNotice(lastMessage);
+        toast.success(lastMessage);
+      }
     } catch (err) {
-      setError(
+      const message =
         err instanceof ApiError
           ? err.message
-          : "Failed to save product changes.",
-      );
+          : "Failed to save product changes.";
+      setError(message);
+      toast.error(message);
     } finally {
       setSaving(false);
     }
@@ -921,6 +1048,11 @@ const SubscriptionDetailPage: React.FC = () => {
     .filter(Boolean)
     .join(", ");
 
+  const displayNextDeliveryDate = getDisplayNextDeliveryDate(subscription);
+  const displayCutoffAt = getDisplayCutoffDate(displayNextDeliveryDate, cutoff);
+  const displayIsPastCutoff = displayCutoffAt
+    ? Date.now() >= displayCutoffAt.getTime()
+    : Boolean(cutoff?.isPastCutoff);
   const selectedSavedAddress =
     addresses.find((address) => getAddressId(address) === selectedAddressId) ||
     null;
@@ -995,15 +1127,22 @@ const SubscriptionDetailPage: React.FC = () => {
         />
       </div>
 
-      {error && (
-        <div className="mb-4 rounded-xl border border-destructive/20 bg-destructive/10 p-3 text-sm text-destructive dark:border-red-500/30 dark:bg-red-500/15 dark:text-red-200">
-          {error}
-        </div>
-      )}
+      {(error || notice) && (
+        <div
+          className="sticky top-[var(--sticky-top)] z-30 mb-4 space-y-3"
+          style={{ ["--sticky-top" as string]: `${stickyTopOffset}px` }}
+        >
+          {error && (
+            <div className="rounded-xl border border-destructive/20 bg-destructive/10 p-3 text-sm text-destructive shadow-sm backdrop-blur-sm dark:border-red-500/30 dark:bg-red-500/15 dark:text-red-200">
+              {error}
+            </div>
+          )}
 
-      {notice && (
-        <div className="mb-4 rounded-xl border border-forest/20 bg-forest/10 p-3 text-sm text-forest dark:border-emerald-500/30 dark:bg-emerald-500/15 dark:text-emerald-200">
-          {notice}
+          {notice && (
+            <div className="rounded-xl border border-forest/20 bg-forest/10 p-3 text-sm text-forest shadow-sm backdrop-blur-sm dark:border-emerald-500/30 dark:bg-emerald-500/15 dark:text-emerald-200">
+              {notice}
+            </div>
+          )}
         </div>
       )}
 
@@ -1027,16 +1166,39 @@ const SubscriptionDetailPage: React.FC = () => {
       {cutoff && subscription.status === "active" && (
         <div
           className={`mb-4 rounded-xl border p-3 text-xs sm:text-sm leading-relaxed ${
-            cutoff.isPastCutoff
+            displayIsPastCutoff
               ? "border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-100"
               : "border-forest/20 bg-forest/5 text-foreground dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-100"
           }`}
         >
-          {cutoff.isPastCutoff ? (
+          {isMultiDayWeekly ? (
+            <>
+              <div className="font-medium">
+                Each delivery day has its own cut-off:
+              </div>
+              <div className="mt-2 space-y-1.5">
+                {deliveryDays.map((dayName) => (
+                  <div key={dayName} className="flex items-start gap-2">
+                    <span className="font-semibold shrink-0">{dayName}</span>
+                    <span className="text-muted-foreground">
+                      {getDayCutoffLabel(
+                        dayName,
+                        dayNameToIndex(dayName),
+                        cutoff,
+                      )}
+                    </span>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-2">
+                Changes are applied separately for each delivery day.
+              </div>
+            </>
+          ) : displayIsPastCutoff ? (
             <>
               The cut-off for your next delivery
-              {subscription.nextDeliveryDate
-                ? ` on ${formatDate(subscription.nextDeliveryDate)}`
+              {displayNextDeliveryDate
+                ? ` on ${formatDate(displayNextDeliveryDate)}`
                 : ""}{" "}
               has passed. You can still make changes, but they'll apply from the
               delivery after that.
@@ -1045,7 +1207,7 @@ const SubscriptionDetailPage: React.FC = () => {
             <>
               You can edit this subscription until{" "}
               <span className="font-semibold">
-                {cutoff.cutoffAt ? formatDate(cutoff.cutoffAt) : "the cut-off"}
+                {displayCutoffAt ? formatDate(displayCutoffAt) : "the cut-off"}
               </span>
               {cutoff.cutoffTime ? ` at ${cutoff.cutoffTime}` : ""}. Changes
               apply to your next delivery; adding items charges the difference
@@ -1069,7 +1231,7 @@ const SubscriptionDetailPage: React.FC = () => {
               Next delivery
             </p>
             <p className="text-sm sm:text-base font-semibold text-foreground mt-1">
-              {formatDate(subscription.nextDeliveryDate)}
+              {formatDate(displayNextDeliveryDate)}
             </p>
           </div>
           <div className="rounded-xl border border-border/70 bg-background/70 px-3 py-2.5">
@@ -1398,25 +1560,39 @@ const SubscriptionDetailPage: React.FC = () => {
                 </div>
                 <p className="mt-2 text-muted-foreground">
                   {cutoff?.isPastCutoff
-                    ? subscription.nextDeliveryDate
-                      ? `The cut-off for your next delivery on ${formatDate(
-                          subscription.nextDeliveryDate,
+                    ? isMultiDayWeekly
+                      ? `The cut-off for your next deliveries on ${formatDayList(
+                          deliveryDays,
                         )} has passed, so this change applies from the delivery after that. You won't be charged now — the new amount is taken on each delivery going forward.`
-                      : `The cut-off for your next delivery has passed, so this change applies from the following delivery. You won't be charged now.`
+                      : displayNextDeliveryDate
+                        ? `The cut-off for your next delivery on ${formatDate(
+                            displayNextDeliveryDate,
+                          )} has passed, so this change applies from the delivery after that. You won't be charged now — the new amount is taken on each delivery going forward.`
+                        : `The cut-off for your next delivery has passed, so this change applies from the following delivery. You won't be charged now.`
                     : total - originalTotal > 0
-                      ? subscription.nextDeliveryDate
-                        ? `Applies to your next delivery on ${formatDate(
-                            subscription.nextDeliveryDate,
+                      ? isMultiDayWeekly
+                        ? `Applies to your next deliveries on ${formatDayList(
+                            deliveryDays,
                           )}. The extra ${formatMoney(
                             total - originalTotal,
                           )} is charged to your card now; future deliveries are billed at the new amount.`
-                        : `Applies to your next delivery. The extra ${formatMoney(
-                            total - originalTotal,
-                          )} is charged to your card now; future deliveries are billed at the new amount.`
-                      : subscription.nextDeliveryDate
-                        ? `Applied from your next delivery on ${formatDate(
-                            subscription.nextDeliveryDate,
-                          )}. You won't be charged now — the new amount is taken on each delivery going forward.`
+                        : displayNextDeliveryDate
+                          ? `Applies to your next delivery on ${formatDate(
+                              displayNextDeliveryDate,
+                            )}. The extra ${formatMoney(
+                              total - originalTotal,
+                            )} is charged to your card now; future deliveries are billed at the new amount.`
+                          : `Applies to your next delivery. The extra ${formatMoney(
+                              total - originalTotal,
+                            )} is charged to your card now; future deliveries are billed at the new amount.`
+                      : displayNextDeliveryDate
+                        ? isMultiDayWeekly
+                          ? `Applied from your next deliveries on ${formatDayList(
+                              deliveryDays,
+                            )}. You won't be charged now — the new amount is taken on each delivery going forward.`
+                          : `Applied from your next delivery on ${formatDate(
+                              displayNextDeliveryDate,
+                            )}. You won't be charged now — the new amount is taken on each delivery going forward.`
                         : `Applied from your next scheduled delivery. You won't be charged now — the new amount is taken on each delivery going forward.`}
                 </p>
               </div>

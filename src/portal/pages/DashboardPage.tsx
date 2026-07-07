@@ -43,6 +43,9 @@ const formatMoney = (amount: number, currency = "GBP") =>
     currency,
   }).format(amount || 0);
 
+const getDisplayNextDeliveryDate = (subscription: PortalSubscription) =>
+  subscription.upcomingDeliveryDate ?? subscription.nextDeliveryDate;
+
 const getOrderRefundSummary = (order?: PortalOrder | null) => {
   if (!order) return { before: 0, refunded: 0, after: 0 };
   const before = Number(order.amountPaid ?? order.total ?? 0);
@@ -121,9 +124,14 @@ const DashboardPage: React.FC = () => {
   const nextSubscription = useMemo(
     () =>
       [...subscriptions]
-        .filter((s) => s.status !== "cancelled" && Boolean(s.nextDeliveryDate))
+        .filter(
+          (s) =>
+            s.status !== "cancelled" && Boolean(getDisplayNextDeliveryDate(s)),
+        )
         .sort((a, b) =>
-          String(a.nextDeliveryDate).localeCompare(String(b.nextDeliveryDate)),
+          String(getDisplayNextDeliveryDate(a)).localeCompare(
+            String(getDisplayNextDeliveryDate(b)),
+          ),
         )[0] || null,
     [subscriptions],
   );
@@ -148,7 +156,7 @@ const DashboardPage: React.FC = () => {
     {
       title: "Next Delivery",
       value: nextSubscription
-        ? formatDate(nextSubscription.nextDeliveryDate)
+        ? formatDate(getDisplayNextDeliveryDate(nextSubscription))
         : "—",
       subtitle: nextSubscription
         ? `${nextSubscription.items.length} item${nextSubscription.items.length === 1 ? "" : "s"}`
@@ -278,7 +286,8 @@ const DashboardPage: React.FC = () => {
                           {sub.frequency === "every_two_weeks"
                             ? "Every 2 weeks"
                             : sub.frequency}
-                          {" · "}Next: {formatDate(sub.nextDeliveryDate)}
+                          {" · "}Next:{" "}
+                          {formatDate(getDisplayNextDeliveryDate(sub))}
                         </p>
                       </div>
                       <div className="flex items-center gap-2 ml-3 flex-shrink-0">
@@ -413,7 +422,7 @@ const DashboardPage: React.FC = () => {
               </CardHeader>
               <CardContent className="space-y-2">
                 <p className="text-xl font-bold text-foreground">
-                  {formatDate(nextSubscription.nextDeliveryDate)}
+                  {formatDate(getDisplayNextDeliveryDate(nextSubscription))}
                 </p>
                 <p className="text-xs text-muted-foreground">
                   {nextSubscription.items.length} item

@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Loader2, Minus, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import ShopPage from "@/pages/ShopPage";
 import { ApiError } from "@/api/client";
 import {
@@ -9,6 +10,7 @@ import {
   type PortalSubscriptionCutoff,
   type PortalSubscription,
 } from "@/api/portalSubscriptions";
+import { toast } from "sonner";
 
 type SelectedAddItem = {
   variantId: string;
@@ -63,6 +65,58 @@ const normalizeDayIndexes = (days: number[]) =>
   [...new Set(days)]
     .filter((day) => Number.isInteger(day) && day >= 0 && day <= 6)
     .sort((a, b) => a - b);
+
+const formatDayList = (days: string[]) => {
+  if (days.length <= 1) return days[0] || "the selected day";
+  if (days.length === 2) return `${days[0]} and ${days[1]}`;
+  return `${days.slice(0, -1).join(", ")}, and ${days[days.length - 1]}`;
+};
+
+const formatDateOnly = (value: Date) =>
+  new Intl.DateTimeFormat("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  }).format(value);
+
+const getNextWeekdayDate = (dayIndex: number, referenceDate = new Date()) => {
+  const date = new Date(referenceDate);
+  date.setHours(0, 0, 0, 0);
+  const currentDay = date.getDay();
+  let daysUntil = (dayIndex - currentDay + 7) % 7;
+  if (daysUntil === 0) daysUntil = 7;
+  date.setDate(date.getDate() + daysUntil);
+  return date;
+};
+
+const getDayCutoffLabel = (
+  dayName: string,
+  dayIndex: number,
+  cutoff: PortalSubscriptionCutoff,
+) => {
+  const deliveryDate = getNextWeekdayDate(dayIndex);
+  const cutoffDate = new Date(deliveryDate);
+  cutoffDate.setDate(
+    cutoffDate.getDate() - (Number(cutoff.cutoffDaysBefore) || 0),
+  );
+
+  const [hours, minutes] = String(cutoff.cutoffTime || "00:00")
+    .split(":")
+    .map((part) => Number(part));
+  cutoffDate.setHours(
+    Number.isFinite(hours) ? hours : 0,
+    Number.isFinite(minutes) ? minutes : 0,
+    0,
+    0,
+  );
+
+  const isPastCutoff = Date.now() >= cutoffDate.getTime();
+
+  return `${dayName}: ${isPastCutoff ? "Locked after" : "Editable until"} ${formatDateOnly(cutoffDate)} at ${cutoff.cutoffTime}`;
+};
+
+const formatDeliveryDayCount = (days: string[]) =>
+  days.length === 1 ? "1 delivery day" : `${days.length} delivery days`;
 
 const SubscriptionAddProductsPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -128,7 +182,11 @@ const SubscriptionAddProductsPage: React.FC = () => {
             .toUpperCase()}`;
         setSubscriptionSnapshot(subscription || null);
         setSubscriptionLabel(label);
-        setNextDeliveryDate(subscription?.nextDeliveryDate ?? null);
+        setNextDeliveryDate(
+          subscription?.upcomingDeliveryDate ??
+            subscription?.nextDeliveryDate ??
+            null,
+        );
         const subscriptionDays = normalizeDayIndexes(
           Array.isArray(subscription?.preferredDeliveryDays) &&
             subscription.preferredDeliveryDays.length > 0
@@ -151,9 +209,10 @@ const SubscriptionAddProductsPage: React.FC = () => {
         );
       } catch (err) {
         if (cancelled) return;
-        setError(
-          err instanceof ApiError ? err.message : "Failed to load products.",
-        );
+        const message =
+          err instanceof ApiError ? err.message : "Failed to load products.";
+        setError(message);
+        toast.error(message);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -223,16 +282,6 @@ const SubscriptionAddProductsPage: React.FC = () => {
     [selectedAdds],
   );
 
-  const selectedTotal = useMemo(
-    () =>
-      selectedList.reduce(
-        (sum, item) =>
-          sum + Number(item.unitPrice || 0) * Number(item.quantity || 0),
-        0,
-      ),
-    [selectedList],
-  );
-
   const selectedDayIndexes = useMemo(
     () => normalizeDayIndexes(deliveryDays.map(dayNameToIndex)),
     [deliveryDays],
@@ -247,6 +296,103 @@ const SubscriptionAddProductsPage: React.FC = () => {
         !Array.isArray(selectedAddDays[item.variantId]) ||
         selectedAddDays[item.variantId].length === 0,
     );
+
+  const getAssignedDayCount = (variantId: string) =>
+    Array.isArray(selectedAddDays[variantId])
+      ? selectedAddDays[variantId].length
+      : 0;
+
+  const getItemAssignedTotal = (item: SelectedAddItem) => {
+    const assignedDayCount = isMultiDayWeekly
+      ? getAssignedDayCount(item.variantId)
+      : 1;
+    return (
+      Number(item.unitPrice || 0) *
+      Number(item.quantity || 0) *
+      assignedDayCount
+    );
+  };
+
+  const getItemPerDeliveryTotal = (item: SelectedAddItem) =>
+    Number(item.unitPrice || 0) * Number(item.quantity || 0);
+
+  const selectedPerDeliveryTotal = useMemo(
+    () =>
+      selectedList.reduce(
+        (sum, item) => sum + getItemPerDeliveryTotal(item),
+        0,
+      ),
+    [selectedList],
+  );
+
+  const selectedChargeTotal = useMemo(
+    () =>
+      selectedList.reduce((sum, item) => sum + getItemAssignedTotal(item), 0),
+    [selectedList, selectedAddDays, isMultiDayWeekly],
+  );
+
+  const renderDayAssignment = (variantId?: string) => {
+    if (!isMultiDayWeekly || !variantId) return null;
+
+    const assignedDays = Array.isArray(selectedAddDays[variantId])
+      ? selectedAddDays[variantId]
+      : [];
+    const isAssigned = assignedDays.length > 0;
+
+    return (
+      <div className="rounded-lg border border-border/70 bg-muted/20 p-2.5 space-y-2">
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-[11px] uppercase tracking-wide text-muted-foreground font-semibold">
+            Assign to delivery days
+          </p>
+          <span className="text-[11px] text-muted-foreground">
+            {isAssigned
+              ? formatDeliveryDayCount(assignedDays)
+              : "Choose day(s)"}
+          </span>
+        </div>
+
+        {isAssigned ? (
+          <div className="flex flex-wrap gap-1.5">
+            {deliveryDays.map((day) => {
+              const active = assignedDays.includes(day);
+              return (
+                <button
+                  key={`${variantId}:${day}`}
+                  type="button"
+                  onClick={() => {
+                    setSelectedAddDays((prev) => {
+                      const current = Array.isArray(prev[variantId])
+                        ? prev[variantId]
+                        : [];
+                      const hasDay = current.includes(day);
+                      return {
+                        ...prev,
+                        [variantId]: hasDay
+                          ? current.filter((d) => d !== day)
+                          : [...current, day],
+                      };
+                    });
+                  }}
+                  className={`px-2.5 py-1.5 rounded-md text-xs border transition-colors ${
+                    active
+                      ? "border-forest bg-forest text-primary-foreground"
+                      : "border-border hover:border-forest/40 text-foreground"
+                  }`}
+                >
+                  {day}
+                </button>
+              );
+            })}
+          </div>
+        ) : (
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            Add this product, then choose which delivery day(s) it should be on.
+          </p>
+        )}
+      </div>
+    );
+  };
 
   const handleSaveSelectedProducts = async () => {
     if (!id || selectedList.length === 0) return;
@@ -352,11 +498,12 @@ const SubscriptionAddProductsPage: React.FC = () => {
 
       navigate(`/portal/subscriptions/${id}`);
     } catch (err) {
-      setError(
+      const message =
         err instanceof ApiError
           ? err.message
-          : "Failed to add selected products.",
-      );
+          : "Failed to add selected products.";
+      setError(message);
+      toast.error(message);
     } finally {
       setSaving(false);
     }
@@ -391,8 +538,16 @@ const SubscriptionAddProductsPage: React.FC = () => {
       </div>
 
       {error && (
-        <div className="mb-4 p-3 bg-destructive/10 text-destructive rounded-lg text-sm">
-          {error}
+        <div
+          className="sticky top-[var(--sticky-top)] z-30 mb-4"
+          style={{ ["--sticky-top" as string]: `${stickyTopOffset}px` }}
+        >
+          <Alert
+            variant="destructive"
+            className="border-destructive/20 bg-background/95 backdrop-blur-sm shadow-sm"
+          >
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
         </div>
       )}
 
@@ -413,6 +568,9 @@ const SubscriptionAddProductsPage: React.FC = () => {
               lockedVariantId && selectedAdds[lockedVariantId]
                 ? "!bg-destructive/10 !text-destructive hover:!bg-destructive/20"
                 : undefined
+            }
+            cardAfterActionContent={({ variant }) =>
+              renderDayAssignment(variant?.id)
             }
             onCardAction={({ product, variant, lockedVariantId }) => {
               const variantId = variant?.id ?? lockedVariantId;
@@ -460,11 +618,26 @@ const SubscriptionAddProductsPage: React.FC = () => {
                           <p className="text-xs text-muted-foreground">
                             {item.variantName}
                           </p>
+                          {isMultiDayWeekly && (
+                            <p className="text-[11px] text-muted-foreground mt-0.5">
+                              {getAssignedDayCount(item.variantId)} delivery day
+                              {getAssignedDayCount(item.variantId) === 1
+                                ? ""
+                                : "s"}{" "}
+                              selected
+                            </p>
+                          )}
                         </div>
                         <span className="text-sm font-semibold text-foreground shrink-0">
-                          {formatMoney(item.quantity * item.unitPrice)}
+                          {formatMoney(getItemAssignedTotal(item))}
                         </span>
                       </div>
+                      {isMultiDayWeekly && (
+                        <div className="text-xs text-muted-foreground">
+                          {formatMoney(getItemPerDeliveryTotal(item))} per
+                          delivery
+                        </div>
+                      )}
                       <div className="flex items-center justify-between gap-2">
                         <div className="flex items-center border border-border rounded-md h-8">
                           <button
@@ -565,7 +738,7 @@ const SubscriptionAddProductsPage: React.FC = () => {
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">Add-on</span>
                   <span className="text-forest font-medium">
-                    +{formatMoney(selectedTotal)}
+                    +{formatMoney(selectedChargeTotal)}
                   </span>
                 </div>
                 <div className="flex items-center justify-between pt-1.5 border-t border-border">
@@ -573,7 +746,7 @@ const SubscriptionAddProductsPage: React.FC = () => {
                     New per delivery
                   </span>
                   <span className="text-lg font-semibold text-foreground">
-                    {formatMoney(currentPerDelivery + selectedTotal)}
+                    {formatMoney(currentPerDelivery + selectedPerDeliveryTotal)}
                   </span>
                 </div>
               </div>
@@ -582,31 +755,65 @@ const SubscriptionAddProductsPage: React.FC = () => {
                 <p className="mt-3 text-xs text-muted-foreground bg-muted/50 rounded-lg p-3 leading-relaxed">
                   {isMultiDayWeekly && (
                     <>
-                      Products are added to all delivery days selected on each
-                      product card.
+                      <span className="block font-medium text-foreground">
+                        Assign each product to the day(s) it should appear on.
+                      </span>
+                      <span className="mt-1 block">
+                        Each day has its own cut-off:
+                      </span>
+                      <span className="mt-2 block space-y-1.5">
+                        {deliveryDays.map((dayName) => (
+                          <span key={dayName} className="block">
+                            <span className="font-semibold text-foreground">
+                              {dayName}
+                            </span>{" "}
+                            <span>
+                              {getDayCutoffLabel(
+                                dayName,
+                                dayNameToIndex(dayName),
+                                cutoff!,
+                              )}
+                            </span>
+                          </span>
+                        ))}
+                      </span>
                     </>
                   )}
                   {cutoff?.isPastCutoff
-                    ? formatDeliveryDate(nextDeliveryDate)
-                      ? `The cut-off for your next delivery on ${formatDeliveryDate(
-                          nextDeliveryDate,
+                    ? isMultiDayWeekly
+                      ? `The cut-off for your next deliveries on ${formatDayList(
+                          deliveryDays,
                         )} has passed, so these products are added from the delivery after that. You won't be charged now — the new amount of ${formatMoney(
-                          currentPerDelivery + selectedTotal,
+                          currentPerDelivery + selectedPerDeliveryTotal,
                         )} is taken on each delivery going forward.`
-                      : `The cut-off for your next delivery has passed, so these products apply from the following delivery. You won't be charged now.`
-                    : formatDeliveryDate(nextDeliveryDate)
-                      ? `These products are added to your next delivery on ${formatDeliveryDate(
-                          nextDeliveryDate,
+                      : formatDeliveryDate(nextDeliveryDate)
+                        ? `The cut-off for your next delivery on ${formatDeliveryDate(
+                            nextDeliveryDate,
+                          )} has passed, so these products are added from the delivery after that. You won't be charged now — the new amount of ${formatMoney(
+                            currentPerDelivery + selectedPerDeliveryTotal,
+                          )} is taken on each delivery going forward.`
+                        : `The cut-off for your next delivery has passed, so these products apply from the following delivery. You won't be charged now.`
+                    : isMultiDayWeekly
+                      ? `These products are added to your next deliveries on ${formatDayList(
+                          deliveryDays,
                         )}. The extra ${formatMoney(
-                          selectedTotal,
+                          selectedChargeTotal,
                         )} is charged to your card now, and ${formatMoney(
-                          currentPerDelivery + selectedTotal,
+                          currentPerDelivery + selectedPerDeliveryTotal,
                         )} is taken on each delivery going forward.`
-                      : `These products are added to your next delivery. The extra ${formatMoney(
-                          selectedTotal,
-                        )} is charged to your card now, and ${formatMoney(
-                          currentPerDelivery + selectedTotal,
-                        )} is taken on each delivery going forward.`}
+                      : formatDeliveryDate(nextDeliveryDate)
+                        ? `These products are added to your next delivery on ${formatDeliveryDate(
+                            nextDeliveryDate,
+                          )}. The extra ${formatMoney(
+                            selectedChargeTotal,
+                          )} is charged to your card now, and ${formatMoney(
+                            currentPerDelivery + selectedPerDeliveryTotal,
+                          )} is taken on each delivery going forward.`
+                        : `These products are added to your next delivery. The extra ${formatMoney(
+                            selectedChargeTotal,
+                          )} is charged to your card now, and ${formatMoney(
+                            currentPerDelivery + selectedPerDeliveryTotal,
+                          )} is taken on each delivery going forward.`}
                 </p>
               )}
 
@@ -632,6 +839,10 @@ const SubscriptionAddProductsPage: React.FC = () => {
                 ) : (
                   "Save selected products"
                 )}
+              </Button>
+
+              <Button asChild variant="outline" className="w-full mt-2">
+                <Link to="/portal/payments">Update payment</Link>
               </Button>
             </section>
           </div>

@@ -37,6 +37,7 @@ export type PortalSubscription = {
     day: number;
     items: PortalSubscriptionItem[];
   }>;
+  upcomingDeliveryDate?: string | null;
   nextDeliveryDate?: string | null;
   startDate?: string | null;
   deliveryAddress: {
@@ -180,6 +181,7 @@ export const portalSubscriptionsApi = {
       }>;
       deliveryAddressId: string;
       notes: string;
+      refundMethod: SubscriptionRefundMethod;
     }>,
   ) => api.patch<ApiEnvelope<SubscriptionResponse>>(`${base}/${subscriptionId}`, payload),
 
