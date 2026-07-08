@@ -45,6 +45,7 @@ import {
   type PortalSubscriptionItem,
   type PortalSubscriptionDelivery,
   type PortalSubscriptionCutoff,
+  type SubscriptionRefundMethod,
 } from "@/api/portalSubscriptions";
 
 type EditableSubscriptionItem = {
@@ -347,6 +348,7 @@ const SubscriptionDetailPage: React.FC = () => {
   const [deliveryDays, setDeliveryDays] = useState<string[]>(["Tuesday"]);
   const [cutoff, setCutoff] = useState<PortalSubscriptionCutoff | null>(null);
   const [refundChoiceOpen, setRefundChoiceOpen] = useState(false);
+  const [cancelRefundChoiceOpen, setCancelRefundChoiceOpen] = useState(false);
   const [productDraft, setProductDraft] = useState<EditableSubscriptionItem[]>(
     [],
   );
@@ -941,17 +943,46 @@ const SubscriptionDetailPage: React.FC = () => {
     }
   };
 
-  const handleCancel = async () => {
+  const handleCancel = async (refundMethod: SubscriptionRefundMethod) => {
     if (!id) return;
     setSaving(true);
     try {
-      await portalSubscriptionsApi.cancel(id);
+      const res = await portalSubscriptionsApi.cancel(id, { refundMethod });
       await load();
-      setNotice("Subscription cancelled.");
-      toast.success("Subscription cancelled.");
+      setCancelOpen(false);
+      setCancelRefundChoiceOpen(false);
+      const message = (res as any)?.message || "Subscription cancelled.";
+      const isScheduledCancellation = Boolean(
+        (res as any)?.data?.subscription?.isCancellationScheduled,
+      );
+      setNotice(isScheduledCancellation ? null : message);
+      toast.success(message);
+    } catch (err) {
+      const message =
+        err instanceof ApiError
+          ? err.message
+          : "Failed to cancel subscription.";
+      setError(message);
+      toast.error(message);
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleCancelAttempt = async () => {
+    if (!id) return;
+
+    const shouldAskRefundMethod = isMultiDayWeekly
+      ? hasAnyRefundEligibleDeliveryOnCancel
+      : Boolean(cutoff && !cutoff.isPastCutoff);
+
+    if (shouldAskRefundMethod) {
+      setCancelOpen(false);
+      setCancelRefundChoiceOpen(true);
+      return;
+    }
+
+    await handleCancel("refund");
   };
 
   const handleRemoveItem = async () => {
@@ -1146,6 +1177,40 @@ const SubscriptionDetailPage: React.FC = () => {
     }
   };
 
+  const hasAnyRefundEligibleDeliveryOnCancel = useMemo(() => {
+    if (!cutoff || !Array.isArray(deliveries) || deliveries.length === 0) {
+      return false;
+    }
+
+    const [hours, minutes] = String(cutoff.cutoffTime || "00:00")
+      .split(":")
+      .map((part) => Number(part));
+    const cutoffHours = Number.isFinite(hours) ? hours : 0;
+    const cutoffMinutes = Number.isFinite(minutes) ? minutes : 0;
+
+    return deliveries
+      .filter(
+        (delivery) =>
+          ["scheduled", "generated"].includes(String(delivery.status)) &&
+          delivery.order &&
+          ["paid", "partially_refunded"].includes(
+            String(delivery.order.status || ""),
+          ),
+      )
+      .some((delivery) => {
+        const deliveryDate = new Date(delivery.scheduledDate);
+        if (Number.isNaN(deliveryDate.getTime())) return false;
+
+        const cutoffDate = new Date(deliveryDate);
+        cutoffDate.setDate(
+          cutoffDate.getDate() - (Number(cutoff.cutoffDaysBefore) || 0),
+        );
+        cutoffDate.setHours(cutoffHours, cutoffMinutes, 0, 0);
+
+        return Date.now() < cutoffDate.getTime();
+      });
+  }, [cutoff, deliveries]);
+
   if (loading) {
     return (
       <div className="max-w-3xl mx-auto bg-card border border-border rounded-2xl p-8 text-sm text-muted-foreground flex items-center gap-2">
@@ -1236,6 +1301,25 @@ const SubscriptionDetailPage: React.FC = () => {
         .join(", ")
     : fullAddress;
 
+  const cancellationEffectiveAt = subscription.cancellationEffectiveAfter
+    ? new Date(subscription.cancellationEffectiveAfter)
+    : null;
+  const cancellationStartsAt = cancellationEffectiveAt
+    ? new Date(cancellationEffectiveAt)
+    : null;
+  if (cancellationStartsAt) {
+    cancellationStartsAt.setHours(0, 0, 0, 0);
+  }
+  const hasValidCancellationDate = Boolean(
+    cancellationEffectiveAt &&
+    !Number.isNaN(cancellationEffectiveAt.getTime()) &&
+    cancellationStartsAt,
+  );
+  const showScheduledCancellationAlert =
+    Boolean(subscription.isCancellationScheduled) &&
+    (!hasValidCancellationDate ||
+      Date.now() < (cancellationStartsAt as Date).getTime());
+
   return (
     <div className="max-w-6xl mx-auto">
       <div className="flex items-start justify-between gap-4 mb-5">
@@ -1266,11 +1350,26 @@ const SubscriptionDetailPage: React.FC = () => {
         />
       </div>
 
-      {(error || notice) && (
+      {(error || notice || showScheduledCancellationAlert) && (
         <div
           className="sticky top-[var(--sticky-top)] z-30 mb-4 space-y-3"
           style={{ ["--sticky-top" as string]: `${stickyTopOffset}px` }}
         >
+          {showScheduledCancellationAlert && (
+            <div className="rounded-xl border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900 shadow-sm backdrop-blur-sm dark:border-sky-500/30 dark:bg-sky-500/10 dark:text-sky-100">
+              <div>
+                Subscription scheduled for cancellation. Your next delivery
+                remains scheduled; future deliveries are stopped.
+              </div>
+              {hasValidCancellationDate && (
+                <div className="mt-1 text-xs text-blue-700 dark:text-sky-200">
+                  Scheduled cancellation date:{" "}
+                  {formatDate(cancellationEffectiveAt)}
+                </div>
+              )}
+            </div>
+          )}
+
           {error && (
             <div className="rounded-xl border border-destructive/20 bg-destructive/10 p-3 text-sm text-destructive shadow-sm backdrop-blur-sm dark:border-red-500/30 dark:bg-red-500/15 dark:text-red-200">
               {error}
@@ -2132,7 +2231,7 @@ const SubscriptionDetailPage: React.FC = () => {
         confirmLabel="Yes, Cancel"
         cancelLabel="Keep Subscription"
         variant="destructive"
-        onConfirm={handleCancel}
+        onConfirm={handleCancelAttempt}
       />
       <ConfirmationModal
         open={Boolean(removeProductId)}
@@ -2180,6 +2279,53 @@ const SubscriptionDetailPage: React.FC = () => {
               onClick={() => {
                 setRefundChoiceOpen(false);
                 void performSaveProductChanges("refund");
+              }}
+            >
+              <div>
+                <div className="font-medium">Refund to my card</div>
+                <div className="text-xs text-muted-foreground">
+                  Sent back to your original payment method where possible.
+                </div>
+              </div>
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={cancelRefundChoiceOpen}
+        onOpenChange={setCancelRefundChoiceOpen}
+      >
+        <DialogContent className="max-w-md p-6">
+          <DialogHeader>
+            <DialogTitle>How should we settle your cancellation?</DialogTitle>
+            <DialogDescription>
+              Your upcoming subscription delivery is pre-paid. Choose whether to
+              receive the amount as store credit or back to your card.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-3 pt-2">
+            <Button
+              variant="outline"
+              className="h-auto py-3 justify-start text-left"
+              disabled={saving}
+              onClick={() => {
+                void handleCancel("credit");
+              }}
+            >
+              <div>
+                <div className="font-medium">Store credit</div>
+                <div className="text-xs text-muted-foreground">
+                  Added to your account instantly for future orders.
+                </div>
+              </div>
+            </Button>
+            <Button
+              variant="outline"
+              className="h-auto py-3 justify-start text-left"
+              disabled={saving}
+              onClick={() => {
+                void handleCancel("refund");
               }}
             >
               <div>

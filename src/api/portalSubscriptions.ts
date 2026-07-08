@@ -194,9 +194,13 @@ export const portalSubscriptionsApi = {
   resume: (subscriptionId: string) =>
     api.post<ApiEnvelope<SubscriptionResponse>>(`${base}/${subscriptionId}/resume`),
 
-  cancel: (subscriptionId: string, reason?: string) =>
+  cancel: (
+    subscriptionId: string,
+    payload: { reason?: string; refundMethod?: SubscriptionRefundMethod } = {},
+  ) =>
     api.post<ApiEnvelope<SubscriptionResponse>>(`${base}/${subscriptionId}/cancel`, {
-      ...(reason ? { reason } : {}),
+      ...(payload.reason ? { reason: payload.reason } : {}),
+      ...(payload.refundMethod ? { refundMethod: payload.refundMethod } : {}),
     }),
 
   addItem: (
