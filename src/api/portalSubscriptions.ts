@@ -175,6 +175,7 @@ export const portalSubscriptionsApi = {
       frequency: PortalSubscriptionFrequency;
       preferredDeliveryDay: number;
       preferredDeliveryDays: number[];
+      changedDeliveryDays: number[];
       deliveryDayPlans: Array<{
         day: number;
         items: Array<{ variantId: string; quantity: number }>;

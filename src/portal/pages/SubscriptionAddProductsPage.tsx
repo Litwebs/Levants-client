@@ -482,9 +482,20 @@ const SubscriptionAddProductsPage: React.FC = () => {
           return { day: dayIndex, items };
         });
 
+        const changedDeliveryDays = Array.from(
+          new Set(
+            selectedList.flatMap((addItem) =>
+              Array.isArray(selectedAddDays[addItem.variantId])
+                ? selectedAddDays[addItem.variantId].map(dayNameToIndex)
+                : [],
+            ),
+          ),
+        );
+
         await portalSubscriptionsApi.update(id, {
           preferredDeliveryDay: selectedDayIndexes[0],
           preferredDeliveryDays: selectedDayIndexes,
+          changedDeliveryDays,
           deliveryDayPlans,
         });
       } else {

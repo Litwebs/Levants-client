@@ -149,6 +149,9 @@ const buildEditableDayPlans = (
 const getDraftIdentityKey = (item: EditableSubscriptionItem) =>
   item.existingItemId || getItemMatchKey(item);
 
+const getDayPlanItemKey = (item: EditableSubscriptionItem) =>
+  item.variantId || getDraftIdentityKey(item);
+
 const toDayName = (day: number) => {
   const days = [
     "Sunday",
@@ -251,16 +254,12 @@ const getDayCutoffLabel = (
   return `${dayName}: ${isPastCutoff ? "Locked after" : "Editable until"} ${formatDateOnly(cutoffDate)} at ${cutoff.cutoffTime}`;
 };
 
-const getDisplayNextDeliveryDate = (subscription: PortalSubscription) =>
-  subscription.upcomingDeliveryDate ?? subscription.nextDeliveryDate;
-
-const getDisplayCutoffDate = (
-  nextDeliveryDate?: string | null,
-  cutoff?: PortalSubscriptionCutoff | null,
+const isDayPastOwnCutoff = (
+  dayIndex: number,
+  cutoff: PortalSubscriptionCutoff,
 ) => {
-  if (!nextDeliveryDate || !cutoff) return null;
-
-  const cutoffDate = new Date(nextDeliveryDate);
+  const deliveryDate = getNextWeekdayDate(dayIndex);
+  const cutoffDate = new Date(deliveryDate);
   cutoffDate.setDate(
     cutoffDate.getDate() - (Number(cutoff.cutoffDaysBefore) || 0),
   );
@@ -268,7 +267,6 @@ const getDisplayCutoffDate = (
   const [hours, minutes] = String(cutoff.cutoffTime || "00:00")
     .split(":")
     .map((part) => Number(part));
-
   cutoffDate.setHours(
     Number.isFinite(hours) ? hours : 0,
     Number.isFinite(minutes) ? minutes : 0,
@@ -276,8 +274,20 @@ const getDisplayCutoffDate = (
     0,
   );
 
-  return cutoffDate;
+  return Date.now() >= cutoffDate.getTime();
 };
+
+// When a delivery day is already past its own cut-off, staged changes for that
+// day apply from the delivery AFTER the currently upcoming one for that weekday.
+const getDayScheduledFromDate = (dayIndex: number) => {
+  const upcoming = getNextWeekdayDate(dayIndex);
+  const scheduledFrom = new Date(upcoming);
+  scheduledFrom.setDate(scheduledFrom.getDate() + 7);
+  return scheduledFrom;
+};
+
+const getDisplayNextDeliveryDate = (subscription: PortalSubscription) =>
+  subscription.upcomingDeliveryDate ?? subscription.nextDeliveryDate;
 
 const getAddressId = (address?: { _id?: string; id?: string } | null) =>
   address?._id || address?.id || "";
@@ -343,6 +353,9 @@ const SubscriptionDetailPage: React.FC = () => {
   const [dayProductDraft, setDayProductDraft] = useState<
     Record<string, EditableSubscriptionItem[]>
   >({});
+  const [changedMultiDayIndexes, setChangedMultiDayIndexes] = useState<
+    number[]
+  >([]);
   const [selectedAddressId, setSelectedAddressId] = useState("");
 
   // Measure the sticky site header so the actions sidebar sits below it
@@ -433,11 +446,13 @@ const SubscriptionDetailPage: React.FC = () => {
           Boolean(nextCutoff?.isPastCutoff),
         );
         setProductDraft(nextProductDraft);
+        setChangedMultiDayIndexes([]);
         setDayProductDraft(
           buildEditableDayPlans(
             sub,
             Boolean(nextCutoff?.isPastCutoff),
             selectedDayNames,
+            nextCutoff,
           ),
         );
       }
@@ -510,6 +525,10 @@ const SubscriptionDetailPage: React.FC = () => {
   };
 
   const updateDayQty = (day: string, localId: string, quantity: number) => {
+    setChangedMultiDayIndexes((prev) => {
+      const dayIndex = dayNameToIndex(day);
+      return prev.includes(dayIndex) ? prev : [...prev, dayIndex];
+    });
     setDayProductDraft((prev) => {
       const dayItems = prev[day] || [];
       return {
@@ -524,6 +543,10 @@ const SubscriptionDetailPage: React.FC = () => {
   };
 
   const toggleDayItemIncluded = (day: string, localId: string) => {
+    setChangedMultiDayIndexes((prev) => {
+      const dayIndex = dayNameToIndex(day);
+      return prev.includes(dayIndex) ? prev : [...prev, dayIndex];
+    });
     setDayProductDraft((prev) => {
       const dayItems = prev[day] || [];
       return {
@@ -595,8 +618,90 @@ const SubscriptionDetailPage: React.FC = () => {
       subscription,
       Boolean(cutoff?.isPastCutoff),
       deliveryDays,
+      cutoff,
     );
   }, [subscription, cutoff, deliveryDays]);
+
+  const liveDayPlanBaseline = useMemo(() => {
+    if (!subscription) return {} as Record<string, EditableSubscriptionItem[]>;
+    return buildEditableDayPlans(subscription, false, deliveryDays, cutoff);
+  }, [subscription, deliveryDays]);
+
+  const hasScheduledMultiDayPlanChanges = Boolean(
+    isMultiDayWeekly &&
+    cutoff?.isPastCutoff &&
+    subscription?.pendingChanges?.deliveryDayPlans?.length,
+  );
+
+  const scheduledRemovedDayItems = useMemo(() => {
+    if (!hasScheduledMultiDayPlanChanges) {
+      return {} as Record<string, EditableSubscriptionItem[]>;
+    }
+
+    return deliveryDays.reduce<Record<string, EditableSubscriptionItem[]>>(
+      (acc, dayName) => {
+        const dayIndex = dayNameToIndex(dayName);
+        // Only locked days carry staged changes; open days settle immediately.
+        if (!cutoff || !isDayPastOwnCutoff(dayIndex, cutoff)) {
+          acc[dayName] = [];
+          return acc;
+        }
+
+        const pendingKeys = new Set(
+          (dayPlanBaseline[dayName] || [])
+            .filter((item) => Number(item.quantity || 0) > 0)
+            .map(getDayPlanItemKey),
+        );
+
+        acc[dayName] = (liveDayPlanBaseline[dayName] || []).filter(
+          (item) =>
+            Number(item.quantity || 0) > 0 &&
+            !pendingKeys.has(getDayPlanItemKey(item)),
+        );
+
+        return acc;
+      },
+      {},
+    );
+  }, [
+    cutoff,
+    dayPlanBaseline,
+    deliveryDays,
+    hasScheduledMultiDayPlanChanges,
+    liveDayPlanBaseline,
+  ]);
+
+  const getScheduledMultiDayItemChange = (
+    dayName: string,
+    item: EditableSubscriptionItem,
+  ) => {
+    if (!hasScheduledMultiDayPlanChanges || !cutoff) return null;
+
+    const dayIndex = dayNameToIndex(dayName);
+    // Open days (before their own cut-off) apply immediately — no staged text.
+    if (!isDayPastOwnCutoff(dayIndex, cutoff)) return null;
+
+    const scheduledFromLabel = formatDate(
+      getDayScheduledFromDate(dayIndex).toISOString(),
+    );
+
+    const liveItem = (liveDayPlanBaseline[dayName] || []).find(
+      (candidate) => getDayPlanItemKey(candidate) === getDayPlanItemKey(item),
+    );
+
+    if (!liveItem) {
+      return `Scheduled from ${scheduledFromLabel}: ${item.quantity} per delivery`;
+    }
+
+    const liveQuantity = Number(liveItem.quantity || 0);
+    const pendingQuantity = Number(item.quantity || 0);
+
+    if (liveQuantity === pendingQuantity) return null;
+
+    return `Scheduled quantity ${
+      pendingQuantity < liveQuantity ? "decrease" : "increase"
+    } from ${scheduledFromLabel}: ${liveQuantity} to ${pendingQuantity}`;
+  };
 
   const buildComparableDayPlans = (
     source: Record<string, EditableSubscriptionItem[]>,
@@ -615,6 +720,34 @@ const SubscriptionDetailPage: React.FC = () => {
         }))
         .sort((a, b) => a.day - b.day),
     );
+
+  const getChangedMultiDayIndexes = (
+    nextSource: Record<string, EditableSubscriptionItem[]>,
+    baselineSource: Record<string, EditableSubscriptionItem[]>,
+  ) =>
+    deliveryDays
+      .filter(
+        (day) =>
+          JSON.stringify(
+            (nextSource[day] || [])
+              .filter((item) => Number(item.quantity || 0) > 0)
+              .map((item) => ({
+                variantId: item.variantId,
+                quantity: Number(item.quantity || 0),
+              }))
+              .sort((a, b) => a.variantId.localeCompare(b.variantId)),
+          ) !==
+          JSON.stringify(
+            (baselineSource[day] || [])
+              .filter((item) => Number(item.quantity || 0) > 0)
+              .map((item) => ({
+                variantId: item.variantId,
+                quantity: Number(item.quantity || 0),
+              }))
+              .sort((a, b) => a.variantId.localeCompare(b.variantId)),
+          ),
+      )
+      .map(dayNameToIndex);
 
   const calculateDayPlanTotal = (
     source: Record<string, EditableSubscriptionItem[]>,
@@ -641,6 +774,12 @@ const SubscriptionDetailPage: React.FC = () => {
       0,
     );
   }, [subscription]);
+
+  const hasScheduledProductChanges = Boolean(
+    cutoff?.isPastCutoff &&
+    (subscription?.pendingChanges?.items?.length ||
+      subscription?.pendingChanges?.deliveryDayPlans?.length),
+  );
 
   const hasUnsavedProductChanges = useMemo(() => {
     if (!subscription) return false;
@@ -831,7 +970,7 @@ const SubscriptionDetailPage: React.FC = () => {
       const draftTotal = calculateDayPlanTotal(dayProductDraft);
       const hasMultiDayDecrease = draftTotal < baselineTotal;
 
-      if (hasMultiDayDecrease && !displayIsPastCutoff) {
+      if (hasMultiDayDecrease && cutoff && !cutoff.isPastCutoff) {
         setRefundChoiceOpen(true);
         return;
       }
@@ -872,7 +1011,7 @@ const SubscriptionDetailPage: React.FC = () => {
         );
       });
 
-    if (hasDecrease && cutoff && !displayIsPastCutoff) {
+    if (hasDecrease && cutoff && !cutoff.isPastCutoff) {
       setRefundChoiceOpen(true);
       return;
     }
@@ -910,6 +1049,10 @@ const SubscriptionDetailPage: React.FC = () => {
 
         const res = await portalSubscriptionsApi.update(id, {
           deliveryDayPlans,
+          changedDeliveryDays:
+            changedMultiDayIndexes.length > 0
+              ? changedMultiDayIndexes
+              : getChangedMultiDayIndexes(dayProductDraft, dayPlanBaseline),
           preferredDeliveryDay: dayNameToIndex(deliveryDays[0] || "Tuesday"),
           preferredDeliveryDays: normalizeDayIndexes(
             deliveryDays.map(dayNameToIndex),
@@ -921,7 +1064,7 @@ const SubscriptionDetailPage: React.FC = () => {
         await refreshCustomer().catch(() => {});
         const message =
           (res as any)?.message ||
-          (displayIsPastCutoff
+          (cutoff?.isPastCutoff
             ? "Product changes were scheduled for deliveries after the upcoming one."
             : "Product changes saved.");
         setNotice(message);
@@ -1049,10 +1192,6 @@ const SubscriptionDetailPage: React.FC = () => {
     .join(", ");
 
   const displayNextDeliveryDate = getDisplayNextDeliveryDate(subscription);
-  const displayCutoffAt = getDisplayCutoffDate(displayNextDeliveryDate, cutoff);
-  const displayIsPastCutoff = displayCutoffAt
-    ? Date.now() >= displayCutoffAt.getTime()
-    : Boolean(cutoff?.isPastCutoff);
   const selectedSavedAddress =
     addresses.find((address) => getAddressId(address) === selectedAddressId) ||
     null;
@@ -1166,7 +1305,7 @@ const SubscriptionDetailPage: React.FC = () => {
       {cutoff && subscription.status === "active" && (
         <div
           className={`mb-4 rounded-xl border p-3 text-xs sm:text-sm leading-relaxed ${
-            displayIsPastCutoff
+            cutoff.isPastCutoff
               ? "border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-100"
               : "border-forest/20 bg-forest/5 text-foreground dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-100"
           }`}
@@ -1194,7 +1333,7 @@ const SubscriptionDetailPage: React.FC = () => {
                 Changes are applied separately for each delivery day.
               </div>
             </>
-          ) : displayIsPastCutoff ? (
+          ) : cutoff.isPastCutoff ? (
             <>
               The cut-off for your next delivery
               {displayNextDeliveryDate
@@ -1207,7 +1346,7 @@ const SubscriptionDetailPage: React.FC = () => {
             <>
               You can edit this subscription until{" "}
               <span className="font-semibold">
-                {displayCutoffAt ? formatDate(displayCutoffAt) : "the cut-off"}
+                {cutoff.cutoffAt ? formatDate(cutoff.cutoffAt) : "the cut-off"}
               </span>
               {cutoff.cutoffTime ? ` at ${cutoff.cutoffTime}` : ""}. Changes
               apply to your next delivery; adding items charges the difference
@@ -1284,6 +1423,8 @@ const SubscriptionDetailPage: React.FC = () => {
               {isMultiDayWeekly ? (
                 deliveryDays.map((dayName, dayIndex) => {
                   const dayItems = dayProductDraft[dayName] || [];
+                  const removedDayItems =
+                    scheduledRemovedDayItems[dayName] || [];
                   const includedCount = dayItems.filter(
                     (item) => Number(item.quantity || 0) > 0,
                   ).length;
@@ -1310,6 +1451,8 @@ const SubscriptionDetailPage: React.FC = () => {
                       <div className="space-y-2">
                         {dayItems.map((item, idx) => {
                           const isIncluded = Number(item.quantity || 0) > 0;
+                          const scheduledDayChange =
+                            getScheduledMultiDayItemChange(dayName, item);
 
                           return (
                             <div
@@ -1338,6 +1481,11 @@ const SubscriptionDetailPage: React.FC = () => {
                                       {item.sku} · {formatMoney(item.unitPrice)}{" "}
                                       each
                                     </p>
+                                    {scheduledDayChange && (
+                                      <p className="mt-1 text-xs text-blue-700 dark:text-sky-300">
+                                        {scheduledDayChange}
+                                      </p>
+                                    )}
                                   </div>
                                 </div>
 
@@ -1402,6 +1550,26 @@ const SubscriptionDetailPage: React.FC = () => {
                             </div>
                           );
                         })}
+                        {removedDayItems.map((item) => (
+                          <div
+                            key={`removed:${dayName}:${getDayPlanItemKey(item)}`}
+                            className="rounded-lg border border-blue-200 bg-blue-50 p-2.5 dark:border-sky-500/30 dark:bg-sky-500/10"
+                          >
+                            <div className="min-w-0 space-y-1">
+                              <p className="text-sm font-medium text-blue-900 line-through dark:text-sky-100">
+                                {item.name}
+                              </p>
+                              <p className="text-xs text-blue-700 dark:text-sky-300">
+                                {item.sku} · scheduled for removal from{" "}
+                                {formatDate(
+                                  getDayScheduledFromDate(
+                                    dayNameToIndex(dayName),
+                                  ).toISOString(),
+                                )}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     </div>
                   );
@@ -1613,6 +1781,7 @@ const SubscriptionDetailPage: React.FC = () => {
                   onClick={() => {
                     if (isMultiDayWeekly) {
                       setDayProductDraft(dayPlanBaseline);
+                      setChangedMultiDayIndexes([]);
                       return;
                     }
                     setProductDraft(editableBaseline);
@@ -1872,11 +2041,21 @@ const SubscriptionDetailPage: React.FC = () => {
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Per delivery</span>
+                  <span className="text-muted-foreground">
+                    {hasScheduledProductChanges
+                      ? "Scheduled per delivery"
+                      : "Per delivery"}
+                  </span>
                   <span className="font-semibold text-foreground">
                     {formatMoney(total)}
                   </span>
                 </div>
+                {hasScheduledProductChanges && (
+                  <div className="flex items-center justify-between text-xs text-blue-700 dark:text-sky-300">
+                    <span>Current live per delivery</span>
+                    <span>{formatMoney(originalTotal)}</span>
+                  </div>
+                )}
               </div>
             </div>
           </div>
