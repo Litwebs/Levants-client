@@ -7,6 +7,7 @@ import { portalAuthApi, type PortalCustomer } from "@/api/portalAuth";
 import { AnnouncementBanner } from "./AnnouncementBanner";
 import { ORDER_DEADLINES_TEXT } from "@/lib/orderDeadlines";
 import { PORTAL_AUTH_CHANGED_EVENT, isPortalLoggedIn } from "@/lib/portalAuth";
+import { useBusinessInfo } from "@/context/BusinessInfoContext";
 
 type ActiveDiscount = {
   code: string;
@@ -60,6 +61,7 @@ const Header: React.FC<HeaderProps> = ({
     document.documentElement.classList.contains("dark"),
   );
   const { itemCount, openCart } = useCart();
+  const businessInfo = useBusinessInfo();
   const location = useLocation();
   const showEnhancedAccount = !actions && portalLoggedIn;
 
@@ -248,12 +250,12 @@ const Header: React.FC<HeaderProps> = ({
 
             <Link to="/" className="hidden sm:flex items-center gap-2">
               <img
-                src="/Logo.jpg"
-                alt="Levants logo"
+                src={businessInfo.logoUrl}
+                alt={`${businessInfo.companyName} logo`}
                 className="w-7 h-7 lg:w-8 lg:h-8 rounded-full object-cover"
               />
-              <h1 className="font-heading text-xl lg:text-2xl font-semibold text-primary">
-                Levants Dairy
+              <h1 className="font-heading text-xl lg:text-2xl font-semibold text-primary max-w-48 lg:max-w-72 truncate">
+                {businessInfo.companyName}
               </h1>
             </Link>
 

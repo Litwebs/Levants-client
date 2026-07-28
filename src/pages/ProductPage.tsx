@@ -171,16 +171,31 @@ const ProductPage: React.FC = () => {
 
   const pricing = product.pricing;
   const description =
-    typeof product.description === "string" ? product.description : "";
+    selectedVariant?.description?.trim() ||
+    (typeof product.description === "string" ? product.description : "");
 
   const allergensText = (() => {
-    const allergens = (product as any)?.allergens;
+    const allergens =
+      selectedVariant?.allergens !== undefined
+        ? selectedVariant.allergens
+        : product.allergens;
     if (Array.isArray(allergens))
       return allergens.length ? allergens.join(", ") : "None";
     if (typeof allergens === "string")
-      return allergens.trim() ? allergens.trim() : "None";
+      return (allergens as string).trim() ? (allergens as string).trim() : "None";
     return "None";
   })();
+
+  const ingredientsText =
+    selectedVariant?.ingredients?.trim() ||
+    (product as any)?.ingredients?.trim() ||
+    "Not provided";
+
+  const nutritionalInformationText =
+    selectedVariant?.nutritionalInformation?.trim() ||
+    (product as any)?.nutritionalInformation?.trim() ||
+    (product as any)?.nutritionInfo?.trim() ||
+    "Not provided";
 
   const storageNotesText = (() => {
     const storageNotes =
@@ -219,6 +234,10 @@ const ProductPage: React.FC = () => {
       variants: variants.map((v) => ({
         id: v.id,
         name: v.name,
+        description: v.description,
+        ingredients: v.ingredients,
+        allergens: v.allergens,
+        nutritionalInformation: v.nutritionalInformation,
         price: v.price,
         thumbnailImage: (v as any).thumbnailImage,
         stockQuantity: (v as any).stockQuantity,
@@ -237,6 +256,10 @@ const ProductPage: React.FC = () => {
     const cartVariant = {
       id: selectedVariant.id,
       name: selectedVariant.name,
+      description: selectedVariant.description,
+      ingredients: selectedVariant.ingredients,
+      allergens: selectedVariant.allergens,
+      nutritionalInformation: selectedVariant.nutritionalInformation,
       price: selectedVariant.price,
       thumbnailImage: (selectedVariant as any).thumbnailImage,
       stockQuantity: (selectedVariant as any).stockQuantity,
@@ -330,10 +353,6 @@ const ProductPage: React.FC = () => {
                 : pricing
                   ? `£${pricing.min.toFixed(2)} – £${pricing.max.toFixed(2)}`
                   : `£${currentPrice.toFixed(2)}`}
-            </p>
-
-            <p className="text-muted-foreground mb-6">
-              {description.slice(0, 200)}
             </p>
 
             {/* Stock Status */}
@@ -447,8 +466,26 @@ const ProductPage: React.FC = () => {
 
             <div className="bg-secondary/50 rounded-xl p-4 space-y-3 mt-4">
               <div>
+                <p className="text-sm font-medium">Description</p>
+                <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line break-words">
+                  {description || "Not provided"}
+                </p>
+              </div>
+              <div>
+                <p className="text-sm font-medium">Ingredients</p>
+                <p className="text-xs text-muted-foreground whitespace-pre-line">
+                  {ingredientsText}
+                </p>
+              </div>
+              <div>
                 <p className="text-sm font-medium">Allergens</p>
                 <p className="text-xs text-muted-foreground">{allergensText}</p>
+              </div>
+              <div>
+                <p className="text-sm font-medium">Nutritional information</p>
+                <p className="text-xs text-muted-foreground whitespace-pre-line">
+                  {nutritionalInformationText}
+                </p>
               </div>
               <div>
                 <p className="text-sm font-medium">Storage notes</p>
@@ -458,13 +495,6 @@ const ProductPage: React.FC = () => {
               </div>
             </div>
           </div>
-        </div>
-
-        {/* Description */}
-        <div className="mb-16 max-w-3xl">
-          <p className="text-foreground leading-relaxed break-words">
-            {description}
-          </p>
         </div>
 
         {/* Related Products */}
@@ -499,6 +529,10 @@ const ProductPage: React.FC = () => {
                   variants: rpVariants.map((v) => ({
                     id: v.id,
                     name: v.name,
+                    description: v.description,
+                    ingredients: v.ingredients,
+                    allergens: v.allergens,
+                    nutritionalInformation: v.nutritionalInformation,
                     price: v.price,
                     stockStatus:
                       v.stockQuantity <= 0

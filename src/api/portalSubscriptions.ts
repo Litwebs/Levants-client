@@ -163,6 +163,11 @@ export const portalSubscriptionsApi = {
   getSettings: () =>
     api.get<ApiEnvelope<SubscriptionSettingsResponse>>(`${base}/settings`),
 
+  getPreparedDraft: () =>
+    api.get<ApiEnvelope<{ draft: Record<string, unknown> | null }>>(
+      `${base}/prepared-draft`,
+    ),
+
   get: (subscriptionId: string) =>
     api.get<ApiEnvelope<SubscriptionResponse>>(`${base}/${subscriptionId}`),
 

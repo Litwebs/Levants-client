@@ -46,6 +46,16 @@ export type RegisterPayload = {
   phone?: string;
   password: string;
   confirmPassword: string;
+  inviteToken?: string;
+};
+
+export type RegisterInvite = {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone?: string | null;
+  expiresAt: string;
+  subscriptionDraft?: Record<string, unknown> | null;
 };
 
 export type LoginPayload = {
@@ -97,6 +107,11 @@ const authBase = "/portal/auth";
 export const portalAuthApi = {
   register: (payload: RegisterPayload) =>
     api.post<ApiEnvelope<RegisterResponse>>(`${authBase}/register`, payload),
+
+  getRegisterInvite: (token: string) =>
+    api.get<ApiEnvelope<{ invite: RegisterInvite }>>(
+      `${authBase}/invite/${encodeURIComponent(token)}`,
+    ),
 
   login: (payload: LoginPayload) =>
     api.post<ApiEnvelope<LoginResponse & VerificationRequiredResponse>>(

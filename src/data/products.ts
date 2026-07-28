@@ -27,6 +27,10 @@ export interface Product {
 export interface ProductVariant {
   id: string;
   name: string;
+  description?: string | null;
+  ingredients?: string | null;
+  allergens?: string[];
+  nutritionalInformation?: string | null;
   price: number;
   stockStatus: 'in-stock' | 'low-stock' | 'out-of-stock';
   stockQuantity?: number;

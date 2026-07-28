@@ -15,9 +15,11 @@ import {
 } from "@/components/ui/accordion";
 import { checkDeliveryPostcode } from "@/api/delivery";
 import { ORDER_DEADLINES_TEXT } from "@/lib/orderDeadlines";
-import { buildWhatsAppLink, WHATSAPP_DISPLAY_PHONE } from "@/lib/whatsapp";
+import { buildWhatsAppLink } from "@/lib/whatsapp";
+import { useBusinessInfo } from "@/context/BusinessInfoContext";
 
 const DeliveryPage: React.FC = () => {
+  const businessInfo = useBusinessInfo();
   const [postcode, setPostcode] = useState("");
   const [checking, setChecking] = useState(false);
   const [postcodeResult, setPostcodeResult] = useState<{
@@ -294,7 +296,8 @@ const DeliveryPage: React.FC = () => {
                   easy! Just{" "}
                   <a
                     href={buildWhatsAppLink(
-                      "Hi Levants Dairy — I'd like to set up a weekly subscription.",
+                      `Hi ${businessInfo.companyName} — I'd like to set up a weekly subscription.`,
+                      businessInfo.phone,
                     )}
                     className="text-primary font-medium hover:underline"
                     target="_blank"
@@ -311,12 +314,12 @@ const DeliveryPage: React.FC = () => {
               <p className="text-sm text-muted-foreground">
                 WhatsApp:{" "}
                 <a
-                  href={buildWhatsAppLink()}
+                  href={buildWhatsAppLink(undefined, businessInfo.phone)}
                   className="font-medium text-primary hover:underline"
                   target="_blank"
                   rel="noopener noreferrer"
                 >
-                  {WHATSAPP_DISPLAY_PHONE}
+                  {businessInfo.phone}
                 </a>
               </p>
               <p className="text-sm text-muted-foreground">

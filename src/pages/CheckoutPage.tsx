@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { checkDeliveryPostcode } from "@/api/delivery";
 import { portalAuthApi } from "@/api/portalAuth";
 import { isPortalLoggedIn } from "@/lib/portalAuth";
+import { useBusinessInfo } from "@/context/BusinessInfoContext";
 
 type CheckoutStep = 1 | 2 | 3;
 
@@ -24,6 +25,7 @@ type SavedAddress = {
 
 const CheckoutPage: React.FC = () => {
   const navigate = useNavigate();
+  const businessInfo = useBusinessInfo();
   const { items, subtotal } = useCart();
   const {
     customer,
@@ -480,9 +482,14 @@ const CheckoutPage: React.FC = () => {
           <div className="flex items-center justify-between">
             <Link
               to="/"
-              className="font-heading text-xl font-semibold text-primary"
+              className="flex items-center gap-2 font-heading text-xl font-semibold text-primary"
             >
-              Levants Dairy
+              <img
+                src={businessInfo.logoUrl}
+                alt={`${businessInfo.companyName} logo`}
+                className="h-9 w-9 rounded-full object-cover"
+              />
+              {businessInfo.companyName}
             </Link>
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Lock className="w-4 h-4" />

@@ -8,14 +8,18 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ApiError } from "@/api/client";
 import { portalAuthApi } from "@/api/portalAuth";
 import { setPortalLoggedIn } from "@/lib/portalAuth";
+import { useBusinessInfo } from "@/context/BusinessInfoContext";
 
 const LoginPage: React.FC = () => {
   const navigate = useNavigate();
+  const businessInfo = useBusinessInfo();
   const [searchParams] = useSearchParams();
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(
+    () => searchParams.get("email")?.trim().toLowerCase() || "",
+  );
   const [password, setPassword] = useState("");
   const [requiresVerification, setRequiresVerification] = useState(false);
   const [verificationCode, setVerificationCode] = useState("");
@@ -27,6 +31,9 @@ const LoginPage: React.FC = () => {
     typeof redirectParam === "string" && redirectParam.startsWith("/")
       ? redirectParam
       : "/";
+  const isPreparedSubscription = redirectTarget.includes(
+    "/portal/subscriptions/new?prepared=1",
+  );
   const registerLink = `/register?redirect=${encodeURIComponent(
     redirectTarget,
   )}`;
@@ -123,9 +130,14 @@ const LoginPage: React.FC = () => {
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-8">
-          <Link to="/" className="inline-block">
+          <Link to="/" className="inline-flex flex-col items-center">
+            <img
+              src={businessInfo.logoUrl}
+              alt={`${businessInfo.companyName} logo`}
+              className="mb-3 h-14 w-14 rounded-full object-cover"
+            />
             <h1 className="font-heading text-3xl font-bold text-forest">
-              Levants Dairy
+              {businessInfo.companyName}
             </h1>
             <p className="text-sm text-muted-foreground mt-1">
               Farm fresh, delivered to your door
@@ -137,13 +149,25 @@ const LoginPage: React.FC = () => {
         <div className="bg-card border border-border rounded-2xl p-8 shadow-md">
           <div className="mb-6">
             <h2 className="font-heading text-2xl font-semibold text-foreground">
-              {requiresVerification ? "Verify your email" : "Welcome back"}
+              {requiresVerification
+                ? "Verify your email"
+                : isPreparedSubscription
+                  ? "Complete your subscription"
+                  : "Welcome back"}
             </h2>
             <p className="text-sm text-muted-foreground mt-1">
               {requiresVerification
                 ? "Enter the 6-digit code sent to your email to complete sign in."
-                : "Sign in to manage your orders and subscriptions"}
+                : isPreparedSubscription
+                  ? "Sign in to review the subscription prepared for you and add payment."
+                  : "Sign in to manage your orders and subscriptions"}
             </p>
+            {isPreparedSubscription && !requiresVerification && (
+              <div className="mt-3 rounded-lg border border-forest/20 bg-forest/5 px-3 py-2 text-xs text-forest">
+                Your subscription details are already saved. After signing in,
+                you’ll go directly to review and payment.
+              </div>
+            )}
           </div>
 
           {error && (

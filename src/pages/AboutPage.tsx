@@ -2,10 +2,12 @@ import React from "react";
 import { Link } from "react-router-dom";
 import { Leaf, Heart, Award, Truck, ArrowRight, RefreshCw } from "lucide-react";
 import heroImage from "@/assets/hero-farm.jpg";
-import { buildWhatsAppLink, WHATSAPP_DISPLAY_PHONE } from "@/lib/whatsapp";
+import { buildWhatsAppLink } from "@/lib/whatsapp";
 import about from "../../public/reviews/about/about.jpeg";
+import { useBusinessInfo } from "@/context/BusinessInfoContext";
 
 const AboutPage: React.FC = () => {
+  const businessInfo = useBusinessInfo();
   const farmImages = Array.from(
     { length: 12 },
     (_, idx) => `/reviews/about/about${idx + 1}.jpeg`,
@@ -206,7 +208,8 @@ const AboutPage: React.FC = () => {
                   easy! Just{" "}
                   <a
                     href={buildWhatsAppLink(
-                      "Hi Levants Dairy — I'd like to set up a weekly subscription.",
+                      `Hi ${businessInfo.companyName} — I'd like to set up a weekly subscription.`,
+                      businessInfo.phone,
                     )}
                     className="text-primary font-medium hover:underline"
                     target="_blank"
@@ -223,12 +226,12 @@ const AboutPage: React.FC = () => {
               <p className="text-sm text-muted-foreground">
                 WhatsApp:{" "}
                 <a
-                  href={buildWhatsAppLink()}
+                  href={buildWhatsAppLink(undefined, businessInfo.phone)}
                   className="font-medium text-primary hover:underline"
                   target="_blank"
                   rel="noopener noreferrer"
                 >
-                  {WHATSAPP_DISPLAY_PHONE}
+                  {businessInfo.phone}
                 </a>
               </p>
               <p className="text-sm text-muted-foreground">

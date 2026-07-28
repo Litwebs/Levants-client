@@ -16,9 +16,11 @@ import ProductCard from "@/components/products/ProductCard";
 import CategoryCard from "@/components/products/CategoryCard";
 import heroImage from "@/assets/hero-farm.jpg";
 import { checkDeliveryPostcode } from "@/api/delivery";
+import { useBusinessInfo } from "@/context/BusinessInfoContext";
 
 const HomePage: React.FC = () => {
   const { products, meta, fetchProducts } = useProducts();
+  const businessInfo = useBusinessInfo();
   const [postcode, setPostcode] = useState("");
   const [checkingPostcode, setCheckingPostcode] = useState(false);
   const [postcodeResult, setPostcodeResult] = useState<{
@@ -100,6 +102,10 @@ const HomePage: React.FC = () => {
       variants: p.variants.map((v) => ({
         id: v.id,
         name: v.name,
+        description: v.description,
+        ingredients: v.ingredients,
+        allergens: v.allergens,
+        nutritionalInformation: v.nutritionalInformation,
         price: v.price,
         thumbnailImage: v.thumbnailImage,
         stockStatus:
@@ -176,9 +182,9 @@ const HomePage: React.FC = () => {
       name: "Adam",
       location: "Bradford",
       rating: 5,
-      text: "Been ordering from Levants Dairy for the last 9 months. Huge difference compared to superamarkets",
+      text: `Been ordering from ${businessInfo.companyName} for the last 9 months. Huge difference compared to superamarkets`,
       imageSrc: "/reviews/rev3.jpeg",
-      imageAlt: "Levants Dairy delivery",
+      imageAlt: `${businessInfo.companyName} delivery`,
     },
   ];
 

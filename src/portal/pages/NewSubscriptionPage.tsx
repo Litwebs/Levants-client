@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
   ArrowLeft,
   ArrowRight,
@@ -270,6 +270,8 @@ function readDraft() {
 
 const NewSubscriptionPage: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const isPreparedSubscription = searchParams.get("prepared") === "1";
   const draft = readDraft();
   const [step, setStep] = useState(() => Number(draft?.step ?? 0));
 
@@ -392,7 +394,9 @@ const NewSubscriptionPage: React.FC = () => {
   );
   const [frequency, setFrequency] = useState(() => {
     const draftFrequency = draft?.frequency as string | undefined;
-    return draftFrequency === "fortnightly" ? "fortnightly" : "weekly";
+    if (draftFrequency === "fortnightly") return "fortnightly";
+    if (draftFrequency === "monthly") return "monthly";
+    return "weekly";
   });
   const [deliveryDays, setDeliveryDays] = useState<string[]>(() => {
     const draftDays = draft?.deliveryDays;
@@ -411,6 +415,83 @@ const NewSubscriptionPage: React.FC = () => {
   );
   const [submitLoading, setSubmitLoading] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isPreparedSubscription || draft) return;
+
+    let active = true;
+    void portalSubscriptionsApi
+      .getPreparedDraft()
+      .then((response) => {
+        if (!active) return;
+        const preparedDraft = (response as any)?.data?.draft as
+          | Record<string, unknown>
+          | null
+          | undefined;
+        if (!preparedDraft) {
+          setSubmitError(
+            "This prepared subscription is no longer available. Please ask the business for a new link.",
+          );
+          return;
+        }
+
+        try {
+          sessionStorage.setItem(DRAFT_KEY, JSON.stringify(preparedDraft));
+        } catch {
+          // The in-memory state below still allows setup to continue.
+        }
+
+        setStep(Number(preparedDraft.step ?? 5));
+        setSelectedVariantIds(
+          Array.isArray(preparedDraft.selectedVariantIds)
+            ? preparedDraft.selectedVariantIds.filter(
+                (value): value is string => typeof value === "string",
+              )
+            : [],
+        );
+        setQuantities(
+          (preparedDraft.quantities as Record<string, number> | undefined) ??
+            {},
+        );
+        setDayQuantities(
+          (preparedDraft.dayQuantities as
+            | Record<string, Record<string, number>>
+            | undefined) ?? {},
+        );
+        const preparedFrequency = String(
+          preparedDraft.frequency || "weekly",
+        );
+        setFrequency(
+          preparedFrequency === "fortnightly" ||
+            preparedFrequency === "monthly"
+            ? preparedFrequency
+            : "weekly",
+        );
+        setDeliveryDays(
+          Array.isArray(preparedDraft.deliveryDays)
+            ? preparedDraft.deliveryDays.filter(
+                (value): value is string => typeof value === "string",
+              )
+            : ["Tuesday"],
+        );
+        setSelectedAddress(
+          typeof preparedDraft.selectedAddress === "string"
+            ? preparedDraft.selectedAddress
+            : "",
+        );
+      })
+      .catch(() => {
+        if (active) {
+          setSubmitError(
+            "We could not load the prepared subscription. Please try the link again.",
+          );
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [draft, isPreparedSubscription]);
 
   // ── Dark-mode watcher — remounts Stripe Elements when theme toggles ────
   const [isDark, setIsDark] = useState(() =>
@@ -976,6 +1057,11 @@ const NewSubscriptionPage: React.FC = () => {
                   label: "Every 2 weeks",
                   desc: "Fortnightly",
                 },
+                {
+                  value: "monthly",
+                  label: "Monthly",
+                  desc: "Every month",
+                },
               ].map((opt) => (
                 <button
                   key={opt.value}
@@ -1264,6 +1350,17 @@ const NewSubscriptionPage: React.FC = () => {
         {/* Step 5: Review */}
         {step === 5 && (
           <div>
+            {isPreparedSubscription && (
+              <div className="mb-5 rounded-xl border border-forest/20 bg-forest/5 p-4">
+                <p className="text-sm font-semibold text-forest">
+                  Your subscription has been prepared
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Review the details below and add a payment method to activate
+                  it. You will not be charged unless setup completes.
+                </p>
+              </div>
+            )}
             <h2 className="font-semibold text-foreground mb-1">
               Review & Confirm
             </h2>
@@ -1483,7 +1580,9 @@ const NewSubscriptionPage: React.FC = () => {
             <Button
               variant="outline"
               onClick={
-                step === 0
+                isPreparedSubscription
+                  ? () => navigate("/portal/subscriptions")
+                  : step === 0
                   ? () => {
                       clearDraft();
                       navigate("/portal/subscriptions");
@@ -1492,7 +1591,7 @@ const NewSubscriptionPage: React.FC = () => {
               }
             >
               <ArrowLeft className="h-4 w-4" />
-              {step === 0 ? "Cancel" : "Back"}
+              {step === 0 || isPreparedSubscription ? "Cancel" : "Back"}
             </Button>
             {step < steps.length - 1 ? (
               <Button

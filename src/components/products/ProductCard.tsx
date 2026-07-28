@@ -57,6 +57,8 @@ const ProductCard: React.FC<ProductCardProps> = ({
   const currentPrice = selectedVariant?.price ?? product.price;
   const currentStockStatus =
     selectedVariant?.stockStatus ?? product.stockStatus;
+  const displayDescription =
+    selectedVariant?.description?.trim() || product.shortDescription;
 
   const isVariantCard = Boolean(
     (hideVariantSelector || lockedVariantId) && selectedVariant,
@@ -105,13 +107,26 @@ const ProductCard: React.FC<ProductCardProps> = ({
   }, [product.images, product.variants, selectedVariant]);
 
   const allergensText = (() => {
-    const allergens = (product as any)?.allergens;
+    const allergens =
+      selectedVariant?.allergens !== undefined
+        ? selectedVariant.allergens
+        : product.allergens;
     if (Array.isArray(allergens))
       return allergens.length ? allergens.join(", ") : "None";
     if (typeof allergens === "string")
       return allergens.trim() ? allergens.trim() : "None";
     return "None";
   })();
+
+  const ingredientsText =
+    selectedVariant?.ingredients?.trim() ||
+    product.ingredients?.trim() ||
+    "Not provided";
+
+  const nutritionalInformationText =
+    selectedVariant?.nutritionalInformation?.trim() ||
+    product.nutritionInfo?.trim() ||
+    "Not provided";
 
   const storageNotesText = (() => {
     const storageNotes =
@@ -214,12 +229,20 @@ const ProductCard: React.FC<ProductCardProps> = ({
 
           {/* Short Description */}
           <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
-            {product.shortDescription}
+            {displayDescription}
           </p>
 
           <div className="space-y-1 mb-3">
             <p className="text-xs text-muted-foreground line-clamp-2">
+              <span className="font-medium">Ingredients:</span>{" "}
+              {ingredientsText}
+            </p>
+            <p className="text-xs text-muted-foreground line-clamp-2">
               <span className="font-medium">Allergens:</span> {allergensText}
+            </p>
+            <p className="text-xs text-muted-foreground line-clamp-2">
+              <span className="font-medium">Nutrition:</span>{" "}
+              {nutritionalInformationText}
             </p>
             <p className="text-xs text-muted-foreground line-clamp-2">
               <span className="font-medium">Storage notes:</span>{" "}

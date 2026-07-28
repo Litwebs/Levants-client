@@ -2,9 +2,11 @@ import React from "react";
 import { Link } from "react-router-dom";
 import { Facebook, Instagram, Music2 } from "lucide-react";
 import img from "@/assets/mark.jpeg";
+import { useBusinessInfo } from "@/context/BusinessInfoContext";
 
 const Footer: React.FC = () => {
   const currentYear = new Date().getFullYear();
+  const businessInfo = useBusinessInfo();
 
   const footerLinks = {
     shop: [
@@ -40,18 +42,38 @@ const Footer: React.FC = () => {
               className="inline-flex items-center gap-3 mb-4 flex-nowrap"
             >
               <img
-                src="/Logo.jpg"
-                alt="Levants logo"
+                src={businessInfo.logoUrl}
+                alt={`${businessInfo.companyName} logo`}
                 className="w-9 h-9 lg:w-10 lg:h-10 rounded-full object-cover shrink-0"
                 loading="lazy"
               />
-              <h2 className="font-heading text-2xl font-semibold whitespace-nowrap">
-                Levants Dairy
+              <h2 className="font-heading text-2xl font-semibold break-words">
+                {businessInfo.companyName}
               </h2>
             </Link>
             <p className="text-muted-foreground text-sm italic mb-6 max-w-xs">
               Farm Fresh To Your Door
             </p>
+
+            <div className="text-muted-foreground text-sm mb-6 max-w-xs space-y-1">
+              <a
+                href={`mailto:${businessInfo.email}`}
+                className="block hover:text-foreground transition-colors break-words"
+              >
+                {businessInfo.email}
+              </a>
+              {businessInfo.phone ? (
+                <a
+                  href={`tel:${businessInfo.phone}`}
+                  className="block hover:text-foreground transition-colors"
+                >
+                  {businessInfo.phone}
+                </a>
+              ) : null}
+              {businessInfo.address ? (
+                <p className="whitespace-pre-line">{businessInfo.address}</p>
+              ) : null}
+            </div>
 
             <div className="mb-6 max-w-xs">
               <img
@@ -160,7 +182,7 @@ const Footer: React.FC = () => {
         <div className="container-custom py-6">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
             <p className="text-muted-foreground text-sm text-center sm:text-left">
-              © {currentYear} Levants Dairy. All rights reserved.
+              © {currentYear} {businessInfo.companyName}. All rights reserved.
             </p>
             <div className="flex items-center gap-4 flex-wrap justify-center sm:justify-end">
               <img

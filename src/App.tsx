@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import { CartProvider } from "@/context/CartContext";
 import { ProductsProvider } from "@/context/Products/ProductsContext";
 import { OrdersProvider } from "@/context/Orders/OrdersContext";
+import { BusinessInfoProvider } from "@/context/BusinessInfoContext";
 import Layout from "@/components/layout/Layout";
 import { ScrollToTop } from "./components/ScrollToTop";
 import { ScrollToTopButton } from "./components/ScrollToTopButton";
@@ -166,9 +167,10 @@ const App = () => {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <CartProvider>
-        <ProductsProvider>
-          <OrdersProvider>
+      <BusinessInfoProvider>
+        <CartProvider>
+          <ProductsProvider>
+            <OrdersProvider>
             <TooltipProvider>
               <Toaster />
               <Sonner />
@@ -499,9 +501,10 @@ const App = () => {
                 </Routes>
               </BrowserRouter>
             </TooltipProvider>
-          </OrdersProvider>
-        </ProductsProvider>
-      </CartProvider>
+            </OrdersProvider>
+          </ProductsProvider>
+        </CartProvider>
+      </BusinessInfoProvider>
     </QueryClientProvider>
   );
 };

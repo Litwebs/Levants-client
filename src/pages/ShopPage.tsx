@@ -251,6 +251,10 @@ const ShopPage: React.FC<ShopPageProps> = ({
       variants: p.variants.map((v) => ({
         id: v.id,
         name: v.name,
+        description: v.description,
+        ingredients: v.ingredients,
+        allergens: v.allergens,
+        nutritionalInformation: v.nutritionalInformation,
         price: v.price,
         thumbnailImage: (v as any).thumbnailImage,
         image: (v as any).image,

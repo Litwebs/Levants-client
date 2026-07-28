@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -8,9 +8,11 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ApiError } from "@/api/client";
 import { portalAuthApi } from "@/api/portalAuth";
 import { setPortalLoggedIn } from "@/lib/portalAuth";
+import { useBusinessInfo } from "@/context/BusinessInfoContext";
 
 const RegisterPage: React.FC = () => {
   const navigate = useNavigate();
+  const businessInfo = useBusinessInfo();
   const [searchParams] = useSearchParams();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
@@ -26,15 +28,66 @@ const RegisterPage: React.FC = () => {
   const [verificationCode, setVerificationCode] = useState("");
   const [verificationLoading, setVerificationLoading] = useState(false);
   const [resendLoading, setResendLoading] = useState(false);
+  const [inviteLoading, setInviteLoading] = useState(false);
 
+  const inviteToken = (searchParams.get("invite") || "").trim();
   const redirectParam = searchParams.get("redirect");
+  const defaultRedirectTarget = inviteToken ? "/portal/subscriptions/new" : "/";
   const redirectTarget =
     typeof redirectParam === "string" && redirectParam.startsWith("/")
       ? redirectParam
-      : "/";
+      : defaultRedirectTarget;
   const loginLink = `/login?redirect=${encodeURIComponent(redirectTarget)}`;
 
   const normalizedEmail = email.trim().toLowerCase();
+
+  useEffect(() => {
+    if (!inviteToken) return;
+
+    let mounted = true;
+    setInviteLoading(true);
+    setError(null);
+
+    portalAuthApi
+      .getRegisterInvite(inviteToken)
+      .then((res) => {
+        if (!mounted) return;
+        const invite = res?.data?.invite;
+        if (!invite) {
+          setError("This onboarding link is invalid or expired.");
+          return;
+        }
+        setFirstName(invite.firstName || "");
+        setLastName(invite.lastName || "");
+        setEmail(invite.email || "");
+        setPhone(invite.phone || "");
+        if (invite.subscriptionDraft) {
+          try {
+            sessionStorage.setItem(
+              "levants_subscription_draft",
+              JSON.stringify(invite.subscriptionDraft),
+            );
+          } catch {
+            // Continue onboarding even when browser storage is unavailable.
+          }
+        }
+      })
+      .catch((err) => {
+        if (!mounted) return;
+        if (err instanceof ApiError) {
+          setError(err.message);
+        } else {
+          setError("This onboarding link is invalid or expired.");
+        }
+      })
+      .finally(() => {
+        if (mounted) setInviteLoading(false);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, [inviteToken]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -59,6 +112,7 @@ const RegisterPage: React.FC = () => {
         phone: phone.trim(),
         password,
         confirmPassword,
+        ...(inviteToken ? { inviteToken } : {}),
       });
 
       setVerificationStep(true);
@@ -127,9 +181,14 @@ const RegisterPage: React.FC = () => {
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-8">
-          <Link to="/" className="inline-block">
+          <Link to="/" className="inline-flex flex-col items-center">
+            <img
+              src={businessInfo.logoUrl}
+              alt={`${businessInfo.companyName} logo`}
+              className="mb-3 h-14 w-14 rounded-full object-cover"
+            />
             <h1 className="font-heading text-3xl font-bold text-forest">
-              Levants Dairy
+              {businessInfo.companyName}
             </h1>
             <p className="text-sm text-muted-foreground mt-1">
               Farm fresh, delivered to your door
@@ -146,8 +205,14 @@ const RegisterPage: React.FC = () => {
             <p className="text-sm text-muted-foreground mt-1">
               {verificationStep
                 ? "Enter the 6-digit code we sent to your email address."
-                : "Join Levants Dairy and manage your deliveries online"}
+                : `Join ${businessInfo.companyName} and manage your deliveries online`}
             </p>
+            {inviteToken && !verificationStep && (
+              <p className="text-xs text-forest mt-2">
+                Admin onboarding: verify your email, then add payment details to
+                activate your subscription.
+              </p>
+            )}
           </div>
 
           {error && (
@@ -192,6 +257,7 @@ const RegisterPage: React.FC = () => {
                   autoComplete="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
+                  disabled={Boolean(inviteToken)}
                 />
               </div>
               <div className="space-y-1.5">
@@ -263,7 +329,11 @@ const RegisterPage: React.FC = () => {
                 </div>
               </div>
 
-              <Button type="submit" className="w-full" disabled={loading}>
+              <Button
+                type="submit"
+                className="w-full"
+                disabled={loading || inviteLoading}
+              >
                 {loading ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -273,6 +343,11 @@ const RegisterPage: React.FC = () => {
                   "Create Account"
                 )}
               </Button>
+              {inviteLoading && (
+                <p className="text-xs text-muted-foreground text-center">
+                  Validating onboarding link...
+                </p>
+              )}
             </form>
           ) : (
             <form onSubmit={handleVerifyCode} className="space-y-4">

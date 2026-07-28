@@ -7,8 +7,10 @@ import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ApiError } from "@/api/client";
 import { portalAuthApi } from "@/api/portalAuth";
+import { useBusinessInfo } from "@/context/BusinessInfoContext";
 
 const ForgotPasswordPage: React.FC = () => {
+  const businessInfo = useBusinessInfo();
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -42,9 +44,14 @@ const ForgotPasswordPage: React.FC = () => {
     <div className="min-h-screen bg-background flex items-center justify-center px-4 py-12">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <Link to="/" className="inline-block">
+          <Link to="/" className="inline-flex flex-col items-center">
+            <img
+              src={businessInfo.logoUrl}
+              alt={`${businessInfo.companyName} logo`}
+              className="mb-3 h-14 w-14 rounded-full object-cover"
+            />
             <h1 className="font-heading text-3xl font-bold text-forest">
-              Levants Dairy
+              {businessInfo.companyName}
             </h1>
             <p className="text-sm text-muted-foreground mt-1">
               Farm fresh, delivered to your door
