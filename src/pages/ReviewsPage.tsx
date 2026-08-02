@@ -249,6 +249,7 @@ const ReviewsDisplay: React.FC = () => {
 type Step = "verify" | "form" | "success";
 
 const ReviewSubmitForm: React.FC = () => {
+  const businessInfo = useBusinessInfo();
   const [searchParams] = useSearchParams();
   const [step, setStep] = useState<Step>("verify");
   const [verifiedOrderId, setVerifiedOrderId] = useState("");
