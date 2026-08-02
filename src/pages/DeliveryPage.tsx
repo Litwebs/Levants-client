@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { Link } from "react-router-dom";
 import {
   Truck,
   Snowflake,
@@ -6,6 +7,9 @@ import {
   MapPin,
   Package,
   RefreshCw,
+  ArrowRight,
+  CalendarDays,
+  CheckCircle2,
 } from "lucide-react";
 import {
   Accordion,
@@ -15,11 +19,9 @@ import {
 } from "@/components/ui/accordion";
 import { checkDeliveryPostcode } from "@/api/delivery";
 import { ORDER_DEADLINES_TEXT } from "@/lib/orderDeadlines";
-import { buildWhatsAppLink } from "@/lib/whatsapp";
-import { useBusinessInfo } from "@/context/BusinessInfoContext";
+import { isPortalLoggedIn } from "@/lib/portalAuth";
 
 const DeliveryPage: React.FC = () => {
-  const businessInfo = useBusinessInfo();
   const [postcode, setPostcode] = useState("");
   const [checking, setChecking] = useState(false);
   const [postcodeResult, setPostcodeResult] = useState<{
@@ -27,10 +29,36 @@ const DeliveryPage: React.FC = () => {
     message: string;
   } | null>(null);
 
-  const refrigeratedImages = Array.from(
-    { length: 4 },
-    (_, idx) => `/delivery/ref${idx + 1}.jpeg`,
-  );
+  const refrigeratedImages = [
+    {
+      src: "/delivery/WhatsApp Image 2026-07-30 at 17.10.11.jpeg",
+      alt: "Levants Dairy refrigerated delivery van in a local neighbourhood",
+    },
+    {
+      src: "/delivery/WhatsApp Image 2026-07-30 at 17.10.11 (1).jpeg",
+      alt: "Levants Dairy chilled delivery van ready for its route",
+    },
+    {
+      src: "/delivery/WhatsApp Image 2026-07-30 at 17.10.11 (2).jpeg",
+      alt: "Levants Dairy delivery van serving a residential street",
+    },
+    {
+      src: "/delivery/WhatsApp Image 2026-07-30 at 17.10.11 (3).jpeg",
+      alt: "Levants Dairy refrigerated van collecting fresh produce at the farm",
+    },
+    {
+      src: "/delivery/WhatsApp Image 2026-07-30 at 17.10.11 (4).jpeg",
+      alt: "Levants Dairy refrigerated van inside the farm building",
+    },
+    {
+      src: "/delivery/WhatsApp Image 2026-07-30 at 17.10.11 (5).jpeg",
+      alt: "Levants Dairy refrigerated delivery fleet",
+    },
+  ];
+  const subscriptionPath = "/portal/subscriptions/new";
+  const subscriptionHref = isPortalLoggedIn()
+    ? subscriptionPath
+    : `/login?redirect=${encodeURIComponent(subscriptionPath)}`;
 
   const handleCheckPostcode = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -141,8 +169,45 @@ const DeliveryPage: React.FC = () => {
     },
     {
       question: "Do you offer subscriptions?",
-      answer:
-        "Our weekly subscription is super easy! Just WhatsApp us your order for delivery every Wednesday, Sunday, or both. Any changes are simple — tell us by Friday at 10pm for Sunday's delivery, or by Monday at 10pm for Wednesday's. It's contract free!",
+      answer: (
+        <div className="space-y-4">
+          <p className="font-semibold text-foreground">
+            Flexible Weekly Subscription
+          </p>
+          <p>
+            Our weekly subscription service is designed to be simple, flexible,
+            and hassle-free.
+          </p>
+          <p>
+            Choose the delivery schedule that suits you best — Sunday,
+            Wednesday, or both. You can update your order, add or remove items,
+            pause deliveries, cancel your subscription, add delivery notes, or
+            change your delivery address at any time, provided changes are made
+            before the order deadlines.
+          </p>
+          <div>
+            <p className="font-medium text-foreground">Order deadlines:</p>
+            <ul className="mt-2 list-disc space-y-1 pl-5">
+              <li>Sunday delivery: Friday by 10:00 PM</li>
+              <li>Wednesday delivery: Monday by 10:00 PM</li>
+            </ul>
+          </div>
+          <p>
+            There are no contracts or long-term commitments, giving you
+            complete control over your deliveries. With the flexibility to
+            manage your subscription, update delivery instructions, or change
+            your address before the cut-off time, receiving fresh dairy has
+            never been easier.
+          </p>
+          <Link
+            to={subscriptionHref}
+            className="inline-flex items-center gap-2 font-semibold text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            Set up your weekly subscription
+            <ArrowRight className="h-4 w-4" aria-hidden="true" />
+          </Link>
+        </div>
+      ),
     },
     {
       question: "What if I’m not at home?",
@@ -210,15 +275,15 @@ const DeliveryPage: React.FC = () => {
             </p>
           </div>
 
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            {refrigeratedImages.map((src, index) => (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {refrigeratedImages.map((image) => (
               <div
-                key={src}
-                className="aspect-square rounded-2xl overflow-hidden bg-muted"
+                key={image.src}
+                className="aspect-[4/3] overflow-hidden rounded-2xl bg-muted"
               >
                 <img
-                  src={src}
-                  alt={`Refrigerated van ${index + 1}`}
+                  src={image.src}
+                  alt={image.alt}
                   className="w-full h-full object-cover hover:scale-105 transition-transform duration-500"
                   loading="lazy"
                   onError={(e) => {
@@ -284,51 +349,80 @@ const DeliveryPage: React.FC = () => {
       {/* Weekly Subscription */}
       <section className="py-16 lg:py-24">
         <div className="container-custom">
-          <div className="max-w-3xl mx-auto">
-            <div className="flex items-start gap-4 mb-8">
-              <RefreshCw className="w-8 h-8 text-primary flex-shrink-0" />
+          <div className="mx-auto max-w-4xl rounded-3xl border border-border bg-card p-6 shadow-medium sm:p-8 lg:p-10">
+            <div className="grid gap-8 lg:grid-cols-[1.15fr_0.85fr] lg:gap-12">
               <div>
-                <h2 className="font-heading text-2xl lg:text-3xl font-semibold mb-4">
-                  Weekly Subscription
+                <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                  <RefreshCw className="h-6 w-6" aria-hidden="true" />
+                </div>
+                <h2 className="font-heading text-2xl font-semibold lg:text-3xl">
+                  Flexible Weekly Subscription
                 </h2>
-                <p className="text-muted-foreground">
-                  Want a regular delivery? Our weekly subscription is super
-                  easy! Just{" "}
-                  <a
-                    href={buildWhatsAppLink(
-                      `Hi ${businessInfo.companyName} — I'd like to set up a weekly subscription.`,
-                      businessInfo.phone,
-                    )}
-                    className="text-primary font-medium hover:underline"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    WhatsApp us
-                  </a>{" "}
-                  your order for delivery every Wednesday, Sunday, or both.
+                <p className="mt-4 leading-relaxed text-muted-foreground">
+                  Our weekly subscription service is designed to be simple,
+                  flexible, and hassle-free. Choose the schedule that suits you
+                  best — Sunday, Wednesday, or both.
+                </p>
+                <ul className="mt-6 grid gap-3 sm:grid-cols-2">
+                  {[
+                    "Update your order",
+                    "Add or remove items",
+                    "Pause or cancel",
+                    "Change notes or address",
+                  ].map((item) => (
+                    <li key={item} className="flex items-center gap-2 text-sm">
+                      <CheckCircle2
+                        className="h-4 w-4 shrink-0 text-primary"
+                        aria-hidden="true"
+                      />
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+                <p className="mt-6 text-sm leading-relaxed text-muted-foreground">
+                  There are no contracts or long-term commitments, giving you
+                  complete control over your deliveries.
+                </p>
+                <Link
+                  to={subscriptionHref}
+                  className="btn-primary mt-7 inline-flex w-full items-center justify-center gap-2 sm:w-auto"
+                >
+                  Set Up Your Subscription
+                  <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                </Link>
+              </div>
+
+              <div className="rounded-2xl bg-secondary/50 p-5 sm:p-6">
+                <div className="flex items-center gap-3">
+                  <CalendarDays
+                    className="h-5 w-5 text-primary"
+                    aria-hidden="true"
+                  />
+                  <h3 className="font-heading text-lg font-semibold">
+                    Make changes before
+                  </h3>
+                </div>
+                <dl className="mt-5 space-y-4">
+                  <div>
+                    <dt className="text-sm font-semibold">Sunday delivery</dt>
+                    <dd className="text-sm text-muted-foreground">
+                      Friday by 10:00 PM
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-sm font-semibold">
+                      Wednesday delivery
+                    </dt>
+                    <dd className="text-sm text-muted-foreground">
+                      Monday by 10:00 PM
+                    </dd>
+                  </div>
+                </dl>
+                <p className="mt-5 border-t border-border pt-5 text-sm leading-relaxed text-muted-foreground">
+                  Changes made before the cut-off apply to your upcoming
+                  delivery, so your regular order stays on your terms.
                 </p>
               </div>
-            </div>
-
-            <div className="bg-card rounded-2xl border border-border p-6 lg:p-8 space-y-4">
-              <p className="text-sm text-muted-foreground">
-                WhatsApp:{" "}
-                <a
-                  href={buildWhatsAppLink(undefined, businessInfo.phone)}
-                  className="font-medium text-primary hover:underline"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  {businessInfo.phone}
-                </a>
-              </p>
-              <p className="text-sm text-muted-foreground">
-                Any changes to your order are simple — tell us by Friday at 10pm
-                for Sunday's delivery, or by Monday at 10pm for Wednesday's.
-              </p>
-              <p className="text-sm text-muted-foreground">
-                It’s contract free!
-              </p>
             </div>
           </div>
         </div>

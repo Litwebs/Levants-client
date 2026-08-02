@@ -194,18 +194,51 @@ const fmtMethod = (pm: PortalPaymentMethod) =>
 const SubscriptionPaymentForm: React.FC<{
   onComplete: (paymentMethodId: string) => Promise<void>;
   onError: (message: string) => void;
+  onSetupExpired: () => void;
   submitLoading?: boolean;
-}> = ({ onComplete, onError, submitLoading = false }) => {
+}> = ({ onComplete, onError, onSetupExpired, submitLoading = false }) => {
   const stripe = useStripe();
   const elements = useElements();
   const [loading, setLoading] = useState(false);
+  const [elementReady, setElementReady] = useState(false);
+  const [paymentComplete, setPaymentComplete] = useState(false);
+  const [elementError, setElementError] = useState<string | null>(null);
+
+  const handleStripeError = (error: { code?: string; message?: string }) => {
+    const message = error.message || "Failed to save payment method.";
+    const setupExpired =
+      error.code === "resource_missing" ||
+      message.toLowerCase().includes("no such setupintent") ||
+      message.toLowerCase().includes("setup intent has expired");
+    if (setupExpired) {
+      onSetupExpired();
+      onError(
+        "Your secure payment session expired. A new form is loading—please enter your card again.",
+      );
+      return;
+    }
+    onError(message);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!stripe || !elements) return;
+    if (!stripe || !elements || !elementReady) {
+      onError("The secure payment form is still loading. Please wait a moment.");
+      return;
+    }
+    if (!paymentComplete) {
+      onError("Enter your complete card details before subscribing.");
+      return;
+    }
 
     try {
       setLoading(true);
+      onError("");
+      const submitted = await elements.submit();
+      if (submitted.error) {
+        handleStripeError(submitted.error);
+        return;
+      }
       const result = await stripe.confirmSetup({
         elements,
         confirmParams: {
@@ -215,7 +248,7 @@ const SubscriptionPaymentForm: React.FC<{
       });
 
       if (result.error) {
-        onError(result.error.message || "Failed to save payment method.");
+        handleStripeError(result.error);
         return;
       }
 
@@ -226,8 +259,12 @@ const SubscriptionPaymentForm: React.FC<{
       }
 
       await onComplete(paymentMethodId);
-    } catch {
-      onError("Failed to save payment method. Please try again.");
+    } catch (error) {
+      const message =
+        error instanceof Error && error.message
+          ? error.message
+          : "Failed to save payment method. Please try again.";
+      handleStripeError({ message });
     } finally {
       setLoading(false);
     }
@@ -235,11 +272,39 @@ const SubscriptionPaymentForm: React.FC<{
 
   return (
     <form onSubmit={handleSubmit} className="space-y-3">
-      <PaymentElement options={paymentElementOptions} />
+      <PaymentElement
+        options={paymentElementOptions}
+        onLoaderStart={() => setElementReady(false)}
+        onReady={() => {
+          setElementReady(true);
+          setElementError(null);
+        }}
+        onChange={(event) => {
+          setPaymentComplete(event.complete);
+          setElementError(null);
+        }}
+        onLoadError={(event) => {
+          setElementReady(false);
+          setElementError(
+            event.error?.message || "The secure payment form could not load.",
+          );
+        }}
+      />
+      {elementError && (
+        <p className="text-xs text-destructive" role="alert">
+          {elementError}
+        </p>
+      )}
       <Button
         type="submit"
         className="w-full mt-1"
-        disabled={!stripe || loading || submitLoading}
+        disabled={
+          !stripe ||
+          !elementReady ||
+          !paymentComplete ||
+          loading ||
+          submitLoading
+        }
       >
         {loading || submitLoading ? (
           <>
@@ -349,9 +414,7 @@ const NewSubscriptionPage: React.FC = () => {
     const fetchSettings = async () => {
       try {
         const res = await portalSubscriptionsApi.getSettings();
-        const days = (res as any)?.data?.settings?.deliveryDays as
-          | number[]
-          | undefined;
+        const days = res.data?.settings?.deliveryDays;
         if (cancelled || !Array.isArray(days) || days.length === 0) return;
         const names = days
           .map((d) => dayNames[d])
@@ -424,10 +487,7 @@ const NewSubscriptionPage: React.FC = () => {
       .getPreparedDraft()
       .then((response) => {
         if (!active) return;
-        const preparedDraft = (response as any)?.data?.draft as
-          | Record<string, unknown>
-          | null
-          | undefined;
+        const preparedDraft = response.data?.draft;
         if (!preparedDraft) {
           setSubmitError(
             "This prepared subscription is no longer available. Please ask the business for a new link.",
@@ -527,8 +587,7 @@ const NewSubscriptionPage: React.FC = () => {
     try {
       setMethodsLoading(true);
       const res = await portalPaymentsApi.listPaymentMethods();
-      const methods: PortalPaymentMethod[] =
-        (res as any)?.data?.paymentMethods ?? [];
+      const methods: PortalPaymentMethod[] = res.data?.paymentMethods ?? [];
       setSavedMethods(methods);
       // Auto-select the default method
       const def = methods.find((m) => m.isDefault) ?? methods[0] ?? null;
@@ -556,7 +615,7 @@ const NewSubscriptionPage: React.FC = () => {
       try {
         setSetupLoading(true);
         const res = await portalPaymentsApi.createSetupIntent();
-        const data = (res as any)?.data;
+        const data = res.data;
         const publishableKey = String(data?.publishableKey || "");
         const clientSecret = String(data?.clientSecret || "");
         if (!publishableKey || !clientSecret) {
@@ -836,6 +895,7 @@ const NewSubscriptionPage: React.FC = () => {
 
   // Save a brand-new method from the Stripe form, then complete subscription
   const handleSaveAndSubscribe = async (paymentMethodId: string) => {
+    let paymentMethodSaved = false;
     try {
       setSubmitLoading(true);
       setSubmitError(null);
@@ -843,17 +903,25 @@ const NewSubscriptionPage: React.FC = () => {
         stripePaymentMethodId: paymentMethodId,
         setDefault: true,
       });
+      paymentMethodSaved = true;
       await loadSavedMethods();
       await completeSubscription();
     } catch (err) {
       const msg =
         err instanceof ApiError
           ? err.message
-          : "Failed to save payment method and complete subscription.";
+          : paymentMethodSaved
+            ? "Your card was saved, but we could not create the subscription. Please try again using the saved card."
+            : "We could not save your payment method. Please check the card details and try again.";
       setSubmitError(msg);
     } finally {
       setSubmitLoading(false);
     }
+  };
+
+  const refreshPaymentSetup = () => {
+    setSetupClientSecret(null);
+    setStripePromise(null);
   };
 
   return (
@@ -1558,6 +1626,7 @@ const NewSubscriptionPage: React.FC = () => {
                       <SubscriptionPaymentForm
                         onComplete={handleSaveAndSubscribe}
                         onError={setSubmitError}
+                        onSetupExpired={refreshPaymentSetup}
                         submitLoading={submitLoading}
                       />
                     </Elements>

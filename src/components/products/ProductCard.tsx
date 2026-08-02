@@ -286,21 +286,25 @@ const ProductCard: React.FC<ProductCardProps> = ({
         {/* Quantity and action button */}
         <div className="flex items-center gap-3">
           {!hideQuantityStepper && (
-            <QuantityStepper
-              quantity={quantity}
-              onQuantityChange={setQuantity}
-              size="sm"
-            />
+            <div className="shrink-0 [&>div]:h-10">
+              <QuantityStepper
+                quantity={quantity}
+                onQuantityChange={setQuantity}
+                size="sm"
+              />
+            </div>
           )}
           <button
             onClick={handleAction}
             disabled={currentStockStatus === "out-of-stock"}
-            className={`flex-1 btn-primary flex items-center justify-center gap-2 py-2.5 disabled:opacity-50 disabled:cursor-not-allowed ${
+            className={`h-10 min-w-0 flex-1 btn-primary flex items-center justify-center gap-2 whitespace-nowrap px-3 py-0 disabled:opacity-50 disabled:cursor-not-allowed ${
               actionClassName || ""
             }`}
           >
-            <ShoppingBag className="w-4 h-4" />
-            <span className="text-sm">{actionLabel || "Subscribe"}</span>
+            <ShoppingBag className="h-4 w-4 shrink-0" />
+            <span className="whitespace-nowrap text-sm">
+              {actionLabel || "Subscribe"}
+            </span>
           </button>
         </div>
 

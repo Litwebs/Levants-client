@@ -18,6 +18,9 @@ import { resolveImageUrl } from "@/api/client";
 import ProductCard from "@/components/products/ProductCard";
 import { Product, ProductVariant } from "@/data/products";
 import { cn } from "@/lib/utils";
+import { sortByStorefrontCategoryOrder } from "@/lib/categoryOrder";
+import { useCart } from "@/context/CartContext";
+import { toast } from "sonner";
 import {
   Pagination,
   PaginationContent,
@@ -86,6 +89,7 @@ const ShopPage: React.FC<ShopPageProps> = ({
   const [searchParams, setSearchParams] = useSearchParams();
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const { products, meta, loading, error, fetchProducts } = useProducts();
+  const { addItem } = useCart();
 
   const backendCategoriesRef = useRef<string[]>([]);
   useEffect(() => {
@@ -204,22 +208,28 @@ const ShopPage: React.FC<ShopPageProps> = ({
       : [];
     if (backendCategories.length) {
       const seen = new Set<string>();
-      return backendCategories
+      return sortByStorefrontCategoryOrder(
+        backendCategories
         .map((name) => ({ name, slug: slugifyCategory(name) }))
         .filter(({ slug }) => {
           if (seen.has(slug)) return false;
           seen.add(slug);
           return true;
-        })
-        .sort((a, b) => a.name.localeCompare(b.name));
+        }),
+        (category) => category.name,
+      );
     }
 
     // Fallback: derive from currently loaded products (may be incomplete).
     const catSet = new Set<string>();
     products.forEach((p) => catSet.add(p.category));
-    return Array.from(catSet.values())
-      .map((name) => ({ name, slug: slugifyCategory(name) }))
-      .sort((a, b) => a.name.localeCompare(b.name));
+    return sortByStorefrontCategoryOrder(
+      Array.from(catSet.values()).map((name) => ({
+        name,
+        slug: slugifyCategory(name),
+      })),
+      (category) => category.name,
+    );
   }, [meta?.categories, products]);
 
   const totalAvailable = meta?.total ?? products.length;
@@ -340,6 +350,21 @@ const ShopPage: React.FC<ShopPageProps> = ({
     setSearchParams({});
   };
 
+  const handleStorefrontProductAction = ({
+    product,
+    variant,
+    quantity,
+  }: {
+    product: Product;
+    variant: ProductVariant | undefined;
+    quantity: number;
+  }) => {
+    addItem(product, variant, quantity);
+    toast.success(`${product.name} added to your basket`, {
+      description: `${variant?.name || "Selected option"} × ${quantity}`,
+    });
+  };
+
   return (
     <div className={embedded ? "bg-background" : "min-h-screen bg-background"}>
       {!embedded && (
@@ -446,7 +471,9 @@ const ShopPage: React.FC<ShopPageProps> = ({
                 Showing {productVariantCards.length} items
               </p>
               <div className="flex items-center gap-3">
-                <span className="text-sm text-muted-foreground">Sort by:</span>
+                <span className="shrink-0 whitespace-nowrap text-sm text-muted-foreground">
+                  Sort by:
+                </span>
                 <select
                   value={sortBy}
                   onChange={(e) => handleSortChange(e.target.value)}
@@ -501,25 +528,36 @@ const ShopPage: React.FC<ShopPageProps> = ({
                           lockedVariantId={lockedVariantId}
                           hideVariantSelector
                           hideQuantityStepper={hideCardQuantityStepper}
-                          actionLabel={cardActionLabel?.({
-                            product,
-                            lockedVariantId,
-                          })}
+                          actionLabel={
+                            cardActionLabel?.({
+                              product,
+                              lockedVariantId,
+                            }) ??
+                            (!embedded ? "Add to basket" : undefined)
+                          }
                           actionClassName={cardActionClassName?.({
                             product,
                             lockedVariantId,
                           })}
-                          onAction={
-                            onCardAction
-                              ? ({ product, variant, quantity }) =>
-                                  onCardAction({
-                                    product,
-                                    variant,
-                                    quantity,
-                                    lockedVariantId,
-                                  })
-                              : undefined
-                          }
+                          onAction={({ product, variant, quantity }) => {
+                            if (onCardAction) {
+                              onCardAction({
+                                product,
+                                variant,
+                                quantity,
+                                lockedVariantId,
+                              });
+                              return;
+                            }
+
+                            if (!embedded) {
+                              handleStorefrontProductAction({
+                                product,
+                                variant,
+                                quantity,
+                              });
+                            }
+                          }}
                           afterActionContent={
                             cardAfterActionContent
                               ? () =>

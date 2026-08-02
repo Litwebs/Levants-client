@@ -9,18 +9,29 @@ import {
   Star,
   MapPin,
   Quote,
+  RefreshCw,
 } from "lucide-react";
 import { useProducts } from "@/context/Products/ProductsContext";
 import { resolveImageUrl } from "@/api/client";
 import ProductCard from "@/components/products/ProductCard";
 import CategoryCard from "@/components/products/CategoryCard";
+import OrderTypeChoice from "@/components/commerce/OrderTypeChoice";
 import heroImage from "@/assets/hero-farm.jpg";
 import { checkDeliveryPostcode } from "@/api/delivery";
 import { useBusinessInfo } from "@/context/BusinessInfoContext";
+import { useCart } from "@/context/CartContext";
+import { sortByStorefrontCategoryOrder } from "@/lib/categoryOrder";
+import { toast } from "sonner";
+import { isPortalLoggedIn } from "@/lib/portalAuth";
 
 const HomePage: React.FC = () => {
   const { products, meta, fetchProducts } = useProducts();
+  const { addItem } = useCart();
   const businessInfo = useBusinessInfo();
+  const subscriptionPath = "/portal/subscriptions/new";
+  const subscriptionHref = isPortalLoggedIn()
+    ? subscriptionPath
+    : `/login?redirect=${encodeURIComponent(subscriptionPath)}`;
   const [postcode, setPostcode] = useState("");
   const [checkingPostcode, setCheckingPostcode] = useState(false);
   const [postcodeResult, setPostcodeResult] = useState<{
@@ -68,7 +79,7 @@ const HomePage: React.FC = () => {
 
   useEffect(() => {
     if (products.length === 0) fetchProducts({});
-  }, []);
+  }, [fetchProducts, products.length]);
 
   const bestSellerProducts = useMemo(() => {
     const bestSellerCategories = new Set([
@@ -145,17 +156,20 @@ const HomePage: React.FC = () => {
       }
     }
 
-    return Array.from(seen.values()).map((cat) => {
-      const slug = cat.title.trim().toLowerCase();
-      return {
-        id: slug,
-        name: cat.title,
-        slug,
-        description: cat.subtitle,
-        image: cat.image?.url ?? "",
-        productCount: counts.get(slug) ?? 0,
-      };
-    });
+    return sortByStorefrontCategoryOrder(
+      Array.from(seen.values()).map((cat) => {
+        const slug = cat.title.trim().toLowerCase();
+        return {
+          id: slug,
+          name: cat.title,
+          slug,
+          description: cat.subtitle,
+          image: cat.image?.url ?? "",
+          productCount: counts.get(slug) ?? 0,
+        };
+      }),
+      (category) => category.name,
+    );
   }, [products, meta]);
 
   const testimonials = [
@@ -214,7 +228,14 @@ const HomePage: React.FC = () => {
                   to="/shop"
                   className="btn-primary inline-flex items-center gap-2"
                 >
-                  Shop Now <ArrowRight className="w-4 h-4" />
+                  One-time Order <ArrowRight className="w-4 h-4" />
+                </Link>
+
+                <Link
+                  to={subscriptionHref}
+                  className="btn-gold inline-flex items-center gap-2"
+                >
+                  Weekly Subscription <RefreshCw className="w-4 h-4" />
                 </Link>
 
                 <form
@@ -283,6 +304,12 @@ const HomePage: React.FC = () => {
         </div>
       </section>
 
+      <section className="border-b border-border bg-secondary/30 py-14 lg:py-20">
+        <div className="container-custom">
+          <OrderTypeChoice id="order-options" />
+        </div>
+      </section>
+
       {/* Shop by Category */}
       <section className="py-16 lg:py-24 bg-background">
         <div className="container-custom">
@@ -329,7 +356,16 @@ const HomePage: React.FC = () => {
                   className="h-full opacity-0 animate-fade-in-up"
                   style={{ animationDelay: `${index * 0.1}s` }}
                 >
-                  <ProductCard product={product} />
+                  <ProductCard
+                    product={product}
+                    actionLabel="Add to basket"
+                    onAction={({ product, variant, quantity }) => {
+                      addItem(product, variant, quantity);
+                      toast.success(`${product.name} added to your basket`, {
+                        description: `${variant?.name || "Selected option"} × ${quantity}`,
+                      });
+                    }}
+                  />
                 </div>
               ))}
             </div>
@@ -361,17 +397,17 @@ const HomePage: React.FC = () => {
             {[
               {
                 step: "01",
-                title: "Choose Your Favourites",
+                title: "Choose How to Order",
                 description:
-                  "Browse our range of fresh milk, cream, butter, cheese, and more.",
-                icon: "🛒",
+                  "Place a one-time order or set up a flexible weekly subscription.",
+                icon: "🗓️",
               },
               {
                 step: "02",
-                title: "Checkout Securely",
+                title: "Pick Your Favourites",
                 description:
-                  "Enter your delivery details and pay securely via Apple Pay, Google Pay, or credit card.",
-                icon: "💳",
+                  "Choose fresh milk, cream, butter, eggs, bakery favourites, and more.",
+                icon: "🛒",
               },
               {
                 step: "03",
