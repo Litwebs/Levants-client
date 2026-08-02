@@ -1,23 +1,41 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { ShoppingBag } from "lucide-react";
 import { Product, ProductVariant } from "@/data/products";
-import { useCart } from "@/context/CartContext";
 import QuantityStepper from "@/components/ui/QuantityStepper";
-import { toast } from "sonner";
 import { resolveImageUrl } from "@/api/client";
+import { isPortalLoggedIn } from "@/lib/portalAuth";
 
 interface ProductCardProps {
   product: Product;
   lockedVariantId?: string;
   hideVariantSelector?: boolean;
+  actionLabel?: string;
+  onAction?: (params: {
+    product: Product;
+    variant: ProductVariant | undefined;
+    quantity: number;
+  }) => void;
+  hideQuantityStepper?: boolean;
+  actionClassName?: string;
+  afterActionContent?: (params: {
+    product: Product;
+    variant: ProductVariant | undefined;
+    quantity: number;
+  }) => React.ReactNode;
 }
 
 const ProductCard: React.FC<ProductCardProps> = ({
   product,
   lockedVariantId,
   hideVariantSelector,
+  actionLabel,
+  onAction,
+  hideQuantityStepper,
+  actionClassName,
+  afterActionContent,
 }) => {
+  const navigate = useNavigate();
   const [quantity, setQuantity] = useState(1);
 
   const initialVariant = useMemo<ProductVariant | undefined>(() => {
@@ -35,11 +53,12 @@ const ProductCard: React.FC<ProductCardProps> = ({
   useEffect(() => {
     setSelectedVariant(initialVariant);
   }, [initialVariant, product.id]);
-  const { addItem } = useCart();
 
   const currentPrice = selectedVariant?.price ?? product.price;
   const currentStockStatus =
     selectedVariant?.stockStatus ?? product.stockStatus;
+  const displayDescription =
+    selectedVariant?.description?.trim() || product.shortDescription;
 
   const isVariantCard = Boolean(
     (hideVariantSelector || lockedVariantId) && selectedVariant,
@@ -88,13 +107,26 @@ const ProductCard: React.FC<ProductCardProps> = ({
   }, [product.images, product.variants, selectedVariant]);
 
   const allergensText = (() => {
-    const allergens = (product as any)?.allergens;
+    const allergens =
+      selectedVariant?.allergens !== undefined
+        ? selectedVariant.allergens
+        : product.allergens;
     if (Array.isArray(allergens))
       return allergens.length ? allergens.join(", ") : "None";
     if (typeof allergens === "string")
       return allergens.trim() ? allergens.trim() : "None";
     return "None";
   })();
+
+  const ingredientsText =
+    selectedVariant?.ingredients?.trim() ||
+    product.ingredients?.trim() ||
+    "Not provided";
+
+  const nutritionalInformationText =
+    selectedVariant?.nutritionalInformation?.trim() ||
+    product.nutritionInfo?.trim() ||
+    "Not provided";
 
   const storageNotesText = (() => {
     const storageNotes =
@@ -104,15 +136,23 @@ const ProductCard: React.FC<ProductCardProps> = ({
     return "Not provided";
   })();
 
-  const handleAddToCart = (e: React.MouseEvent) => {
+  const handleAction = (e: React.MouseEvent) => {
     e.preventDefault();
-    addItem(product, selectedVariant, quantity);
-    toast.success(`${product.name} added to cart`, {
-      description: selectedVariant
-        ? `${selectedVariant.name} × ${quantity}`
-        : `× ${quantity}`,
-    });
-    setQuantity(1);
+    e.stopPropagation();
+
+    if (onAction) {
+      onAction({ product, variant: selectedVariant, quantity });
+      return;
+    }
+
+    if (isPortalLoggedIn()) {
+      navigate("/portal/subscriptions/new");
+      return;
+    }
+
+    navigate(
+      `/login?redirect=${encodeURIComponent("/portal/subscriptions/new")}`,
+    );
   };
 
   const getBadgeClass = (badge: string) => {
@@ -189,12 +229,20 @@ const ProductCard: React.FC<ProductCardProps> = ({
 
           {/* Short Description */}
           <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
-            {product.shortDescription}
+            {displayDescription}
           </p>
 
           <div className="space-y-1 mb-3">
             <p className="text-xs text-muted-foreground line-clamp-2">
+              <span className="font-medium">Ingredients:</span>{" "}
+              {ingredientsText}
+            </p>
+            <p className="text-xs text-muted-foreground line-clamp-2">
               <span className="font-medium">Allergens:</span> {allergensText}
+            </p>
+            <p className="text-xs text-muted-foreground line-clamp-2">
+              <span className="font-medium">Nutrition:</span>{" "}
+              {nutritionalInformationText}
             </p>
             <p className="text-xs text-muted-foreground line-clamp-2">
               <span className="font-medium">Storage notes:</span>{" "}
@@ -235,22 +283,40 @@ const ProductCard: React.FC<ProductCardProps> = ({
             </div>
           )}
 
-        {/* Quantity and Add to Cart */}
+        {/* Quantity and action button */}
         <div className="flex items-center gap-3">
-          <QuantityStepper
-            quantity={quantity}
-            onQuantityChange={setQuantity}
-            size="sm"
-          />
+          {!hideQuantityStepper && (
+            <div className="shrink-0 [&>div]:h-10">
+              <QuantityStepper
+                quantity={quantity}
+                onQuantityChange={setQuantity}
+                size="sm"
+              />
+            </div>
+          )}
           <button
-            onClick={handleAddToCart}
+            onClick={handleAction}
             disabled={currentStockStatus === "out-of-stock"}
-            className="flex-1 btn-primary flex items-center justify-center gap-2 py-2.5 disabled:opacity-50 disabled:cursor-not-allowed"
+            className={`h-10 min-w-0 flex-1 btn-primary flex items-center justify-center gap-2 whitespace-nowrap px-3 py-0 disabled:opacity-50 disabled:cursor-not-allowed ${
+              actionClassName || ""
+            }`}
           >
-            <ShoppingBag className="w-4 h-4" />
-            <span className="text-sm">Add</span>
+            <ShoppingBag className="h-4 w-4 shrink-0" />
+            <span className="whitespace-nowrap text-sm">
+              {actionLabel || "Subscribe"}
+            </span>
           </button>
         </div>
+
+        {afterActionContent && (
+          <div className="mt-3">
+            {afterActionContent({
+              product,
+              variant: selectedVariant,
+              quantity,
+            })}
+          </div>
+        )}
       </div>
     </div>
   );

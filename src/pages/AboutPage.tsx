@@ -1,15 +1,33 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import { Leaf, Heart, Award, Truck, ArrowRight, RefreshCw } from "lucide-react";
+import {
+  Leaf,
+  Heart,
+  Award,
+  Truck,
+  ArrowRight,
+  RefreshCw,
+  CalendarDays,
+  CheckCircle2,
+} from "lucide-react";
 import heroImage from "@/assets/hero-farm.jpg";
-import { buildWhatsAppLink, WHATSAPP_DISPLAY_PHONE } from "@/lib/whatsapp";
-import about from "../../public/reviews/about/about.jpeg";
+import { isPortalLoggedIn } from "@/lib/portalAuth";
 
 const AboutPage: React.FC = () => {
-  const farmImages = Array.from(
-    { length: 12 },
-    (_, idx) => `/reviews/about/about${idx + 1}.jpeg`,
-  );
+  const farmImages = [
+    ...Array.from(
+      { length: 12 },
+      (_, idx) => `/reviews/about/about${idx + 1}.jpeg`,
+    ),
+    "/reviews/about/WhatsApp Image 2026-07-30 at 17.22.57.jpeg",
+    "/reviews/about/WhatsApp Image 2026-07-30 at 17.22.57 (1).jpeg",
+    "/reviews/about/WhatsApp Image 2026-07-30 at 17.22.57 (2).jpeg",
+    "/reviews/about/WhatsApp Image 2026-07-30 at 17.22.58.jpeg",
+  ];
+  const subscriptionPath = "/portal/subscriptions/new";
+  const subscriptionHref = isPortalLoggedIn()
+    ? subscriptionPath
+    : `/login?redirect=${encodeURIComponent(subscriptionPath)}`;
 
   const values = [
     {
@@ -96,7 +114,7 @@ const AboutPage: React.FC = () => {
             <div className="relative">
               <div className="aspect-[4/3] rounded-2xl overflow-hidden bg-muted">
                 <img
-                  src={about}
+                  src="/reviews/about/about.jpeg"
                   alt="Our farm"
                   className="w-full h-full object-cover"
                 />
@@ -194,50 +212,78 @@ const AboutPage: React.FC = () => {
       {/* Weekly Subscription */}
       <section className="py-16 lg:py-24 bg-secondary/30">
         <div className="container-custom">
-          <div className="max-w-3xl mx-auto">
-            <div className="flex items-start gap-4 mb-8">
-              <RefreshCw className="w-8 h-8 text-primary flex-shrink-0" />
+          <div className="mx-auto max-w-4xl rounded-3xl border border-border bg-card p-6 shadow-medium sm:p-8 lg:p-10">
+            <div className="grid gap-8 lg:grid-cols-[1.15fr_0.85fr] lg:gap-12">
               <div>
-                <h2 className="font-heading text-2xl lg:text-3xl font-semibold mb-4">
-                  Weekly Subscription
+                <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                  <RefreshCw className="h-6 w-6" aria-hidden="true" />
+                </div>
+                <h2 className="font-heading text-2xl font-semibold lg:text-3xl">
+                  Flexible Weekly Subscription
                 </h2>
-                <p className="text-muted-foreground">
-                  Want a regular delivery? Our weekly subscription is super
-                  easy! Just{" "}
-                  <a
-                    href={buildWhatsAppLink(
-                      "Hi Levants Dairy — I'd like to set up a weekly subscription.",
-                    )}
-                    className="text-primary font-medium hover:underline"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    WhatsApp us
-                  </a>{" "}
-                  your order for delivery every Wednesday, Sunday, or both.
+                <p className="mt-4 leading-relaxed text-muted-foreground">
+                  Our weekly subscription service is designed to be simple,
+                  flexible, and hassle-free. Choose Sunday, Wednesday, or both,
+                  then manage everything online from your account.
+                </p>
+
+                <ul className="mt-6 grid gap-3 sm:grid-cols-2">
+                  {[
+                    "Add or remove items",
+                    "Pause or cancel",
+                    "Update delivery notes",
+                    "Change your address",
+                  ].map((item) => (
+                    <li key={item} className="flex items-center gap-2 text-sm">
+                      <CheckCircle2
+                        className="h-4 w-4 shrink-0 text-primary"
+                        aria-hidden="true"
+                      />
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+
+                <Link
+                  to={subscriptionHref}
+                  className="btn-primary mt-7 inline-flex w-full items-center justify-center gap-2 sm:w-auto"
+                >
+                  Set Up Your Subscription
+                  <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                </Link>
+              </div>
+
+              <div className="rounded-2xl bg-secondary/50 p-5 sm:p-6">
+                <div className="flex items-center gap-3">
+                  <CalendarDays
+                    className="h-5 w-5 text-primary"
+                    aria-hidden="true"
+                  />
+                  <h3 className="font-heading text-lg font-semibold">
+                    Order deadlines
+                  </h3>
+                </div>
+                <dl className="mt-5 space-y-4">
+                  <div>
+                    <dt className="text-sm font-semibold">Sunday delivery</dt>
+                    <dd className="text-sm text-muted-foreground">
+                      Make changes by Friday at 10:00 PM
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-sm font-semibold">
+                      Wednesday delivery
+                    </dt>
+                    <dd className="text-sm text-muted-foreground">
+                      Make changes by Monday at 10:00 PM
+                    </dd>
+                  </div>
+                </dl>
+                <p className="mt-5 border-t border-border pt-5 text-sm leading-relaxed text-muted-foreground">
+                  There are no contracts or long-term commitments, giving you
+                  complete control over your deliveries.
                 </p>
               </div>
-            </div>
-
-            <div className="bg-card rounded-2xl border border-border p-6 lg:p-8 space-y-4">
-              <p className="text-sm text-muted-foreground">
-                WhatsApp:{" "}
-                <a
-                  href={buildWhatsAppLink()}
-                  className="font-medium text-primary hover:underline"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  {WHATSAPP_DISPLAY_PHONE}
-                </a>
-              </p>
-              <p className="text-sm text-muted-foreground">
-                Any changes to your order are simple — tell us by Friday at 10pm
-                for Sunday's delivery, or by Monday at 10pm for Wednesday's.
-              </p>
-              <p className="text-sm text-muted-foreground">
-                It’s contract free!
-              </p>
             </div>
           </div>
         </div>

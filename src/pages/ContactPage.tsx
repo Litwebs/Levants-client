@@ -1,8 +1,9 @@
 import React, { useState } from "react";
-import { Mail, Clock, Send, MessageSquare } from "lucide-react";
-import { buildWhatsAppLink, WHATSAPP_DISPLAY_PHONE } from "@/lib/whatsapp";
+import { Mail, Clock, Send, MessageSquare, MapPin, Phone } from "lucide-react";
+import { useBusinessInfo } from "@/context/BusinessInfoContext";
 
 const ContactPage: React.FC = () => {
+  const businessInfo = useBusinessInfo();
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -26,15 +27,25 @@ const ContactPage: React.FC = () => {
     {
       icon: Mail,
       label: "Email",
-      value: "levantsdairy1@gmail.com",
-      link: "mailto:levantsdairy1@gmail.com",
+      value: businessInfo.email,
+      link: `mailto:${businessInfo.email}`,
     },
     {
-      icon: MessageSquare,
-      label: "WhatsApp",
-      value: WHATSAPP_DISPLAY_PHONE,
-      link: buildWhatsAppLink("Hi Levants Dairy — I have a question."),
+      icon: Phone,
+      label: "Phone",
+      value: businessInfo.phone,
+      link: `tel:${businessInfo.phone}`,
     },
+    ...(businessInfo.address
+      ? [
+          {
+            icon: MapPin,
+            label: "Address",
+            value: businessInfo.address,
+            link: null,
+          },
+        ]
+      : []),
     {
       icon: Clock,
       label: "Hours",
@@ -74,7 +85,9 @@ const ContactPage: React.FC = () => {
                 </div>
 
                 <form
-                  action="https://formsubmit.co/levantsdairy1@gmail.com"
+                  action={`https://formsubmit.co/${encodeURIComponent(
+                    businessInfo.email,
+                  )}`}
                   method="POST"
                   className="space-y-6"
                 >

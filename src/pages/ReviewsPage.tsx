@@ -19,6 +19,7 @@ import {
   type Review,
   type ReviewsMeta,
 } from "@/api/reviews";
+import { useBusinessInfo } from "@/context/BusinessInfoContext";
 
 const PAGE_SIZE_OPTIONS = [10, 30, 50];
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024; // 8 MB
@@ -248,6 +249,7 @@ const ReviewsDisplay: React.FC = () => {
 type Step = "verify" | "form" | "success";
 
 const ReviewSubmitForm: React.FC = () => {
+  const businessInfo = useBusinessInfo();
   const [searchParams] = useSearchParams();
   const [step, setStep] = useState<Step>("verify");
   const [verifiedOrderId, setVerifiedOrderId] = useState("");
@@ -530,7 +532,7 @@ const ReviewSubmitForm: React.FC = () => {
                 onChange={(e) => setDescription(e.target.value)}
                 maxLength={1000}
                 rows={4}
-                placeholder="Share your experience with Levants Dairy…"
+                placeholder={`Share your experience with ${businessInfo.companyName}…`}
                 required
                 className={`${inputCls} resize-none`}
               />
@@ -674,6 +676,7 @@ function useReviewStats() {
 }
 
 const ReviewsPage: React.FC = () => {
+  const businessInfo = useBusinessInfo();
   const { total, avgRating, statsLoading } = useReviewStats();
   const animatedTotal = useCountUp(statsLoading ? null : (total ?? 0), 1400, 0);
   const animatedAvg = useCountUp(

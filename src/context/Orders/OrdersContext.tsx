@@ -30,7 +30,9 @@ import { ApiError } from "@/api/client";
 
 interface OrdersContextType extends OrderState {
   createGuestCustomer: (payload: CustomerPayload) => Promise<Customer | null>;
-  createOrder: (payload: CreateOrderPayload) => Promise<string | null>;
+  createOrder: (
+    payload: CreateOrderPayload,
+  ) => Promise<CreateOrderResponse | null>;
   validateDiscount: (payload: {
     customerId: string;
     discountCode: string;
@@ -84,7 +86,9 @@ export const OrdersProvider = ({ children }: { children: ReactNode }) => {
   );
 
   const createOrder = useCallback(
-    async (payload: CreateOrderPayload): Promise<string | null> => {
+    async (
+      payload: CreateOrderPayload,
+    ): Promise<CreateOrderResponse | null> => {
       dispatch({ type: ORDER_REQUEST });
       try {
         const res = await api.post<{
@@ -102,7 +106,7 @@ export const OrdersProvider = ({ children }: { children: ReactNode }) => {
         }
 
         dispatch({ type: CHECKOUT_SUCCESS, payload: res.data.checkoutUrl });
-        return res.data.checkoutUrl;
+        return res.data;
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : "";
 
@@ -138,7 +142,7 @@ export const OrdersProvider = ({ children }: { children: ReactNode }) => {
             }
 
             dispatch({ type: CHECKOUT_SUCCESS, payload: res.data.checkoutUrl });
-            return res.data.checkoutUrl;
+            return res.data;
           } catch (retryErr: any) {
             dispatch({
               type: ORDER_FAILURE,

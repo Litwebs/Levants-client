@@ -5,6 +5,10 @@
 export interface ProductVariant {
   id: string;
   name: string;
+  description?: string | null;
+  ingredients?: string | null;
+  allergens?: string[];
+  nutritionalInformation?: string | null;
   price: number;
   currency: string;
   stockQuantity: number;

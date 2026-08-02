@@ -14,13 +14,18 @@ import {
   Check,
   AlertTriangle,
   Loader2,
+  RefreshCw,
 } from "lucide-react";
 import { useProducts } from "@/context/Products/ProductsContext";
 import { resolveImageUrl } from "@/api/client";
 import { useCart } from "@/context/CartContext";
 import QuantityStepper from "@/components/ui/QuantityStepper";
 import ProductCard from "@/components/products/ProductCard";
+import OrderTypeChoice, {
+  type OrderType,
+} from "@/components/commerce/OrderTypeChoice";
 import { toast } from "sonner";
+import { isPortalLoggedIn } from "@/lib/portalAuth";
 
 const ProductPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -33,6 +38,11 @@ const ProductPage: React.FC = () => {
   const [quantity, setQuantity] = useState(1);
   const [activeImage, setActiveImage] = useState(0);
   const [showVariantImage, setShowVariantImage] = useState(true);
+  const [orderType, setOrderType] = useState<OrderType>(() =>
+    searchParams.get("order") === "subscription"
+      ? "subscription"
+      : "one-time",
+  );
 
   useEffect(() => {
     if (id) fetchProductById(id);
@@ -171,16 +181,31 @@ const ProductPage: React.FC = () => {
 
   const pricing = product.pricing;
   const description =
-    typeof product.description === "string" ? product.description : "";
+    selectedVariant?.description?.trim() ||
+    (typeof product.description === "string" ? product.description : "");
 
   const allergensText = (() => {
-    const allergens = (product as any)?.allergens;
+    const allergens =
+      selectedVariant?.allergens !== undefined
+        ? selectedVariant.allergens
+        : product.allergens;
     if (Array.isArray(allergens))
       return allergens.length ? allergens.join(", ") : "None";
     if (typeof allergens === "string")
-      return allergens.trim() ? allergens.trim() : "None";
+      return (allergens as string).trim() ? (allergens as string).trim() : "None";
     return "None";
   })();
+
+  const ingredientsText =
+    selectedVariant?.ingredients?.trim() ||
+    (product as any)?.ingredients?.trim() ||
+    "Not provided";
+
+  const nutritionalInformationText =
+    selectedVariant?.nutritionalInformation?.trim() ||
+    (product as any)?.nutritionalInformation?.trim() ||
+    (product as any)?.nutritionInfo?.trim() ||
+    "Not provided";
 
   const storageNotesText = (() => {
     const storageNotes =
@@ -191,6 +216,10 @@ const ProductPage: React.FC = () => {
   })();
 
   const currentPrice = selectedVariant?.price ?? product.pricing?.min ?? 0;
+  const subscriptionPath = "/portal/subscriptions/new";
+  const subscriptionHref = isPortalLoggedIn()
+    ? subscriptionPath
+    : `/login?redirect=${encodeURIComponent(subscriptionPath)}`;
   const isOutOfStock = selectedVariant
     ? selectedVariant.stockQuantity <= 0
     : variants.every((v) => v.stockQuantity <= 0);
@@ -219,6 +248,10 @@ const ProductPage: React.FC = () => {
       variants: variants.map((v) => ({
         id: v.id,
         name: v.name,
+        description: v.description,
+        ingredients: v.ingredients,
+        allergens: v.allergens,
+        nutritionalInformation: v.nutritionalInformation,
         price: v.price,
         thumbnailImage: (v as any).thumbnailImage,
         stockQuantity: (v as any).stockQuantity,
@@ -237,6 +270,10 @@ const ProductPage: React.FC = () => {
     const cartVariant = {
       id: selectedVariant.id,
       name: selectedVariant.name,
+      description: selectedVariant.description,
+      ingredients: selectedVariant.ingredients,
+      allergens: selectedVariant.allergens,
+      nutritionalInformation: selectedVariant.nutritionalInformation,
       price: selectedVariant.price,
       thumbnailImage: (selectedVariant as any).thumbnailImage,
       stockQuantity: (selectedVariant as any).stockQuantity,
@@ -332,10 +369,6 @@ const ProductPage: React.FC = () => {
                   : `£${currentPrice.toFixed(2)}`}
             </p>
 
-            <p className="text-muted-foreground mb-6">
-              {description.slice(0, 200)}
-            </p>
-
             {/* Stock Status */}
             <div className="flex items-center gap-2 mb-6">
               {isOutOfStock ? (
@@ -359,23 +392,33 @@ const ProductPage: React.FC = () => {
               )}
             </div>
 
+            <div className="mb-6">
+              <OrderTypeChoice
+                selected={orderType}
+                onChange={setOrderType}
+                compact
+                showHeading={false}
+              />
+            </div>
+
             {/* Variants */}
             {variants.length > 1 && (
               <div className="mb-6">
                 <label className="block text-sm font-medium mb-3">
                   Select Option
                 </label>
-                <div className="flex flex-wrap gap-2">
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                   {variants.map((variant) => (
                     <button
                       key={variant.id}
+                      title={`${variant.name} – £${variant.price.toFixed(2)}`}
                       onClick={() => setSelectedVariant(variant)}
                       disabled={variant.stockQuantity <= 0}
-                      className={`px-4 py-2 rounded-lg border-2 text-sm font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
+                      className={`h-10 w-full truncate rounded-lg border-2 px-4 py-0 text-left text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
                         selectedVariant?.id === variant.id
                           ? "border-primary bg-primary/5 text-primary"
                           : "border-border hover:border-primary/50"
-                      } max-w-full text-left whitespace-normal break-words`}
+                      }`}
                     >
                       {variant.name} – £{variant.price.toFixed(2)}
                       {variant.lowStock && variant.stockQuantity > 0 && (
@@ -389,40 +432,62 @@ const ProductPage: React.FC = () => {
               </div>
             )}
 
-            {/* Quantity & Add to Cart */}
-            <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-6">
-              <div className="self-start sm:self-auto">
-                <QuantityStepper
-                  quantity={quantity}
-                  onQuantityChange={(q) => {
-                    if (
+            {orderType === "one-time" ? (
+              <div className="mb-6 flex items-center gap-3">
+                <div className="shrink-0 [&>div]:h-10">
+                  <QuantityStepper
+                    quantity={quantity}
+                    onQuantityChange={(q) => {
+                      if (
+                        typeof maxAvailableQuantity === "number" &&
+                        maxAvailableQuantity > 0
+                      ) {
+                        setQuantity(
+                          Math.min(Math.max(1, q), maxAvailableQuantity),
+                        );
+                        return;
+                      }
+                      setQuantity(Math.max(1, q));
+                    }}
+                    max={
                       typeof maxAvailableQuantity === "number" &&
                       maxAvailableQuantity > 0
-                    ) {
-                      setQuantity(
-                        Math.min(Math.max(1, q), maxAvailableQuantity),
-                      );
-                      return;
+                        ? maxAvailableQuantity
+                        : 99
                     }
-                    setQuantity(Math.max(1, q));
-                  }}
-                  max={
-                    typeof maxAvailableQuantity === "number" &&
-                    maxAvailableQuantity > 0
-                      ? maxAvailableQuantity
-                      : 99
-                  }
-                  size="lg"
-                />
+                    size="sm"
+                  />
+                </div>
+                <button
+                  onClick={handleAddToCart}
+                  disabled={isOutOfStock}
+                  className="btn-primary flex h-10 min-w-0 flex-1 items-center justify-center gap-2 whitespace-nowrap px-3 py-0 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <ShoppingBag className="h-4 w-4 shrink-0" />
+                  <span className="whitespace-nowrap text-sm">
+                    Add to basket
+                  </span>
+                </button>
               </div>
-              <button
-                onClick={handleAddToCart}
-                disabled={isOutOfStock}
-                className="w-full sm:flex-1 btn-primary flex items-center justify-center gap-2 py-3.5 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <ShoppingBag className="w-5 h-5" /> Add to Cart
-              </button>
-            </div>
+            ) : (
+              <div className="mb-6 rounded-xl border border-primary/20 bg-primary/[0.04] p-4">
+                <p className="text-sm font-semibold">
+                  Add this product to a weekly delivery
+                </p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Choose Sunday, Wednesday, or both in the subscription builder.
+                </p>
+                <Link
+                  to={subscriptionHref}
+                  className="btn-primary mt-3 inline-flex h-10 w-full items-center justify-center gap-2 whitespace-nowrap px-3 py-0 sm:w-auto"
+                >
+                  <RefreshCw className="h-4 w-4 shrink-0" aria-hidden="true" />
+                  <span className="whitespace-nowrap text-sm">
+                    Continue to subscription
+                  </span>
+                </Link>
+              </div>
+            )}
 
             {/* Share */}
             <div className="flex items-center gap-4 mb-8">
@@ -447,8 +512,26 @@ const ProductPage: React.FC = () => {
 
             <div className="bg-secondary/50 rounded-xl p-4 space-y-3 mt-4">
               <div>
+                <p className="text-sm font-medium">Description</p>
+                <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line break-words">
+                  {description || "Not provided"}
+                </p>
+              </div>
+              <div>
+                <p className="text-sm font-medium">Ingredients</p>
+                <p className="text-xs text-muted-foreground whitespace-pre-line">
+                  {ingredientsText}
+                </p>
+              </div>
+              <div>
                 <p className="text-sm font-medium">Allergens</p>
                 <p className="text-xs text-muted-foreground">{allergensText}</p>
+              </div>
+              <div>
+                <p className="text-sm font-medium">Nutritional information</p>
+                <p className="text-xs text-muted-foreground whitespace-pre-line">
+                  {nutritionalInformationText}
+                </p>
               </div>
               <div>
                 <p className="text-sm font-medium">Storage notes</p>
@@ -458,13 +541,6 @@ const ProductPage: React.FC = () => {
               </div>
             </div>
           </div>
-        </div>
-
-        {/* Description */}
-        <div className="mb-16 max-w-3xl">
-          <p className="text-foreground leading-relaxed break-words">
-            {description}
-          </p>
         </div>
 
         {/* Related Products */}
@@ -499,6 +575,10 @@ const ProductPage: React.FC = () => {
                   variants: rpVariants.map((v) => ({
                     id: v.id,
                     name: v.name,
+                    description: v.description,
+                    ingredients: v.ingredients,
+                    allergens: v.allergens,
+                    nutritionalInformation: v.nutritionalInformation,
                     price: v.price,
                     stockStatus:
                       v.stockQuantity <= 0
