@@ -44,6 +44,7 @@ const navItems = [
   { label: "My Orders", href: "/portal/orders", icon: ClipboardList },
   { label: "Payments", href: "/portal/payments", icon: CreditCard },
   { label: "Store Credit", href: "/portal/credit", icon: Wallet },
+  { label: "Addresses", href: "/portal/addresses", icon: MapPin },
   { label: "Account", href: "/portal/account", icon: Settings },
 ];
 
