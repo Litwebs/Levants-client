@@ -206,6 +206,8 @@ const formatMoney = (amount: number) =>
     currency: "GBP",
   }).format(amount || 0);
 
+const SUBSCRIPTION_DELIVERY_FEE = 1;
+
 const formatDayList = (days: string[]) => {
   if (days.length <= 1) return days[0] || "the selected day";
   if (days.length === 2) return `${days[0]} and ${days[1]}`;
@@ -349,6 +351,15 @@ const SubscriptionDetailPage: React.FC = () => {
   const [cutoff, setCutoff] = useState<PortalSubscriptionCutoff | null>(null);
   const [refundChoiceOpen, setRefundChoiceOpen] = useState(false);
   const [cancelRefundChoiceOpen, setCancelRefundChoiceOpen] = useState(false);
+  const [pendingDeliveryDetailsSave, setPendingDeliveryDetailsSave] = useState<{
+    preferredDeliveryDay: number;
+    preferredDeliveryDays: number[];
+    deliveryDayPlans?: Array<{
+      day: number;
+      items: Array<{ variantId: string; quantity: number }>;
+    }>;
+    deliveryAddressId: string;
+  } | null>(null);
   const [productDraft, setProductDraft] = useState<EditableSubscriptionItem[]>(
     [],
   );
@@ -608,6 +619,21 @@ const SubscriptionDetailPage: React.FC = () => {
       0,
     );
   }, [effectiveProductDraft]);
+
+  const deliveryFeeCount = useMemo(
+    () => (isMultiDayWeekly ? Math.max(1, selectedDayIndexes.length) : 1),
+    [isMultiDayWeekly, selectedDayIndexes.length],
+  );
+
+  const deliveryFeeTotal = useMemo(
+    () => SUBSCRIPTION_DELIVERY_FEE * deliveryFeeCount,
+    [deliveryFeeCount],
+  );
+
+  const totalWithDeliveryFee = useMemo(
+    () => total + deliveryFeeTotal,
+    [total, deliveryFeeTotal],
+  );
 
   const editableBaseline = useMemo(() => {
     if (!subscription) return [];
@@ -875,18 +901,75 @@ const SubscriptionDetailPage: React.FC = () => {
       });
     };
 
+    const selectedDays = normalizeDayIndexes(deliveryDays.map(dayNameToIndex));
+    const payload = {
+      preferredDeliveryDay: dayNameToIndex(deliveryDays[0] || "Tuesday"),
+      preferredDeliveryDays: selectedDays,
+      deliveryDayPlans: buildDeliveryDayPlansPayload(),
+      deliveryAddressId: selectedAddressId,
+    };
+
+    const previousDays = normalizeDayIndexes(
+      Array.isArray(subscription?.preferredDeliveryDays) &&
+        subscription.preferredDeliveryDays.length > 0
+        ? subscription.preferredDeliveryDays
+        : [subscription?.preferredDeliveryDay ?? 2],
+    );
+    const removedDays = previousDays.filter(
+      (day) => !selectedDays.includes(day),
+    );
+    const shouldAskRefundMethod =
+      removedDays.length > 0 &&
+      Boolean(cutoff) &&
+      removedDays.some((day) => !isDayPastOwnCutoff(day, cutoff as any));
+
+    if (shouldAskRefundMethod) {
+      setPendingDeliveryDetailsSave(payload);
+      setRefundChoiceOpen(true);
+      return;
+    }
+
+    const submitDeliveryDetails = async (
+      refundMethod?: SubscriptionRefundMethod,
+    ) => {
+      setSaving(true);
+      setError(null);
+      setNotice(null);
+      await portalSubscriptionsApi.update(id, {
+        ...payload,
+        ...(refundMethod ? { refundMethod } : {}),
+      });
+      await load();
+      setNotice("Delivery details updated.");
+      toast.success("Delivery details updated.");
+    };
+
+    try {
+      await submitDeliveryDetails();
+    } catch (err) {
+      const message =
+        err instanceof ApiError
+          ? err.message
+          : "Failed to update delivery details.";
+      setError(message);
+      toast.error(message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSaveDeliveryDetailsWithRefundMethod = async (
+    refundMethod: SubscriptionRefundMethod,
+  ) => {
+    if (!id || !pendingDeliveryDetailsSave) return;
+
     try {
       setSaving(true);
       setError(null);
       setNotice(null);
-      const deliveryDayPlans = buildDeliveryDayPlansPayload();
       await portalSubscriptionsApi.update(id, {
-        preferredDeliveryDay: dayNameToIndex(deliveryDays[0] || "Tuesday"),
-        preferredDeliveryDays: normalizeDayIndexes(
-          deliveryDays.map(dayNameToIndex),
-        ),
-        deliveryDayPlans,
-        deliveryAddressId: selectedAddressId,
+        ...pendingDeliveryDetailsSave,
+        refundMethod,
       });
       await load();
       setNotice("Delivery details updated.");
@@ -900,6 +983,7 @@ const SubscriptionDetailPage: React.FC = () => {
       toast.error(message);
     } finally {
       setSaving(false);
+      setPendingDeliveryDetailsSave(null);
     }
   };
 
@@ -1495,7 +1579,10 @@ const SubscriptionDetailPage: React.FC = () => {
               Per delivery
             </p>
             <p className="text-sm sm:text-base font-semibold text-foreground mt-1">
-              {formatMoney(total)}
+              {formatMoney(totalWithDeliveryFee)}
+            </p>
+            <p className="text-[11px] text-muted-foreground mt-0.5">
+              Includes delivery fee {formatMoney(deliveryFeeTotal)}
             </p>
           </div>
         </div>
@@ -1869,8 +1956,18 @@ const SubscriptionDetailPage: React.FC = () => {
                 <span className="text-sm font-semibold text-muted-foreground">
                   Per delivery total
                 </span>
+                <div className="mt-1 space-y-0.5 text-xs text-muted-foreground">
+                  <div className="flex items-center justify-between gap-2">
+                    <span>Products</span>
+                    <span>{formatMoney(total)}</span>
+                  </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <span>Delivery fee</span>
+                    <span>{formatMoney(deliveryFeeTotal)}</span>
+                  </div>
+                </div>
                 <div className="text-lg font-bold text-foreground">
-                  {formatMoney(total)}
+                  {formatMoney(totalWithDeliveryFee)}
                 </div>
               </div>
               <div className="flex items-center gap-2 ml-auto">
@@ -2146,7 +2243,13 @@ const SubscriptionDetailPage: React.FC = () => {
                       : "Per delivery"}
                   </span>
                   <span className="font-semibold text-foreground">
-                    {formatMoney(total)}
+                    {formatMoney(totalWithDeliveryFee)}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Delivery fee</span>
+                  <span className="font-medium text-foreground">
+                    {formatMoney(deliveryFeeTotal)}
                   </span>
                 </div>
                 {hasScheduledProductChanges && (
@@ -2245,14 +2348,30 @@ const SubscriptionDetailPage: React.FC = () => {
         onConfirm={handleRemoveItem}
       />
 
-      <Dialog open={refundChoiceOpen} onOpenChange={setRefundChoiceOpen}>
+      <Dialog
+        open={refundChoiceOpen}
+        onOpenChange={(open) => {
+          setRefundChoiceOpen(open);
+          if (!open) {
+            setPendingDeliveryDetailsSave(null);
+          }
+        }}
+      >
         <DialogContent className="max-w-md p-6">
           <DialogHeader>
             <DialogTitle>How would you like your refund?</DialogTitle>
             <DialogDescription>
-              You're reducing this subscription by{" "}
-              <strong>{formatMoney(Math.max(0, originalTotal - total))}</strong>
-              . Choose how you'd like to receive the difference.
+              {pendingDeliveryDetailsSave ? (
+                "You're removing one or more delivery days before cut-off. Choose how you'd like the pre-paid amount returned."
+              ) : (
+                <>
+                  You're reducing this subscription by{" "}
+                  <strong>
+                    {formatMoney(Math.max(0, originalTotal - total))}
+                  </strong>
+                  . Choose how you'd like to receive the difference.
+                </>
+              )}
             </DialogDescription>
           </DialogHeader>
           <div className="flex flex-col gap-3 pt-2">
@@ -2262,6 +2381,10 @@ const SubscriptionDetailPage: React.FC = () => {
               disabled={saving}
               onClick={() => {
                 setRefundChoiceOpen(false);
+                if (pendingDeliveryDetailsSave) {
+                  void handleSaveDeliveryDetailsWithRefundMethod("credit");
+                  return;
+                }
                 void performSaveProductChanges("credit");
               }}
             >
@@ -2278,6 +2401,10 @@ const SubscriptionDetailPage: React.FC = () => {
               disabled={saving}
               onClick={() => {
                 setRefundChoiceOpen(false);
+                if (pendingDeliveryDetailsSave) {
+                  void handleSaveDeliveryDetailsWithRefundMethod("refund");
+                  return;
+                }
                 void performSaveProductChanges("refund");
               }}
             >

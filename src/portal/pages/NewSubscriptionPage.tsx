@@ -223,7 +223,9 @@ const SubscriptionPaymentForm: React.FC<{
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!stripe || !elements || !elementReady) {
-      onError("The secure payment form is still loading. Please wait a moment.");
+      onError(
+        "The secure payment form is still loading. Please wait a moment.",
+      );
       return;
     }
     if (!paymentComplete) {
@@ -518,12 +520,9 @@ const NewSubscriptionPage: React.FC = () => {
             | Record<string, Record<string, number>>
             | undefined) ?? {},
         );
-        const preparedFrequency = String(
-          preparedDraft.frequency || "weekly",
-        );
+        const preparedFrequency = String(preparedDraft.frequency || "weekly");
         setFrequency(
-          preparedFrequency === "fortnightly" ||
-            preparedFrequency === "monthly"
+          preparedFrequency === "fortnightly" || preparedFrequency === "monthly"
             ? preparedFrequency
             : "weekly",
         );
@@ -1399,7 +1398,7 @@ const NewSubscriptionPage: React.FC = () => {
                       )}
                     >
                       <p className="text-sm font-medium">
-                        {addr.fullName || "Unnamed"}
+                        {addr.fullName || addr.label || addr.line1 || "Address"}
                       </p>
                       <p className="text-xs text-muted-foreground">
                         {addr.line1}, {addr.city}, {addr.postcode}
@@ -1652,11 +1651,11 @@ const NewSubscriptionPage: React.FC = () => {
                 isPreparedSubscription
                   ? () => navigate("/portal/subscriptions")
                   : step === 0
-                  ? () => {
-                      clearDraft();
-                      navigate("/portal/subscriptions");
-                    }
-                  : handleBack
+                    ? () => {
+                        clearDraft();
+                        navigate("/portal/subscriptions");
+                      }
+                    : handleBack
               }
             >
               <ArrowLeft className="h-4 w-4" />

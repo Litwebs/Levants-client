@@ -85,6 +85,19 @@ const getRefundSummary = (payment: PortalPayment) => {
   return { original, refunded, after };
 };
 
+const getPaymentAmountBreakdown = (payment: PortalPayment) => {
+  const currency = payment.currency || "GBP";
+  const total = Number(payment.amount || 0);
+  const perDelivery = Number(
+    payment.order?.total ?? payment.order?.amountPaid ?? payment.amount ?? 0,
+  );
+  return {
+    total,
+    perDelivery,
+    currency,
+  };
+};
+
 const paymentMethodLabel = (method: PortalPaymentMethod) => {
   if (method.type === "card") {
     const brand = method.cardBrand || "Card";
@@ -606,6 +619,7 @@ const PaymentsPage: React.FC = () => {
             <div className="divide-y divide-border">
               {payments.map((pay) => {
                 const summary = getRefundSummary(pay);
+                const amounts = getPaymentAmountBreakdown(pay);
 
                 return (
                   <div key={pay._id} className="py-3">
@@ -622,9 +636,19 @@ const PaymentsPage: React.FC = () => {
                         </div>
                         <div className="flex shrink-0 items-center gap-3 whitespace-nowrap">
                           <PaymentStatusBadge status={pay.status as any} />
-                          <span className="text-sm font-bold text-foreground">
-                            {formatMoney(pay.amount, pay.currency || "GBP")}
-                          </span>
+                          <div className="text-right">
+                            <p className="text-sm font-bold text-foreground">
+                              Total{" "}
+                              {formatMoney(amounts.total, amounts.currency)}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              Per delivery{" "}
+                              {formatMoney(
+                                amounts.perDelivery,
+                                amounts.currency,
+                              )}
+                            </p>
+                          </div>
                         </div>
                       </div>
 

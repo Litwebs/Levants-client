@@ -408,7 +408,7 @@ const AddressesPage: React.FC = () => {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1">
                     <p className="text-sm font-semibold text-foreground">
-                      {addr.fullName || "Unnamed Address"}
+                      {addr.fullName || addr.label || addr.line1 || "Address"}
                     </p>
                     {addr.isDefault && (
                       <span className="text-[10px] bg-forest/10 text-forest rounded-full px-1.5 py-0.5 font-medium flex-shrink-0">

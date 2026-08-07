@@ -91,7 +91,10 @@ const CheckoutPage: React.FC = () => {
                       <div className="flex items-start justify-between">
                         <div>
                           <p className="text-sm font-medium">
-                            {addr.fullName || "Unnamed"}
+                            {addr.fullName ||
+                              addr.label ||
+                              addr.line1 ||
+                              "Address"}
                           </p>
                           <p className="text-xs text-muted-foreground">
                             {addr.line1}

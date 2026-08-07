@@ -22,6 +22,8 @@ export type PortalPayment = {
     _id: string;
     orderId?: string;
     status?: string;
+    subtotal?: number;
+    deliveryFee?: number;
     total?: number;
     amountPaid?: number | null;
     refunds?: Array<{
