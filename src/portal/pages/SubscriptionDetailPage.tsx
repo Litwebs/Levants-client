@@ -620,6 +620,49 @@ const SubscriptionDetailPage: React.FC = () => {
     );
   }, [effectiveProductDraft]);
 
+  const perDayPricing = useMemo(() => {
+    if (!isMultiDayWeekly)
+      return [] as Array<{
+        dayName: string;
+        itemsTotal: number;
+        deliveryFee: number;
+        totalWithFee: number;
+        includedCount: number;
+        totalQty: number;
+      }>;
+
+    return deliveryDays.map((dayName) => {
+      const dayItems = dayProductDraft[dayName] || [];
+      const includedItems = dayItems.filter(
+        (item) => Number(item.quantity || 0) > 0,
+      );
+      const itemsTotal = includedItems.reduce(
+        (sum, item) =>
+          sum + Number(item.unitPrice || 0) * Number(item.quantity || 0),
+        0,
+      );
+      const totalQty = includedItems.reduce(
+        (sum, item) => sum + Number(item.quantity || 0),
+        0,
+      );
+      const deliveryFee = SUBSCRIPTION_DELIVERY_FEE;
+
+      return {
+        dayName,
+        itemsTotal,
+        deliveryFee,
+        totalWithFee: itemsTotal + deliveryFee,
+        includedCount: includedItems.length,
+        totalQty,
+      };
+    });
+  }, [dayProductDraft, deliveryDays, isMultiDayWeekly]);
+
+  const perDayPricingByDay = useMemo(
+    () => new Map(perDayPricing.map((entry) => [entry.dayName, entry])),
+    [perDayPricing],
+  );
+
   const deliveryFeeCount = useMemo(
     () => (isMultiDayWeekly ? Math.max(1, selectedDayIndexes.length) : 1),
     [isMultiDayWeekly, selectedDayIndexes.length],
@@ -1576,14 +1619,27 @@ const SubscriptionDetailPage: React.FC = () => {
           </div>
           <div className="rounded-xl border border-border/70 bg-background/70 px-3 py-2.5">
             <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">
-              Per delivery
+              {isMultiDayWeekly ? "Per day totals" : "Per delivery"}
             </p>
             <p className="text-sm sm:text-base font-semibold text-foreground mt-1">
-              {formatMoney(totalWithDeliveryFee)}
+              {isMultiDayWeekly
+                ? `${formatMoney(totalWithDeliveryFee)} per cycle`
+                : formatMoney(totalWithDeliveryFee)}
             </p>
-            <p className="text-[11px] text-muted-foreground mt-0.5">
-              Includes delivery fee {formatMoney(deliveryFeeTotal)}
-            </p>
+            {isMultiDayWeekly ? (
+              <div className="mt-1 space-y-0.5 text-[11px] text-muted-foreground">
+                {perDayPricing.map((entry) => (
+                  <p key={`hero-day-total-${entry.dayName}`}>
+                    {entry.dayName}: {formatMoney(entry.totalWithFee)} (fee{" "}
+                    {formatMoney(entry.deliveryFee)})
+                  </p>
+                ))}
+              </div>
+            ) : (
+              <p className="text-[11px] text-muted-foreground mt-0.5">
+                Includes delivery fee {formatMoney(deliveryFeeTotal)}
+              </p>
+            )}
           </div>
         </div>
       </div>
@@ -1611,14 +1667,9 @@ const SubscriptionDetailPage: React.FC = () => {
                   const dayItems = dayProductDraft[dayName] || [];
                   const removedDayItems =
                     scheduledRemovedDayItems[dayName] || [];
-                  const includedCount = dayItems.filter(
-                    (item) => Number(item.quantity || 0) > 0,
-                  ).length;
-                  const totalQty = dayItems.reduce(
-                    (sum, item) =>
-                      sum + Math.max(0, Number(item.quantity || 0)),
-                    0,
-                  );
+                  const dayPrice = perDayPricingByDay.get(dayName);
+                  const includedCount = dayPrice?.includedCount || 0;
+                  const totalQty = dayPrice?.totalQty || 0;
 
                   return (
                     <div
@@ -1631,6 +1682,13 @@ const SubscriptionDetailPage: React.FC = () => {
                         </p>
                         <p className="text-xs text-muted-foreground mt-0.5">
                           {includedCount} selected · {totalQty} total qty
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          Products {formatMoney(dayPrice?.itemsTotal || 0)} +
+                          fee {formatMoney(SUBSCRIPTION_DELIVERY_FEE)} ={" "}
+                          {formatMoney(
+                            dayPrice?.totalWithFee || SUBSCRIPTION_DELIVERY_FEE,
+                          )}
                         </p>
                       </div>
 
@@ -1954,20 +2012,44 @@ const SubscriptionDetailPage: React.FC = () => {
             <div className="flex items-center justify-between gap-2 flex-wrap">
               <div>
                 <span className="text-sm font-semibold text-muted-foreground">
-                  Per delivery total
+                  {isMultiDayWeekly ? "Per day totals" : "Per delivery total"}
                 </span>
-                <div className="mt-1 space-y-0.5 text-xs text-muted-foreground">
-                  <div className="flex items-center justify-between gap-2">
-                    <span>Products</span>
-                    <span>{formatMoney(total)}</span>
+                {isMultiDayWeekly ? (
+                  <div className="mt-1 space-y-1 text-xs text-muted-foreground">
+                    {perDayPricing.map((entry) => (
+                      <div
+                        key={`footer-day-total-${entry.dayName}`}
+                        className="flex items-center justify-between gap-2"
+                      >
+                        <span>
+                          {entry.dayName} (products{" "}
+                          {formatMoney(entry.itemsTotal)} + fee{" "}
+                          {formatMoney(entry.deliveryFee)})
+                        </span>
+                        <span>{formatMoney(entry.totalWithFee)}</span>
+                      </div>
+                    ))}
+                    <div className="flex items-center justify-between gap-2 pt-1 border-t border-border/70">
+                      <span>Cycle delivery fees</span>
+                      <span>{formatMoney(deliveryFeeTotal)}</span>
+                    </div>
                   </div>
-                  <div className="flex items-center justify-between gap-2">
-                    <span>Delivery fee</span>
-                    <span>{formatMoney(deliveryFeeTotal)}</span>
+                ) : (
+                  <div className="mt-1 space-y-0.5 text-xs text-muted-foreground">
+                    <div className="flex items-center justify-between gap-2">
+                      <span>Products</span>
+                      <span>{formatMoney(total)}</span>
+                    </div>
+                    <div className="flex items-center justify-between gap-2">
+                      <span>Delivery fee</span>
+                      <span>{formatMoney(deliveryFeeTotal)}</span>
+                    </div>
                   </div>
-                </div>
+                )}
                 <div className="text-lg font-bold text-foreground">
-                  {formatMoney(totalWithDeliveryFee)}
+                  {isMultiDayWeekly
+                    ? `${formatMoney(totalWithDeliveryFee)} per cycle`
+                    : formatMoney(totalWithDeliveryFee)}
                 </div>
               </div>
               <div className="flex items-center gap-2 ml-auto">
@@ -2238,20 +2320,52 @@ const SubscriptionDetailPage: React.FC = () => {
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-muted-foreground">
-                    {hasScheduledProductChanges
-                      ? "Scheduled per delivery"
-                      : "Per delivery"}
+                    {isMultiDayWeekly
+                      ? hasScheduledProductChanges
+                        ? "Scheduled per-day totals"
+                        : "Per-day totals"
+                      : hasScheduledProductChanges
+                        ? "Scheduled per delivery"
+                        : "Per delivery"}
                   </span>
                   <span className="font-semibold text-foreground">
-                    {formatMoney(totalWithDeliveryFee)}
+                    {isMultiDayWeekly
+                      ? `${formatMoney(totalWithDeliveryFee)} / cycle`
+                      : formatMoney(totalWithDeliveryFee)}
                   </span>
                 </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Delivery fee</span>
-                  <span className="font-medium text-foreground">
-                    {formatMoney(deliveryFeeTotal)}
-                  </span>
-                </div>
+                {isMultiDayWeekly ? (
+                  <div className="space-y-1 pt-1 border-t border-border/70">
+                    {perDayPricing.map((entry) => (
+                      <div
+                        key={`snapshot-day-total-${entry.dayName}`}
+                        className="flex items-center justify-between text-xs"
+                      >
+                        <span className="text-muted-foreground">
+                          {entry.dayName} (fee {formatMoney(entry.deliveryFee)})
+                        </span>
+                        <span className="font-medium text-foreground">
+                          {formatMoney(entry.totalWithFee)}
+                        </span>
+                      </div>
+                    ))}
+                    <div className="flex items-center justify-between text-xs pt-1 border-t border-border/70">
+                      <span className="text-muted-foreground">
+                        Cycle delivery fees
+                      </span>
+                      <span className="font-medium text-foreground">
+                        {formatMoney(deliveryFeeTotal)}
+                      </span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Delivery fee</span>
+                    <span className="font-medium text-foreground">
+                      {formatMoney(deliveryFeeTotal)}
+                    </span>
+                  </div>
+                )}
                 {hasScheduledProductChanges && (
                   <div className="flex items-center justify-between text-xs text-blue-700 dark:text-sky-300">
                     <span>Current live per delivery</span>

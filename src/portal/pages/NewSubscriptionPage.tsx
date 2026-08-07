@@ -59,6 +59,7 @@ interface FlatVariant {
 }
 
 const fmt = (n: number) => `£${n.toFixed(2)}`;
+const SUBSCRIPTION_DELIVERY_FEE = 1;
 
 const steps = [
   "Select Products",
@@ -190,6 +191,18 @@ const fmtMethod = (pm: PortalPaymentMethod) =>
   `${cardBrandLabel(pm.cardBrand)} ···· ${pm.lastFour ?? "----"}  exp ${
     pm.expiryMonth ? String(pm.expiryMonth).padStart(2, "0") : "--"
   }/${pm.expiryYear ? String(pm.expiryYear).slice(-2) : "--"}`;
+
+const formatFrequencyLabel = (value: string) => {
+  if (value === "fortnightly") return "Every 2 weeks";
+  if (value === "monthly") return "Monthly";
+  return "Weekly";
+};
+
+const formatCycleLabel = (value: string) => {
+  if (value === "fortnightly") return "every 2 weeks";
+  if (value === "monthly") return "every month";
+  return "every week";
+};
 
 const SubscriptionPaymentForm: React.FC<{
   onComplete: (paymentMethodId: string) => Promise<void>;
@@ -676,6 +689,9 @@ const NewSubscriptionPage: React.FC = () => {
 
     setDayQuantities((prev) => {
       const next: Record<string, Record<string, number>> = {};
+      const hasExplicitDayQuantities = deliveryDays.some(
+        (day) => Boolean(prev[day]) && Object.keys(prev[day] || {}).length > 0,
+      );
 
       for (const day of deliveryDays) {
         const previousForDay = prev[day] || {};
@@ -685,7 +701,11 @@ const NewSubscriptionPage: React.FC = () => {
           const baseQuantity = Math.max(1, quantities[variantId] ?? 1);
           const existing = previousForDay[variantId];
           next[day][variantId] =
-            typeof existing === "number" ? Math.max(0, existing) : baseQuantity;
+            typeof existing === "number"
+              ? Math.max(0, existing)
+              : hasExplicitDayQuantities
+                ? 0
+                : baseQuantity;
         }
       }
 
@@ -748,6 +768,110 @@ const NewSubscriptionPage: React.FC = () => {
     selectedVariantIds.includes(v.variantId),
   );
 
+  const reviewSelectedDays =
+    deliveryDays.length > 0 ? deliveryDays : ["Tuesday"];
+  const reviewIsMultiDayWeekly =
+    frequency === "weekly" && reviewSelectedDays.length > 1;
+
+  const reviewDayPlans = useMemo(() => {
+    if (selectedFlatVariants.length === 0) return [];
+
+    if (reviewIsMultiDayWeekly) {
+      const hasExplicitDayQuantities = reviewSelectedDays.some(
+        (dayName) =>
+          Boolean(dayQuantities[dayName]) &&
+          Object.keys(dayQuantities[dayName] || {}).length > 0,
+      );
+
+      return reviewSelectedDays.map((dayName) => {
+        const items = selectedFlatVariants
+          .map((sv) => {
+            const quantity = hasExplicitDayQuantities
+              ? Math.max(0, dayQuantities[dayName]?.[sv.variantId] ?? 0)
+              : Math.max(
+                  0,
+                  dayQuantities[dayName]?.[sv.variantId] ??
+                    Math.max(1, quantities[sv.variantId] ?? 1),
+                );
+
+            return {
+              variantId: sv.variantId,
+              name: sv.variantName,
+              quantity,
+              unitPrice: sv.price,
+              lineTotal: sv.price * quantity,
+            };
+          })
+          .filter((item) => item.quantity > 0);
+
+        const subtotal = items.reduce((sum, item) => sum + item.lineTotal, 0);
+        const totalQty = items.reduce((sum, item) => sum + item.quantity, 0);
+
+        return {
+          dayName,
+          items,
+          subtotal,
+          totalQty,
+          deliveryFee: SUBSCRIPTION_DELIVERY_FEE,
+          totalWithFee: subtotal + SUBSCRIPTION_DELIVERY_FEE,
+        };
+      });
+    }
+
+    const items = selectedFlatVariants.map((sv) => {
+      const quantity = Math.max(1, quantities[sv.variantId] ?? 1);
+      return {
+        variantId: sv.variantId,
+        name: sv.variantName,
+        quantity,
+        unitPrice: sv.price,
+        lineTotal: sv.price * quantity,
+      };
+    });
+    const subtotal = items.reduce((sum, item) => sum + item.lineTotal, 0);
+    const totalQty = items.reduce((sum, item) => sum + item.quantity, 0);
+
+    return [
+      {
+        dayName: reviewSelectedDays[0] ?? "Selected delivery",
+        items,
+        subtotal,
+        totalQty,
+        deliveryFee: SUBSCRIPTION_DELIVERY_FEE,
+        totalWithFee: subtotal + SUBSCRIPTION_DELIVERY_FEE,
+      },
+    ];
+  }, [
+    dayQuantities,
+    quantities,
+    reviewIsMultiDayWeekly,
+    reviewSelectedDays,
+    selectedFlatVariants,
+  ]);
+
+  const reviewSubtotal = useMemo(
+    () => reviewDayPlans.reduce((sum, plan) => sum + plan.subtotal, 0),
+    [reviewDayPlans],
+  );
+
+  const reviewDeliveryFeeCount =
+    selectedFlatVariants.length === 0
+      ? 0
+      : reviewIsMultiDayWeekly
+        ? reviewSelectedDays.length
+        : 1;
+
+  const reviewDeliveryFeeTotal =
+    SUBSCRIPTION_DELIVERY_FEE * reviewDeliveryFeeCount;
+
+  const reviewTotal = reviewSubtotal + reviewDeliveryFeeTotal;
+  const reviewAddressDetails =
+    addresses.find((a) => a._id === selectedAddress) ?? null;
+  const selectedPaymentMethod =
+    savedMethods.find((method) => method._id === selectedMethodId) ?? null;
+  const reviewFrequencyLabel = formatFrequencyLabel(frequency);
+  const reviewCycleLabel = formatCycleLabel(frequency);
+
   const frequencyToApi = (value: string) => {
     if (value === "fortnightly") return "every_two_weeks";
     if (value === "monthly") return "monthly";
@@ -779,6 +903,11 @@ const NewSubscriptionPage: React.FC = () => {
     const selectedDays = deliveryDays.length > 0 ? deliveryDays : ["Tuesday"];
     const selectedDayIndexes = selectedDays.map(dayToIndex);
     const isMultiDayWeekly = frequency === "weekly" && selectedDays.length > 1;
+    const hasExplicitDayQuantities = selectedDays.some(
+      (dayName) =>
+        Boolean(dayQuantities[dayName]) &&
+        Object.keys(dayQuantities[dayName] || {}).length > 0,
+    );
 
     const baseItems = selectedFlatVariants.map((sv) => ({
       variantId: sv.variantId,
@@ -797,11 +926,13 @@ const NewSubscriptionPage: React.FC = () => {
         const planItems = selectedFlatVariants
           .map((sv) => ({
             variantId: sv.variantId,
-            quantity: Math.max(
-              0,
-              dayQuantities[dayName]?.[sv.variantId] ??
-                Math.max(1, quantities[sv.variantId] ?? 1),
-            ),
+            quantity: hasExplicitDayQuantities
+              ? Math.max(0, dayQuantities[dayName]?.[sv.variantId] ?? 0)
+              : Math.max(
+                  0,
+                  dayQuantities[dayName]?.[sv.variantId] ??
+                    Math.max(1, quantities[sv.variantId] ?? 1),
+                ),
           }))
           .filter((item) => item.quantity > 0);
 
@@ -1435,73 +1566,198 @@ const NewSubscriptionPage: React.FC = () => {
               Check your subscription details before confirming.
             </p>
 
-            <div className="space-y-3 text-sm">
-              <div className="py-1.5 border-b border-border">
-                <p className="text-muted-foreground mb-1">Products</p>
-                {selectedFlatVariants.length === 0 ? (
-                  <p className="font-medium">None</p>
-                ) : frequency === "weekly" && deliveryDays.length > 1 ? (
-                  <div className="space-y-2">
-                    {deliveryDays.map((day) => {
-                      const dayItems = selectedFlatVariants
-                        .map((sv) => ({
-                          name: sv.variantName,
-                          quantity:
-                            dayQuantities[day]?.[sv.variantId] ??
-                            Math.max(1, quantities[sv.variantId] ?? 1),
-                        }))
-                        .filter((item) => item.quantity > 0);
-
-                      return (
-                        <div key={`review-${day}`}>
-                          <p className="text-xs text-muted-foreground mb-1">
-                            {day}
-                          </p>
-                          {dayItems.length === 0 ? (
-                            <p className="font-medium">No products selected</p>
-                          ) : (
-                            <ul className="list-disc pl-5 space-y-1 font-medium">
-                              {dayItems.map((item) => (
-                                <li key={`${day}-${item.name}`}>
-                                  {item.name} x {item.quantity}
-                                </li>
-                              ))}
-                            </ul>
-                          )}
-                        </div>
-                      );
-                    })}
+            <div className="rounded-2xl border border-border bg-card/60 overflow-hidden">
+              <div className="divide-y divide-border">
+                <div className="flex items-start justify-between gap-4 px-4 py-3 text-sm">
+                  <span className="text-muted-foreground">Frequency</span>
+                  <div className="text-right">
+                    <p className="font-medium text-foreground">
+                      {reviewFrequencyLabel}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Renews {reviewCycleLabel}
+                    </p>
                   </div>
-                ) : (
-                  <ul className="list-disc pl-5 space-y-1 font-medium">
-                    {selectedFlatVariants.map((sv) => (
-                      <li key={sv.variantId}>
-                        {sv.variantName} x{" "}
-                        {Math.max(1, quantities[sv.variantId] ?? 1)}
-                      </li>
-                    ))}
-                  </ul>
-                )}
+                </div>
+                <div className="flex items-start justify-between gap-4 px-4 py-3 text-sm">
+                  <span className="text-muted-foreground">Delivery days</span>
+                  <div className="text-right">
+                    <p className="font-medium text-foreground">
+                      {reviewSelectedDays.join(", ")}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {reviewIsMultiDayWeekly
+                        ? `${reviewSelectedDays.length} deliveries per weekly cycle`
+                        : "1 delivery per cycle"}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-start justify-between gap-4 px-4 py-3 text-sm">
+                  <span className="text-muted-foreground">Address</span>
+                  <div className="max-w-[65%] text-right">
+                    <p className="font-medium text-foreground">
+                      {reviewAddressDetails?.fullName ||
+                        reviewAddressDetails?.label ||
+                        reviewAddressDetails?.line1 ||
+                        "No address selected"}
+                    </p>
+                    {reviewAddressDetails ? (
+                      <p className="text-xs leading-5 text-muted-foreground">
+                        {reviewAddressDetails.line1}
+                        {reviewAddressDetails.line2
+                          ? `, ${reviewAddressDetails.line2}`
+                          : ""}
+                        <br />
+                        {reviewAddressDetails.city},{" "}
+                        {reviewAddressDetails.postcode}
+                      </p>
+                    ) : null}
+                  </div>
+                </div>
               </div>
-              <div className="flex justify-between py-1.5 border-b border-border">
-                <span className="text-muted-foreground">Frequency</span>
-                <span className="font-medium capitalize">
-                  {frequency === "fortnightly" ? "Every 2 weeks" : frequency}
-                </span>
-              </div>
-              <div className="flex justify-between py-1.5 border-b border-border">
-                <span className="text-muted-foreground">Delivery day</span>
-                <span className="font-medium">
-                  {deliveryDays.length > 0 ? deliveryDays.join(", ") : "—"}
-                </span>
-              </div>
-              <div className="flex justify-between py-1.5 border-b border-border">
-                <span className="text-muted-foreground">Address</span>
-                <span className="font-medium text-right max-w-[60%]">
-                  {addresses.find((a) => a._id === selectedAddress)?.line1 ??
-                    "—"}
-                </span>
-              </div>
+            </div>
+
+            <div className="mt-5 space-y-4">
+              <section className="rounded-2xl border border-border bg-card/60 p-4 sm:p-5">
+                <div className="flex items-center justify-between gap-3">
+                  <h3 className="text-base font-semibold text-foreground">
+                    Products
+                  </h3>
+                  <span className="text-xs text-muted-foreground">
+                    {reviewDayPlans.reduce(
+                      (sum, plan) => sum + plan.totalQty,
+                      0,
+                    )}{" "}
+                    qty total
+                  </span>
+                </div>
+
+                <div className="mt-4 space-y-3">
+                  {reviewDayPlans.length === 0 ? (
+                    <div className="rounded-xl border border-dashed border-border px-4 py-6 text-sm text-muted-foreground">
+                      No products selected.
+                    </div>
+                  ) : (
+                    reviewDayPlans.map((plan) => (
+                      <div
+                        key={`review-plan-${plan.dayName}`}
+                        className="rounded-xl border border-border bg-background/80"
+                      >
+                        <div className="flex items-start justify-between gap-4 px-4 py-3 border-b border-border">
+                          <div>
+                            <p className="font-medium text-foreground">
+                              {reviewIsMultiDayWeekly
+                                ? plan.dayName
+                                : "Selected products"}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {plan.items.length} product
+                              {plan.items.length === 1 ? "" : "s"} ·{" "}
+                              {plan.totalQty} qty
+                            </p>
+                          </div>
+                          <div className="text-right text-sm">
+                            <p className="font-medium text-foreground">
+                              {fmt(plan.totalWithFee)}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {fmt(plan.subtotal)} + {fmt(plan.deliveryFee)}{" "}
+                              delivery
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="divide-y divide-border/70 px-4">
+                          {plan.items.map((item) => (
+                            <div
+                              key={`${plan.dayName}-${item.variantId}`}
+                              className="flex items-start justify-between gap-4 py-3"
+                            >
+                              <div className="min-w-0">
+                                <p className="text-sm font-medium text-foreground">
+                                  {item.name}
+                                </p>
+                                <p className="mt-1 text-xs text-muted-foreground">
+                                  {item.quantity} x {fmt(item.unitPrice)}
+                                </p>
+                              </div>
+                              <p className="text-sm font-medium text-foreground">
+                                {fmt(item.lineTotal)}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </section>
+
+              <section className="rounded-2xl border border-border bg-card/60 p-4 sm:p-5">
+                <h3 className="text-base font-semibold text-foreground">
+                  Summary
+                </h3>
+                <div className="mt-4 space-y-3 text-sm">
+                  <div className="flex items-center justify-between gap-4">
+                    <span className="text-muted-foreground">
+                      Products subtotal
+                    </span>
+                    <span className="font-medium text-foreground">
+                      {fmt(reviewSubtotal)}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between gap-4">
+                    <span className="text-muted-foreground">
+                      Delivery fees
+                      {reviewDeliveryFeeCount > 1
+                        ? ` (${reviewDeliveryFeeCount} deliveries)`
+                        : ""}
+                    </span>
+                    <span className="font-medium text-foreground">
+                      {fmt(reviewDeliveryFeeTotal)}
+                    </span>
+                  </div>
+                  {reviewIsMultiDayWeekly && (
+                    <div className="rounded-xl bg-background/80 px-3 py-2 text-xs text-muted-foreground">
+                      {reviewDayPlans.map((plan) => (
+                        <div
+                          key={`review-cycle-${plan.dayName}`}
+                          className="flex items-center justify-between gap-3 py-1"
+                        >
+                          <span>{plan.dayName}</span>
+                          <span className="font-medium text-foreground">
+                            {fmt(plan.totalWithFee)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <Separator />
+                  <div className="flex items-center justify-between gap-4 text-base">
+                    <span className="font-semibold text-foreground">
+                      Total charged today
+                    </span>
+                    <span className="font-semibold text-foreground">
+                      {fmt(reviewTotal)}
+                    </span>
+                  </div>
+                  <div className="rounded-xl bg-muted/40 px-3 py-3 text-xs leading-5 text-muted-foreground">
+                    Charged now to
+                    <span className="font-medium text-foreground">
+                      {selectedPaymentMethod
+                        ? ` ${fmtMethod(selectedPaymentMethod)}`
+                        : showNewForm
+                          ? " your new payment method"
+                          : " your selected payment method"}
+                    </span>
+                    . Future payments renew at
+                    <span className="font-medium text-foreground">
+                      {fmt(reviewTotal)}
+                    </span>
+                    {` ${reviewCycleLabel}`}.
+                  </div>
+                </div>
+              </section>
             </div>
 
             {/* ── Payment method ───────────────────────────────────────── */}
