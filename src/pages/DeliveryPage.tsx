@@ -31,28 +31,24 @@ const DeliveryPage: React.FC = () => {
 
   const refrigeratedImages = [
     {
-      src: "/delivery/WhatsApp Image 2026-07-30 at 17.10.11.jpeg",
+      src: "/delivery/WhatsApp Image 2026-07-30 at 17.10.11 copy.jpeg",
       alt: "Levants Dairy refrigerated delivery van in a local neighbourhood",
     },
     {
-      src: "/delivery/WhatsApp Image 2026-07-30 at 17.10.11 (1).jpeg",
-      alt: "Levants Dairy chilled delivery van ready for its route",
+      src: "/delivery/WhatsApp Image 2026-08-07 at 22.59.36 (1).jpeg",
+      alt: "Levants Dairy refrigerated delivery fleet ready for collection",
     },
     {
-      src: "/delivery/WhatsApp Image 2026-07-30 at 17.10.11 (2).jpeg",
-      alt: "Levants Dairy delivery van serving a residential street",
+      src: "/delivery/WhatsApp Image 2026-08-07 at 22.59.36.jpeg",
+      alt: "Levants Dairy refrigerated van at a local farm",
     },
     {
-      src: "/delivery/WhatsApp Image 2026-07-30 at 17.10.11 (3).jpeg",
-      alt: "Levants Dairy refrigerated van collecting fresh produce at the farm",
+      src: "/delivery/WhatsApp Image 2026-08-07 at 22.59.37 (1).jpeg",
+      alt: "Fresh milk safely stored inside a Levants Dairy refrigerated van",
     },
     {
-      src: "/delivery/WhatsApp Image 2026-07-30 at 17.10.11 (4).jpeg",
-      alt: "Levants Dairy refrigerated van inside the farm building",
-    },
-    {
-      src: "/delivery/WhatsApp Image 2026-07-30 at 17.10.11 (5).jpeg",
-      alt: "Levants Dairy refrigerated delivery fleet",
+      src: "/delivery/WhatsApp Image 2026-08-07 at 22.59.37.jpeg",
+      alt: "Chilled dairy products loaded for delivery in a refrigerated van",
     },
   ];
   const subscriptionPath = "/portal/subscriptions/new";

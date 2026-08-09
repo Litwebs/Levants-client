@@ -57,8 +57,6 @@ const ProductCard: React.FC<ProductCardProps> = ({
   const currentPrice = selectedVariant?.price ?? product.price;
   const currentStockStatus =
     selectedVariant?.stockStatus ?? product.stockStatus;
-  const displayDescription =
-    selectedVariant?.description?.trim() || product.shortDescription;
 
   const isVariantCard = Boolean(
     (hideVariantSelector || lockedVariantId) && selectedVariant,
@@ -105,36 +103,6 @@ const ProductCard: React.FC<ProductCardProps> = ({
 
     return fallback;
   }, [product.images, product.variants, selectedVariant]);
-
-  const allergensText = (() => {
-    const allergens =
-      selectedVariant?.allergens !== undefined
-        ? selectedVariant.allergens
-        : product.allergens;
-    if (Array.isArray(allergens))
-      return allergens.length ? allergens.join(", ") : "None";
-    if (typeof allergens === "string")
-      return allergens.trim() ? allergens.trim() : "None";
-    return "None";
-  })();
-
-  const ingredientsText =
-    selectedVariant?.ingredients?.trim() ||
-    product.ingredients?.trim() ||
-    "Not provided";
-
-  const nutritionalInformationText =
-    selectedVariant?.nutritionalInformation?.trim() ||
-    product.nutritionInfo?.trim() ||
-    "Not provided";
-
-  const storageNotesText = (() => {
-    const storageNotes =
-      (product as any)?.storageNotes ?? (product as any)?.storage;
-    if (typeof storageNotes === "string")
-      return storageNotes.trim() ? storageNotes.trim() : "Not provided";
-    return "Not provided";
-  })();
 
   const handleAction = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -218,40 +186,8 @@ const ProductCard: React.FC<ProductCardProps> = ({
             {displayTitle}
           </h3>
 
-          {(hideVariantSelector || lockedVariantId) &&
-            product.variants &&
-            product.variants.length > 1 &&
-            selectedVariant && (
-              <p className="text-xs text-muted-foreground mb-2 line-clamp-1">
-                {selectedVariant.name}
-              </p>
-            )}
-
-          {/* Short Description */}
-          <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
-            {displayDescription}
-          </p>
-
-          <div className="space-y-1 mb-3">
-            <p className="text-xs text-muted-foreground line-clamp-2">
-              <span className="font-medium">Ingredients:</span>{" "}
-              {ingredientsText}
-            </p>
-            <p className="text-xs text-muted-foreground line-clamp-2">
-              <span className="font-medium">Allergens:</span> {allergensText}
-            </p>
-            <p className="text-xs text-muted-foreground line-clamp-2">
-              <span className="font-medium">Nutrition:</span>{" "}
-              {nutritionalInformationText}
-            </p>
-            <p className="text-xs text-muted-foreground line-clamp-2">
-              <span className="font-medium">Storage notes:</span>{" "}
-              {storageNotesText}
-            </p>
-          </div>
-
           {/* Price */}
-          <p className="text-lg font-semibold text-primary mb-3">
+          <p className="mt-3 text-lg font-semibold text-primary">
             £{currentPrice.toFixed(2)}
           </p>
         </div>

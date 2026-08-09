@@ -89,5 +89,10 @@ export interface ProductsQueryParams {
   maxPrice?: number;
   inStock?: boolean;
   search?: string;
-  sort?: 'name_asc' | 'name_desc' | 'price_asc' | 'price_desc';
+  sort?:
+    | 'category_order'
+    | 'name_asc'
+    | 'name_desc'
+    | 'price_asc'
+    | 'price_desc';
 }

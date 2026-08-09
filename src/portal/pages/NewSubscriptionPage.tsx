@@ -21,6 +21,7 @@ import ProductCard from "@/components/products/ProductCard";
 import ShopPage from "@/pages/ShopPage";
 import {
   Elements,
+  ExpressCheckoutElement,
   PaymentElement,
   useElements,
   useStripe,
@@ -62,23 +63,44 @@ const fmt = (n: number) => `£${n.toFixed(2)}`;
 const SUBSCRIPTION_DELIVERY_FEE = 1;
 
 const steps = [
-  "Select Products",
-  "Quantities & Variants",
-  "Delivery Frequency",
-  "Delivery Day",
-  "Delivery Address",
-  "Review & Confirm",
+  "Delivery Days",
+  "Frequency",
+  "Products by Day",
+  "Delivery Details",
+  "Review & Payment",
 ];
+
+const DRAFT_FLOW_VERSION = 2;
 
 const paymentElementOptions = {
   layout: "tabs" as const,
-  // Limit to card + wallets — excludes Stripe Link / Onelink entirely
+  // Stripe still decides eligibility; this only controls the preferred order.
   paymentMethodOrder: ["apple_pay", "google_pay", "card"],
   wallets: { applePay: "auto" as const, googlePay: "auto" as const },
   terms: {
     card: "never" as const,
     applePay: "never" as const,
     googlePay: "never" as const,
+  },
+};
+
+const expressCheckoutOptions = {
+  buttonHeight: 48,
+  buttonType: {
+    applePay: "subscribe" as const,
+    googlePay: "subscribe" as const,
+  },
+  paymentMethods: {
+    applePay: "always" as const,
+    googlePay: "always" as const,
+    amazonPay: "never" as const,
+    link: "never" as const,
+    paypal: "never" as const,
+  },
+  layout: {
+    maxColumns: 2,
+    maxRows: 1,
+    overflow: "never" as const,
   },
 };
 
@@ -216,6 +238,7 @@ const SubscriptionPaymentForm: React.FC<{
   const [elementReady, setElementReady] = useState(false);
   const [paymentComplete, setPaymentComplete] = useState(false);
   const [elementError, setElementError] = useState<string | null>(null);
+  const [expressCheckoutReady, setExpressCheckoutReady] = useState(false);
 
   const handleStripeError = (error: { code?: string; message?: string }) => {
     const message = error.message || "Failed to save payment method.";
@@ -233,17 +256,13 @@ const SubscriptionPaymentForm: React.FC<{
     onError(message);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const confirmPaymentSetup = async (paymentFailed?: () => void) => {
     if (!stripe || !elements || !elementReady) {
       onError(
         "The secure payment form is still loading. Please wait a moment.",
       );
-      return;
-    }
-    if (!paymentComplete) {
-      onError("Enter your complete card details before subscribing.");
-      return;
+      paymentFailed?.();
+      return false;
     }
 
     try {
@@ -252,7 +271,8 @@ const SubscriptionPaymentForm: React.FC<{
       const submitted = await elements.submit();
       if (submitted.error) {
         handleStripeError(submitted.error);
-        return;
+        paymentFailed?.();
+        return false;
       }
       const result = await stripe.confirmSetup({
         elements,
@@ -264,29 +284,65 @@ const SubscriptionPaymentForm: React.FC<{
 
       if (result.error) {
         handleStripeError(result.error);
-        return;
+        paymentFailed?.();
+        return false;
       }
 
       const paymentMethodId = result.setupIntent?.payment_method;
       if (typeof paymentMethodId !== "string") {
         onError("Stripe did not return a payment method.");
-        return;
+        paymentFailed?.();
+        return false;
       }
 
       await onComplete(paymentMethodId);
+      return true;
     } catch (error) {
       const message =
         error instanceof Error && error.message
           ? error.message
           : "Failed to save payment method. Please try again.";
       handleStripeError({ message });
+      paymentFailed?.();
+      return false;
     } finally {
       setLoading(false);
     }
   };
 
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!paymentComplete) {
+      onError("Enter your complete card details before subscribing.");
+      return;
+    }
+    await confirmPaymentSetup();
+  };
+
   return (
     <form onSubmit={handleSubmit} className="space-y-3">
+      <div className={cn("space-y-3", !expressCheckoutReady && "hidden")}>
+        <ExpressCheckoutElement
+          options={expressCheckoutOptions}
+          onReady={({ availablePaymentMethods }) =>
+            setExpressCheckoutReady(Boolean(availablePaymentMethods))
+          }
+          onConfirm={(event) => {
+            void confirmPaymentSetup(() => event.paymentFailed());
+          }}
+          onLoadError={(event) => {
+            setExpressCheckoutReady(false);
+            setElementError(
+              event.error?.message || "Wallet payment options could not load.",
+            );
+          }}
+        />
+        <div className="flex items-center gap-3" aria-hidden="true">
+          <Separator className="flex-1" />
+          <span className="text-xs text-muted-foreground">or use a card</span>
+          <Separator className="flex-1" />
+        </div>
+      </div>
       <PaymentElement
         options={paymentElementOptions}
         onLoaderStart={() => setElementReady(false)}
@@ -353,7 +409,14 @@ const NewSubscriptionPage: React.FC = () => {
   const [searchParams] = useSearchParams();
   const isPreparedSubscription = searchParams.get("prepared") === "1";
   const draft = readDraft();
-  const [step, setStep] = useState(() => Number(draft?.step ?? 0));
+  const [step, setStep] = useState(() => {
+    if (isPreparedSubscription) return steps.length - 1;
+    if (Number(draft?.flowVersion) !== DRAFT_FLOW_VERSION) return 0;
+    const draftStep = Number(draft?.step ?? 0);
+    return Number.isFinite(draftStep)
+      ? Math.min(steps.length - 1, Math.max(0, draftStep))
+      : 0;
+  });
 
   // ── Sticky offsets: measure the real site header + this page's sub-header ──
   // The site header is fully sticky with a variable height (announcement bars),
@@ -486,10 +549,16 @@ const NewSubscriptionPage: React.FC = () => {
     const legacyDay = draft?.deliveryDay;
     return typeof legacyDay === "string" && legacyDay
       ? [legacyDay]
-      : ["Tuesday"];
+      : ["Sunday"];
   });
+  const [activeProductDay, setActiveProductDay] = useState(
+    () => deliveryDays[0] ?? "Sunday",
+  );
   const [selectedAddress, setSelectedAddress] = useState<string>(
     () => (draft?.selectedAddress as string | undefined) ?? "",
+  );
+  const [deliveryInstructions, setDeliveryInstructions] = useState(
+    () => (draft?.deliveryInstructions as string | undefined) ?? "",
   );
   const [submitLoading, setSubmitLoading] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -516,7 +585,7 @@ const NewSubscriptionPage: React.FC = () => {
           // The in-memory state below still allows setup to continue.
         }
 
-        setStep(Number(preparedDraft.step ?? 5));
+        setStep(steps.length - 1);
         setSelectedVariantIds(
           Array.isArray(preparedDraft.selectedVariantIds)
             ? preparedDraft.selectedVariantIds.filter(
@@ -544,11 +613,16 @@ const NewSubscriptionPage: React.FC = () => {
             ? preparedDraft.deliveryDays.filter(
                 (value): value is string => typeof value === "string",
               )
-            : ["Tuesday"],
+            : ["Sunday"],
         );
         setSelectedAddress(
           typeof preparedDraft.selectedAddress === "string"
             ? preparedDraft.selectedAddress
+            : "",
+        );
+        setDeliveryInstructions(
+          typeof preparedDraft.deliveryInstructions === "string"
+            ? preparedDraft.deliveryInstructions
             : "",
         );
       })
@@ -617,7 +691,9 @@ const NewSubscriptionPage: React.FC = () => {
 
   // Load a fresh SetupIntent when the new-payment form becomes visible
   useEffect(() => {
-    const needsForm = (showNewForm || savedMethods.length === 0) && step === 5;
+    const needsForm =
+      (showNewForm || savedMethods.length === 0) &&
+      step === steps.length - 1;
     if (!needsForm) return;
     if (setupClientSecret) return; // already loaded
 
@@ -667,51 +743,80 @@ const NewSubscriptionPage: React.FC = () => {
   // Set default address when addresses load
   useEffect(() => {
     if (addresses.length > 0 && !selectedAddress) {
-      const defaultAddr = addresses.find((a) => a.isDefault);
-      setSelectedAddress(defaultAddr?._id ?? addresses[0]?._id ?? "");
+      const defaultAddr = addresses.find((a) => a.isDefault) ?? addresses[0];
+      setSelectedAddress(defaultAddr?._id ?? defaultAddr?.id ?? "");
+      if (!deliveryInstructions && defaultAddr?.deliveryInstructions) {
+        setDeliveryInstructions(defaultAddr.deliveryInstructions);
+      }
     }
-  }, [addresses, selectedAddress]);
+  }, [addresses, deliveryInstructions, selectedAddress]);
 
-  const toggleVariant = (variantId: string) =>
-    setSelectedVariantIds((prev) =>
-      prev.includes(variantId)
-        ? prev.filter((id) => id !== variantId)
-        : [...prev, variantId],
+  const syncSelectionFromDayPlans = (
+    plans: Record<string, Record<string, number>>,
+  ) => {
+    const nextQuantities: Record<string, number> = {};
+
+    Object.values(plans).forEach((dayPlan) => {
+      Object.entries(dayPlan || {}).forEach(([variantId, quantity]) => {
+        if (quantity <= 0) return;
+        nextQuantities[variantId] = Math.max(
+          nextQuantities[variantId] ?? 0,
+          quantity,
+        );
+      });
+    });
+
+    setSelectedVariantIds(Object.keys(nextQuantities));
+    setQuantities(nextQuantities);
+  };
+
+  const chooseDeliveryDays = (nextDays: string[]) => {
+    const uniqueDays = Array.from(new Set(nextDays)).filter(Boolean);
+    setDeliveryDays(uniqueDays);
+    setActiveProductDay(uniqueDays[0] ?? "Sunday");
+    if (uniqueDays.length > 1) setFrequency("weekly");
+
+    const nextPlans = Object.fromEntries(
+      uniqueDays.map((day) => [day, dayQuantities[day] || {}]),
     );
+    setDayQuantities(nextPlans);
+    syncSelectionFromDayPlans(nextPlans);
+  };
+
+  const setDayVariantQuantity = (
+    day: string,
+    variantId: string,
+    quantity: number,
+  ) => {
+    const nextDayPlan = { ...(dayQuantities[day] || {}) };
+    const safeQuantity = Math.max(0, Math.floor(quantity));
+    if (safeQuantity > 0) nextDayPlan[variantId] = safeQuantity;
+    else delete nextDayPlan[variantId];
+
+    const nextPlans = { ...dayQuantities, [day]: nextDayPlan };
+    setDayQuantities(nextPlans);
+    syncSelectionFromDayPlans(nextPlans);
+  };
 
   useEffect(() => {
     if (frequency === "weekly") return;
-    setDeliveryDays((prev) => (prev.length > 1 ? [prev[0]] : prev));
-  }, [frequency]);
+    if (deliveryDays.length <= 1) return;
+    const firstDay = deliveryDays[0];
+    const firstDayPlan = dayQuantities[firstDay] || {};
+    const nextQuantities = Object.fromEntries(
+      Object.entries(firstDayPlan).filter(([, quantity]) => quantity > 0),
+    );
+    setDeliveryDays([firstDay]);
+    setActiveProductDay(firstDay);
+    setDayQuantities({ [firstDay]: firstDayPlan });
+    setSelectedVariantIds(Object.keys(nextQuantities));
+    setQuantities(nextQuantities);
+  }, [dayQuantities, deliveryDays, frequency]);
 
   useEffect(() => {
-    if (frequency !== "weekly" || deliveryDays.length <= 1) return;
-
-    setDayQuantities((prev) => {
-      const next: Record<string, Record<string, number>> = {};
-      const hasExplicitDayQuantities = deliveryDays.some(
-        (day) => Boolean(prev[day]) && Object.keys(prev[day] || {}).length > 0,
-      );
-
-      for (const day of deliveryDays) {
-        const previousForDay = prev[day] || {};
-        next[day] = {};
-
-        for (const variantId of selectedVariantIds) {
-          const baseQuantity = Math.max(1, quantities[variantId] ?? 1);
-          const existing = previousForDay[variantId];
-          next[day][variantId] =
-            typeof existing === "number"
-              ? Math.max(0, existing)
-              : hasExplicitDayQuantities
-                ? 0
-                : baseQuantity;
-        }
-      }
-
-      return next;
-    });
-  }, [frequency, deliveryDays, selectedVariantIds, quantities]);
+    if (deliveryDays.includes(activeProductDay)) return;
+    setActiveProductDay(deliveryDays[0] ?? "Sunday");
+  }, [activeProductDay, deliveryDays]);
 
   // Persist draft on every relevant state change
   useEffect(() => {
@@ -719,6 +824,7 @@ const NewSubscriptionPage: React.FC = () => {
       sessionStorage.setItem(
         DRAFT_KEY,
         JSON.stringify({
+          flowVersion: DRAFT_FLOW_VERSION,
           step,
           selectedVariantIds,
           quantities,
@@ -726,6 +832,7 @@ const NewSubscriptionPage: React.FC = () => {
           frequency,
           deliveryDays,
           selectedAddress,
+          deliveryInstructions,
         }),
       );
     } catch {
@@ -739,6 +846,7 @@ const NewSubscriptionPage: React.FC = () => {
     frequency,
     deliveryDays,
     selectedAddress,
+    deliveryInstructions,
   ]);
 
   const clearDraft = () => {
@@ -749,7 +857,34 @@ const NewSubscriptionPage: React.FC = () => {
     }
   };
 
-  const handleNext = () => setStep((s) => Math.min(steps.length - 1, s + 1));
+  const hasProductsForEverySelectedDay =
+    deliveryDays.length > 0 &&
+    deliveryDays.every((day) =>
+      Object.values(dayQuantities[day] || {}).some(
+        (quantity) => quantity > 0,
+      ),
+    );
+
+  const canContinue =
+    (step === 0 && deliveryDays.length > 0) ||
+    step === 1 ||
+    (step === 2 && hasProductsForEverySelectedDay) ||
+    (step === 3 && Boolean(selectedAddress));
+
+  const handleNext = () => {
+    if (!canContinue) {
+      if (step === 2) {
+        setSubmitError(
+          "Please add at least one product to each selected delivery day.",
+        );
+      } else if (step === 3) {
+        setSubmitError("Please select a delivery address.");
+      }
+      return;
+    }
+    setSubmitError(null);
+    setStep((s) => Math.min(steps.length - 1, s + 1));
+  };
   const handleBack = () => setStep((s) => Math.max(0, s - 1));
 
   const flatVariants: FlatVariant[] = products.flatMap((p) =>
@@ -768,8 +903,10 @@ const NewSubscriptionPage: React.FC = () => {
     selectedVariantIds.includes(v.variantId),
   );
 
-  const reviewSelectedDays =
-    deliveryDays.length > 0 ? deliveryDays : ["Tuesday"];
+  const reviewSelectedDays = useMemo(
+    () => (deliveryDays.length > 0 ? deliveryDays : ["Sunday"]),
+    [deliveryDays],
+  );
   const reviewIsMultiDayWeekly =
     frequency === "weekly" && reviewSelectedDays.length > 1;
 
@@ -900,7 +1037,7 @@ const NewSubscriptionPage: React.FC = () => {
       throw new Error("Please select at least one product.");
     }
 
-    const selectedDays = deliveryDays.length > 0 ? deliveryDays : ["Tuesday"];
+    const selectedDays = deliveryDays.length > 0 ? deliveryDays : ["Sunday"];
     const selectedDayIndexes = selectedDays.map(dayToIndex);
     const isMultiDayWeekly = frequency === "weekly" && selectedDays.length > 1;
     const hasExplicitDayQuantities = selectedDays.some(
@@ -971,6 +1108,7 @@ const NewSubscriptionPage: React.FC = () => {
         preferredDeliveryDays: Array.from(new Set(selectedDayIndexes)),
         deliveryDayPlans,
         deliveryAddressId: selectedAddress,
+        deliveryInstructions: deliveryInstructions.trim(),
         items: mergedItems,
       };
     }
@@ -986,6 +1124,7 @@ const NewSubscriptionPage: React.FC = () => {
           ? Array.from(new Set(selectedDayIndexes))
           : [selectedDayIndexes[0]],
       deliveryAddressId: selectedAddress,
+      deliveryInstructions: deliveryInstructions.trim(),
       items: baseItems,
     };
   };
@@ -1087,7 +1226,7 @@ const NewSubscriptionPage: React.FC = () => {
                 Step {step + 1} of {steps.length}
               </p>
             </div>
-            {step === 0 && selectedVariantIds.length > 0 && (
+            {step === 2 && selectedVariantIds.length > 0 && (
               <span className="text-[11px] text-forest font-medium whitespace-nowrap">
                 {selectedVariantIds.length} variant
                 {selectedVariantIds.length > 1 ? "s" : ""} selected
@@ -1133,378 +1272,302 @@ const NewSubscriptionPage: React.FC = () => {
       {/* Step content */}
       <div
         className={cn(
-          step === 0
-            ? "flex-1 pb-6"
-            : step === 3
-              ? "flex-1 bg-card border border-border rounded-2xl p-6 mb-6 xl:w-5/6 xl:max-w-6xl xl:mx-auto"
-              : "flex-1 bg-card border border-border rounded-2xl p-6 mb-6 xl:w-1/2 xl:mx-auto",
+          step === 2
+            ? "flex-1 pb-6 xl:w-5/6 xl:max-w-6xl xl:mx-auto"
+            : "flex-1 bg-card border border-border rounded-2xl p-6 mb-6 xl:w-1/2 xl:mx-auto",
         )}
       >
-        {/* Step 0: Select Products */}
+        {/* Step 0: Delivery days */}
         {step === 0 && (
           <div>
-            <ShopPage
-              embedded
-              hideCardQuantityStepper
-              contentGapClassName="flex flex-col lg:flex-row gap-4"
-              productGridClassName="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6"
-              sidebarStickyTopOffset={subHeaderTopOffset + subHeaderHeight + 16}
-              cardActionLabel={({ lockedVariantId }) =>
-                lockedVariantId && selectedVariantIds.includes(lockedVariantId)
-                  ? "Remove from plan"
-                  : "Add to plan"
-              }
-              cardActionClassName={({ lockedVariantId }) =>
-                lockedVariantId && selectedVariantIds.includes(lockedVariantId)
-                  ? "!bg-destructive/10 !text-destructive hover:!bg-destructive/20"
-                  : undefined
-              }
-              onCardAction={({ variant, lockedVariantId }) => {
-                const variantId = variant?.id ?? lockedVariantId;
-                if (!variantId) return;
-                toggleVariant(variantId);
-              }}
-            />
+            <h2 className="font-semibold text-foreground mb-1">
+              Which days would you like delivery?
+            </h2>
+            <p className="text-sm text-muted-foreground mb-5">
+              Choose Sunday, Wednesday, or both days.
+            </p>
+            <div className="grid gap-3 sm:grid-cols-3">
+              {["Sunday", "Wednesday"].map((day) => {
+                const selected =
+                  deliveryDays.length === 1 && deliveryDays[0] === day;
+                const unavailable =
+                  Array.isArray(availableDays) && !availableDays.includes(day);
+                return (
+                  <button
+                    key={day}
+                    type="button"
+                    disabled={unavailable}
+                    aria-pressed={selected}
+                    onClick={() => chooseDeliveryDays([day])}
+                    className={cn(
+                      "rounded-xl border p-4 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-45",
+                      selected
+                        ? "border-forest bg-forest/5"
+                        : "border-border hover:border-forest/40",
+                    )}
+                  >
+                    <p className="text-sm font-semibold text-foreground">
+                      {day}
+                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {unavailable ? "Currently unavailable" : "One delivery day"}
+                    </p>
+                  </button>
+                );
+              })}
+              <button
+                type="button"
+                disabled={
+                  Array.isArray(availableDays) &&
+                  !["Sunday", "Wednesday"].every((day) =>
+                    availableDays.includes(day),
+                  )
+                }
+                aria-pressed={deliveryDays.length > 1}
+                onClick={() => chooseDeliveryDays(["Sunday", "Wednesday"])}
+                className={cn(
+                  "rounded-xl border p-4 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-45",
+                  deliveryDays.length > 1
+                    ? "border-forest bg-forest/5"
+                    : "border-border hover:border-forest/40",
+                )}
+              >
+                <p className="text-sm font-semibold text-foreground">
+                  Both days
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Sunday and Wednesday
+                </p>
+              </button>
+            </div>
           </div>
         )}
 
-        {/* Step 1: Quantities */}
+        {/* Step 1: Frequency */}
         {step === 1 && (
           <div>
-            <h2 className="font-semibold text-foreground mb-1">Quantities</h2>
-            <p className="text-sm text-muted-foreground mb-4">
-              Set how many of each item you'd like per delivery.
-            </p>
-            {selectedFlatVariants.length === 0 ? (
-              <p className="text-muted-foreground text-sm">
-                No variants selected. Go back and select some.
-              </p>
-            ) : (
-              <div className="space-y-3">
-                {selectedFlatVariants.map((sv) => (
-                  <div
-                    key={sv.variantId}
-                    className="border border-border rounded-xl p-3 flex items-center gap-3"
-                  >
-                    {sv.image && (
-                      <img
-                        src={sv.image}
-                        alt={sv.variantName}
-                        className="w-10 h-10 rounded-lg object-cover flex-shrink-0"
-                      />
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-foreground leading-tight">
-                        {sv.productName}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {sv.variantName} · {fmt(sv.price)}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      <button
-                        className="w-7 h-7 rounded-lg border border-border flex items-center justify-center hover:bg-muted"
-                        onClick={() =>
-                          setQuantities((prev) => ({
-                            ...prev,
-                            [sv.variantId]: Math.max(
-                              1,
-                              (prev[sv.variantId] ?? 1) - 1,
-                            ),
-                          }))
-                        }
-                      >
-                        <span className="text-sm">-</span>
-                      </button>
-                      <span className="text-sm font-medium w-5 text-center">
-                        {quantities[sv.variantId] ?? 1}
-                      </span>
-                      <button
-                        className="w-7 h-7 rounded-lg border border-border flex items-center justify-center hover:bg-muted"
-                        onClick={() =>
-                          setQuantities((prev) => ({
-                            ...prev,
-                            [sv.variantId]: (prev[sv.variantId] ?? 1) + 1,
-                          }))
-                        }
-                      >
-                        <span className="text-sm">+</span>
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Step 2: Frequency */}
-        {step === 2 && (
-          <div>
             <h2 className="font-semibold text-foreground mb-1">
-              Delivery Frequency
+              How often would you like delivery?
             </h2>
-            <p className="text-sm text-muted-foreground mb-4">
-              How often would you like deliveries?
+            <p className="text-sm text-muted-foreground mb-5">
+              Choose how often this subscription should repeat.
             </p>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid gap-3 sm:grid-cols-3">
               {[
                 { value: "weekly", label: "Weekly", desc: "Every week" },
                 {
                   value: "fortnightly",
                   label: "Every 2 weeks",
-                  desc: "Fortnightly",
+                  desc: "Once every two weeks",
                 },
                 {
                   value: "monthly",
                   label: "Monthly",
-                  desc: "Every month",
+                  desc: "Once every month",
                 },
-              ].map((opt) => (
-                <button
-                  key={opt.value}
-                  onClick={() => setFrequency(opt.value)}
-                  className={cn(
-                    "p-4 rounded-xl border text-left transition-colors",
-                    frequency === opt.value
-                      ? "border-forest bg-forest/5"
-                      : "border-border hover:border-forest/40",
-                  )}
-                >
-                  <p className="text-sm font-semibold text-foreground">
-                    {opt.label}
-                  </p>
-                  <p className="text-xs text-muted-foreground">{opt.desc}</p>
-                </button>
-              ))}
+              ].map((opt) => {
+                const disabled =
+                  deliveryDays.length > 1 && opt.value !== "weekly";
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    disabled={disabled}
+                    aria-pressed={frequency === opt.value}
+                    onClick={() => setFrequency(opt.value)}
+                    className={cn(
+                      "rounded-xl border p-4 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-45",
+                      frequency === opt.value
+                        ? "border-forest bg-forest/5"
+                        : "border-border hover:border-forest/40",
+                    )}
+                  >
+                    <p className="text-sm font-semibold text-foreground">
+                      {opt.label}
+                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {opt.desc}
+                    </p>
+                  </button>
+                );
+              })}
             </div>
+            {deliveryDays.length > 1 && (
+              <p className="mt-4 rounded-lg bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
+                Both-day delivery is a weekly plan because it includes separate
+                Sunday and Wednesday orders each week.
+              </p>
+            )}
           </div>
         )}
 
-        {/* Step 3: Delivery Day */}
+        {/* Step 2: Products by selected day */}
+        {step === 2 && (
+          <div>
+            <div className="mb-5">
+              <h2 className="font-semibold text-foreground">
+                Choose products for each delivery day
+              </h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Build a separate order for every day you selected.
+              </p>
+            </div>
+
+            <div className="mb-5 flex flex-wrap gap-2" role="tablist">
+              {deliveryDays.map((day) => {
+                const itemCount = Object.values(
+                  dayQuantities[day] || {},
+                ).filter((quantity) => quantity > 0).length;
+                return (
+                  <button
+                    key={day}
+                    type="button"
+                    role="tab"
+                    aria-selected={activeProductDay === day}
+                    onClick={() => setActiveProductDay(day)}
+                    className={cn(
+                      "rounded-xl border px-4 py-2 text-sm font-medium transition-colors",
+                      activeProductDay === day
+                        ? "border-forest bg-forest text-primary-foreground"
+                        : "border-border hover:border-forest/40",
+                    )}
+                  >
+                    {day} order · {itemCount}
+                  </button>
+                );
+              })}
+            </div>
+
+            <section className="mb-6 rounded-xl border border-border bg-muted/20 p-4">
+              <h3 className="text-sm font-semibold text-foreground">
+                {activeProductDay} delivery
+              </h3>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                Adjust quantities or remove products from this day.
+              </p>
+
+              <div className="mt-3 space-y-2">
+                {selectedFlatVariants.filter(
+                  (variant) =>
+                    (dayQuantities[activeProductDay]?.[variant.variantId] ??
+                      0) > 0,
+                ).length === 0 ? (
+                  <p className="rounded-lg border border-dashed border-border px-3 py-4 text-sm text-muted-foreground">
+                    No products added to {activeProductDay} yet.
+                  </p>
+                ) : (
+                  selectedFlatVariants
+                    .filter(
+                      (variant) =>
+                        (dayQuantities[activeProductDay]?.[
+                          variant.variantId
+                        ] ?? 0) > 0,
+                    )
+                    .map((variant) => {
+                      const currentQuantity =
+                        dayQuantities[activeProductDay]?.[
+                          variant.variantId
+                        ] ?? 1;
+                      return (
+                        <div
+                          key={`${activeProductDay}-${variant.variantId}`}
+                          className="flex items-center gap-3 rounded-lg border border-border bg-background p-3"
+                        >
+                          {variant.image && (
+                            <img
+                              src={variant.image}
+                              alt=""
+                              className="h-10 w-10 shrink-0 rounded-lg object-cover"
+                            />
+                          )}
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-medium text-foreground">
+                              {variant.productName}
+                            </p>
+                            <p className="truncate text-xs text-muted-foreground">
+                              {variant.variantName} · {fmt(variant.price)}
+                            </p>
+                          </div>
+                          <div className="flex shrink-0 items-center gap-2">
+                            <button
+                              type="button"
+                              aria-label={`Decrease ${variant.variantName} quantity`}
+                              className="flex h-8 w-8 items-center justify-center rounded-lg border border-border hover:bg-muted"
+                              onClick={() =>
+                                setDayVariantQuantity(
+                                  activeProductDay,
+                                  variant.variantId,
+                                  currentQuantity - 1,
+                                )
+                              }
+                            >
+                              −
+                            </button>
+                            <span className="w-6 text-center text-sm font-medium">
+                              {currentQuantity}
+                            </span>
+                            <button
+                              type="button"
+                              aria-label={`Increase ${variant.variantName} quantity`}
+                              className="flex h-8 w-8 items-center justify-center rounded-lg border border-border hover:bg-muted"
+                              onClick={() =>
+                                setDayVariantQuantity(
+                                  activeProductDay,
+                                  variant.variantId,
+                                  currentQuantity + 1,
+                                )
+                              }
+                            >
+                              +
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })
+                )}
+              </div>
+            </section>
+
+            <ShopPage
+              embedded
+              contentGapClassName="flex flex-col lg:flex-row gap-4"
+              productGridClassName="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6"
+              sidebarStickyTopOffset={subHeaderTopOffset + subHeaderHeight + 16}
+              cardActionLabel={({ lockedVariantId }) =>
+                lockedVariantId &&
+                (dayQuantities[activeProductDay]?.[lockedVariantId] ?? 0) > 0
+                  ? `Remove from ${activeProductDay}`
+                  : `Add to ${activeProductDay}`
+              }
+              cardActionClassName={({ lockedVariantId }) =>
+                lockedVariantId &&
+                (dayQuantities[activeProductDay]?.[lockedVariantId] ?? 0) > 0
+                  ? "!bg-destructive/10 !text-destructive hover:!bg-destructive/20"
+                  : undefined
+              }
+              onCardAction={({ variant, quantity, lockedVariantId }) => {
+                const variantId = variant?.id ?? lockedVariantId;
+                if (!variantId) return;
+                const isSelected =
+                  (dayQuantities[activeProductDay]?.[variantId] ?? 0) > 0;
+                setDayVariantQuantity(
+                  activeProductDay,
+                  variantId,
+                  isSelected ? 0 : quantity,
+                );
+              }}
+            />
+          </div>
+        )}
+
+        {/* Step 3: Address and delivery instructions */}
         {step === 3 && (
           <div>
             <h2 className="font-semibold text-foreground mb-1">
-              {frequency === "weekly"
-                ? "Preferred Delivery Days"
-                : "Preferred Delivery Day"}
+              Delivery details
             </h2>
             <p className="text-sm text-muted-foreground mb-4">
-              {frequency === "weekly"
-                ? "Choose one or more delivery days for your weekly subscription."
-                : "Which day would you prefer for deliveries?"}
-            </p>
-            <div className="grid grid-cols-3 gap-2">
-              {(
-                availableDays ?? [
-                  "Monday",
-                  "Tuesday",
-                  "Wednesday",
-                  "Thursday",
-                  "Friday",
-                  "Saturday",
-                ]
-              ).map((day) => (
-                <button
-                  key={day}
-                  onClick={() => {
-                    if (frequency === "weekly") {
-                      setDeliveryDays((prev) => {
-                        if (prev.includes(day)) {
-                          return prev.length > 1
-                            ? prev.filter((d) => d !== day)
-                            : prev;
-                        }
-                        return [...prev, day];
-                      });
-                      return;
-                    }
-
-                    setDeliveryDays([day]);
-                  }}
-                  className={cn(
-                    "p-3 rounded-xl border text-sm font-medium transition-colors",
-                    deliveryDays.includes(day)
-                      ? "border-forest bg-forest text-primary-foreground"
-                      : "border-border hover:border-forest/40",
-                  )}
-                >
-                  {day}
-                </button>
-              ))}
-            </div>
-
-            {frequency === "weekly" &&
-              deliveryDays.length > 1 &&
-              selectedFlatVariants.length > 0 && (
-                <div className="mt-5 space-y-3">
-                  <div>
-                    <h3 className="text-sm font-semibold text-foreground">
-                      Products per day
-                    </h3>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      Each card below is one delivery order. Choose which
-                      products are included for that specific day.
-                    </p>
-                  </div>
-
-                  {deliveryDays.map((day, dayIndex) => {
-                    const summaryRows = selectedFlatVariants.map((sv) => ({
-                      quantity:
-                        dayQuantities[day]?.[sv.variantId] ??
-                        Math.max(1, quantities[sv.variantId] ?? 1),
-                    }));
-                    const includedCount = summaryRows.filter(
-                      (row) => row.quantity > 0,
-                    ).length;
-                    const totalQty = summaryRows.reduce(
-                      (sum, row) => sum + Math.max(0, row.quantity),
-                      0,
-                    );
-
-                    return (
-                      <div
-                        key={day}
-                        className="rounded-xl border border-border p-3 space-y-2"
-                      >
-                        <div className="rounded-lg border border-border/70 bg-muted/15 px-3 py-2">
-                          <p className="text-sm font-semibold text-foreground">
-                            {day} delivery order
-                          </p>
-                          <p className="text-xs text-muted-foreground mt-0.5">
-                            {includedCount} product
-                            {includedCount === 1 ? "" : "s"} selected ·{" "}
-                            {totalQty} total item{totalQty === 1 ? "" : "s"}
-                          </p>
-                        </div>
-
-                        <div className="flex items-center justify-between gap-2 flex-wrap">
-                          <p className="text-sm font-semibold text-foreground">
-                            Order {dayIndex + 1}: {day}
-                          </p>
-                          <span className="text-xs text-muted-foreground">
-                            {includedCount} selected · {totalQty} total qty
-                          </span>
-                        </div>
-                        <div className="space-y-2">
-                          {selectedFlatVariants.map((sv) => {
-                            const currentQty =
-                              dayQuantities[day]?.[sv.variantId] ??
-                              Math.max(1, quantities[sv.variantId] ?? 1);
-                            const isIncluded = currentQty > 0;
-
-                            return (
-                              <div
-                                key={`${day}-${sv.variantId}`}
-                                className={cn(
-                                  "flex items-center justify-between gap-3 rounded-lg border border-border/60 p-2",
-                                  !isIncluded && "opacity-65",
-                                )}
-                              >
-                                <div className="flex items-center gap-2 min-w-0 flex-1">
-                                  {sv.image ? (
-                                    <img
-                                      src={sv.image}
-                                      alt={sv.variantName}
-                                      className="w-10 h-10 rounded-lg object-cover flex-shrink-0"
-                                    />
-                                  ) : (
-                                    <div className="w-10 h-10 rounded-lg bg-muted/40 border border-border/50 flex-shrink-0" />
-                                  )}
-                                  <div className="min-w-0">
-                                    <p className="text-sm font-medium text-foreground truncate">
-                                      {sv.variantName}
-                                    </p>
-                                    <p className="text-xs text-muted-foreground truncate">
-                                      {sv.productName}
-                                    </p>
-                                  </div>
-                                </div>
-                                <div className="flex items-center gap-2 flex-shrink-0">
-                                  <button
-                                    type="button"
-                                    className={cn(
-                                      "h-7 px-2 rounded-lg border text-xs font-medium min-w-[78px]",
-                                      isIncluded
-                                        ? "border-forest/60 bg-forest/10 text-foreground"
-                                        : "border-border text-muted-foreground hover:border-forest/40",
-                                    )}
-                                    onClick={() =>
-                                      setDayQuantities((prev) => ({
-                                        ...prev,
-                                        [day]: {
-                                          ...(prev[day] || {}),
-                                          [sv.variantId]: isIncluded
-                                            ? 0
-                                            : Math.max(
-                                                1,
-                                                quantities[sv.variantId] ?? 1,
-                                              ),
-                                        },
-                                      }))
-                                    }
-                                  >
-                                    {isIncluded ? "Included" : "Excluded"}
-                                  </button>
-                                  <button
-                                    type="button"
-                                    className="w-7 h-7 rounded-lg border border-border flex items-center justify-center hover:bg-muted"
-                                    disabled={!isIncluded}
-                                    onClick={() =>
-                                      setDayQuantities((prev) => ({
-                                        ...prev,
-                                        [day]: {
-                                          ...(prev[day] || {}),
-                                          [sv.variantId]: Math.max(
-                                            0,
-                                            currentQty - 1,
-                                          ),
-                                        },
-                                      }))
-                                    }
-                                  >
-                                    <span className="text-sm">-</span>
-                                  </button>
-                                  <span className="text-sm font-medium w-6 text-center">
-                                    {currentQty}
-                                  </span>
-                                  <button
-                                    type="button"
-                                    className="w-7 h-7 rounded-lg border border-border flex items-center justify-center hover:bg-muted"
-                                    disabled={!isIncluded}
-                                    onClick={() =>
-                                      setDayQuantities((prev) => ({
-                                        ...prev,
-                                        [day]: {
-                                          ...(prev[day] || {}),
-                                          [sv.variantId]: currentQty + 1,
-                                        },
-                                      }))
-                                    }
-                                  >
-                                    <span className="text-sm">+</span>
-                                  </button>
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-          </div>
-        )}
-
-        {/* Step 4: Address */}
-        {step === 4 && (
-          <div>
-            <h2 className="font-semibold text-foreground mb-1">
-              Delivery Address
-            </h2>
-            <p className="text-sm text-muted-foreground mb-4">
-              Where should we deliver?
+              Choose an address and add any instructions for the driver.
             </p>
             {addressesLoading ? (
               <div className="flex items-center justify-center py-8">
@@ -1519,11 +1582,16 @@ const NewSubscriptionPage: React.FC = () => {
                 <div className="space-y-2 mb-4">
                   {addresses.map((addr) => (
                     <button
-                      key={addr._id}
-                      onClick={() => setSelectedAddress(addr._id ?? "")}
+                      key={addr._id ?? addr.id}
+                      onClick={() => {
+                        setSelectedAddress(addr._id ?? addr.id ?? "");
+                        setDeliveryInstructions(
+                          addr.deliveryInstructions ?? "",
+                        );
+                      }}
                       className={cn(
                         "w-full text-left p-3 rounded-xl border transition-colors",
-                        selectedAddress === addr._id
+                        selectedAddress === (addr._id ?? addr.id)
                           ? "border-forest bg-forest/5"
                           : "border-border hover:border-forest/40",
                       )}
@@ -1542,11 +1610,35 @@ const NewSubscriptionPage: React.FC = () => {
             <Button variant="outline" size="sm" asChild>
               <Link to="/portal/addresses">Add new address</Link>
             </Button>
+
+            <div className="mt-6">
+              <label
+                htmlFor="subscription-delivery-instructions"
+                className="mb-2 block text-sm font-medium text-foreground"
+              >
+                Delivery instructions{" "}
+                <span className="text-muted-foreground">(optional)</span>
+              </label>
+              <textarea
+                id="subscription-delivery-instructions"
+                value={deliveryInstructions}
+                onChange={(event) =>
+                  setDeliveryInstructions(event.target.value.slice(0, 500))
+                }
+                rows={4}
+                maxLength={500}
+                placeholder="For example: leave by the side gate or ring the doorbell."
+                className="input-field resize-y"
+              />
+              <p className="mt-1 text-right text-xs text-muted-foreground">
+                {deliveryInstructions.length}/500
+              </p>
+            </div>
           </div>
         )}
 
-        {/* Step 5: Review */}
-        {step === 5 && (
+        {/* Step 4: Review and payment */}
+        {step === 4 && (
           <div>
             {isPreparedSubscription && (
               <div className="mb-5 rounded-xl border border-forest/20 bg-forest/5 p-4">
@@ -1560,7 +1652,7 @@ const NewSubscriptionPage: React.FC = () => {
               </div>
             )}
             <h2 className="font-semibold text-foreground mb-1">
-              Review & Confirm
+              Review & Payment
             </h2>
             <p className="text-sm text-muted-foreground mb-4">
               Check your subscription details before confirming.
@@ -1610,6 +1702,11 @@ const NewSubscriptionPage: React.FC = () => {
                         <br />
                         {reviewAddressDetails.city},{" "}
                         {reviewAddressDetails.postcode}
+                      </p>
+                    ) : null}
+                    {deliveryInstructions.trim() ? (
+                      <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                        Instructions: {deliveryInstructions.trim()}
                       </p>
                     ) : null}
                   </div>
@@ -1854,9 +1951,8 @@ const NewSubscriptionPage: React.FC = () => {
               {(showNewForm || savedMethods.length === 0) && (
                 <div className="pt-2 space-y-2">
                   <p className="text-xs text-muted-foreground">
-                    Apple Pay and Google Pay appear automatically when your
-                    device and browser support them. Card entry is always
-                    available as a fallback.
+                    Apple Pay and Google Pay are shown first on supported
+                    devices and browsers. Card entry is always available below.
                     {window.location.protocol !== "https:" && (
                       <span className="block mt-0.5 text-amber-600 dark:text-amber-400">
                         ⚠ Wallet buttons require HTTPS — use the card form on
@@ -1898,7 +1994,12 @@ const NewSubscriptionPage: React.FC = () => {
       </div>
 
       {/* Navigation */}
-      <div className="sticky bottom-0 z-30 mt-6 -mx-4 sm:-mx-6 lg:-mx-8 xl:w-1/2 xl:mx-auto">
+      <div
+        className={cn(
+          "sticky bottom-0 z-30 mt-6 -mx-4 sm:-mx-6 lg:-mx-8 xl:mx-auto",
+          step === 2 ? "xl:w-5/6 xl:max-w-6xl" : "xl:w-1/2",
+        )}
+      >
         <div className="rounded-none border border-border bg-background/95 px-3 py-3 shadow-sm backdrop-blur-sm sm:px-6 lg:px-3">
           <div className="flex justify-between">
             <Button
@@ -1920,7 +2021,7 @@ const NewSubscriptionPage: React.FC = () => {
             {step < steps.length - 1 ? (
               <Button
                 onClick={handleNext}
-                disabled={step === 0 && selectedVariantIds.length === 0}
+                disabled={!canContinue}
               >
                 Next
                 <ArrowRight className="h-4 w-4" />

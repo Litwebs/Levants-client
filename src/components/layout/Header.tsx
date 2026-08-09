@@ -236,28 +236,30 @@ const Header: React.FC<HeaderProps> = ({
       <div className="bg-card/95 backdrop-blur-md border-b border-border">
         <div className="container-custom">
           <div className="flex items-center justify-between h-16 lg:h-20">
-            <button
-              className="lg:hidden p-2 -ml-2 text-foreground hover:text-primary transition-colors"
-              onClick={onMenuClick ?? (() => setIsMenuOpen(!isMenuOpen))}
-              aria-label="Toggle menu"
-            >
-              {!onMenuClick && isMenuOpen ? (
-                <X className="w-6 h-6" />
-              ) : (
-                <Menu className="w-6 h-6" />
-              )}
-            </button>
+            <div className="flex items-center gap-1 sm:gap-2">
+              <button
+                className="lg:hidden p-2 -ml-2 text-foreground hover:text-primary transition-colors"
+                onClick={onMenuClick ?? (() => setIsMenuOpen(!isMenuOpen))}
+                aria-label="Toggle menu"
+              >
+                {!onMenuClick && isMenuOpen ? (
+                  <X className="w-6 h-6" />
+                ) : (
+                  <Menu className="w-6 h-6" />
+                )}
+              </button>
 
-            <Link to="/" className="hidden sm:flex items-center gap-2">
-              <img
-                src={businessInfo.logoUrl}
-                alt={`${businessInfo.companyName} logo`}
-                className="w-7 h-7 lg:w-8 lg:h-8 rounded-full object-cover"
-              />
-              <h1 className="font-heading text-xl lg:text-2xl font-semibold text-primary max-w-48 lg:max-w-72 truncate">
-                {businessInfo.companyName}
-              </h1>
-            </Link>
+              <Link to="/" className="flex items-center gap-2">
+                <img
+                  src={businessInfo.logoUrl}
+                  alt={`${businessInfo.companyName} logo`}
+                  className="w-8 h-8 rounded-full object-cover"
+                />
+                <h1 className="hidden sm:block font-heading text-xl lg:text-2xl font-semibold text-primary max-w-48 lg:max-w-72 truncate">
+                  {businessInfo.companyName}
+                </h1>
+              </Link>
+            </div>
 
             <nav className="hidden lg:flex items-center gap-8">
               {navLinks.map((link) => (

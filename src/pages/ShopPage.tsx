@@ -183,7 +183,9 @@ const ShopPage: React.FC<ShopPageProps> = ({
       category: categoryFilter,
       search: searchQuery || undefined,
       sort:
-        sortBy === "price-low"
+        sortBy === "featured"
+          ? "category_order"
+          : sortBy === "price-low"
           ? "price_asc"
           : sortBy === "price-high"
             ? "price_desc"
@@ -245,7 +247,7 @@ const ShopPage: React.FC<ShopPageProps> = ({
 
   // Map backend products to ProductCard-compatible shape
   const mappedProducts = useMemo(() => {
-    return products.map((p) => ({
+    const mapped = products.map((p) => ({
       id: p.id,
       name: p.name,
       category: p.category,
@@ -284,7 +286,11 @@ const ShopPage: React.FC<ShopPageProps> = ({
           : ("in-stock" as const),
       badges: [] as string[],
     }));
-  }, [products]);
+
+    return sortBy === "featured"
+      ? sortByStorefrontCategoryOrder(mapped, (product) => product.category)
+      : mapped;
+  }, [products, sortBy]);
 
   const productVariantCards = useMemo(() => {
     return mappedProducts.flatMap((product) => {
@@ -456,7 +462,7 @@ const ShopPage: React.FC<ShopPageProps> = ({
                   onChange={(e) => handleSortChange(e.target.value)}
                   className="w-full input-field py-2.5 pr-10 appearance-none cursor-pointer"
                 >
-                  <option value="featured">Featured</option>
+                  <option value="featured">Category order</option>
                   <option value="price-low">Price: Low to High</option>
                   <option value="price-high">Price: High to Low</option>
                   <option value="name">Name A-Z</option>
@@ -479,7 +485,7 @@ const ShopPage: React.FC<ShopPageProps> = ({
                   onChange={(e) => handleSortChange(e.target.value)}
                   className="input-field py-2 pr-10 appearance-none cursor-pointer min-w-[180px]"
                 >
-                  <option value="featured">Featured</option>
+                  <option value="featured">Category order</option>
                   <option value="price-low">Price: Low to High</option>
                   <option value="price-high">Price: High to Low</option>
                   <option value="name">Name A-Z</option>

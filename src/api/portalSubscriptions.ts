@@ -150,6 +150,7 @@ export type CreateSubscriptionPayload = {
     items: Array<{ variantId: string; quantity: number }>;
   }>;
   deliveryAddressId: string;
+  deliveryInstructions?: string;
   notes?: string;
   items: Array<{ variantId: string; quantity: number }>;
 };
