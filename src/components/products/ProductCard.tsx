@@ -233,12 +233,12 @@ const ProductCard: React.FC<ProductCardProps> = ({
           <button
             onClick={handleAction}
             disabled={currentStockStatus === "out-of-stock"}
-            className={`h-10 min-w-0 flex-1 btn-primary flex items-center justify-center gap-2 whitespace-nowrap px-3 py-0 disabled:opacity-50 disabled:cursor-not-allowed ${
+            className={`h-10 min-w-0 flex-1 btn-primary flex items-center justify-center gap-2 overflow-hidden px-3 py-0 disabled:opacity-50 disabled:cursor-not-allowed ${
               actionClassName || ""
             }`}
           >
             <ShoppingBag className="h-4 w-4 shrink-0" />
-            <span className="whitespace-nowrap text-sm">
+            <span className="text-sm truncate">
               {actionLabel || "Subscribe"}
             </span>
           </button>

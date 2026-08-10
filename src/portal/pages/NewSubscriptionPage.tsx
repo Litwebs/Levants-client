@@ -226,6 +226,10 @@ const formatCycleLabel = (value: string) => {
   return "every week";
 };
 
+const getAddressId = (
+  address: { _id?: string; id?: string } | null | undefined,
+) => address?._id || address?.id || "";
+
 const SubscriptionPaymentForm: React.FC<{
   onComplete: (paymentMethodId: string) => Promise<void>;
   onError: (message: string) => void;
@@ -692,8 +696,7 @@ const NewSubscriptionPage: React.FC = () => {
   // Load a fresh SetupIntent when the new-payment form becomes visible
   useEffect(() => {
     const needsForm =
-      (showNewForm || savedMethods.length === 0) &&
-      step === steps.length - 1;
+      (showNewForm || savedMethods.length === 0) && step === steps.length - 1;
     if (!needsForm) return;
     if (setupClientSecret) return; // already loaded
 
@@ -742,12 +745,21 @@ const NewSubscriptionPage: React.FC = () => {
 
   // Set default address when addresses load
   useEffect(() => {
-    if (addresses.length > 0 && !selectedAddress) {
-      const defaultAddr = addresses.find((a) => a.isDefault) ?? addresses[0];
-      setSelectedAddress(defaultAddr?._id ?? defaultAddr?.id ?? "");
-      if (!deliveryInstructions && defaultAddr?.deliveryInstructions) {
-        setDeliveryInstructions(defaultAddr.deliveryInstructions);
-      }
+    if (addresses.length === 0) return;
+
+    const currentAddressExists = addresses.some(
+      (address) => getAddressId(address) === selectedAddress,
+    );
+
+    if (currentAddressExists) return;
+
+    const defaultAddr = addresses.find((a) => a.isDefault) ?? addresses[0];
+    const nextAddressId = getAddressId(defaultAddr);
+    if (!nextAddressId) return;
+
+    setSelectedAddress(nextAddressId);
+    if (!deliveryInstructions && defaultAddr?.deliveryInstructions) {
+      setDeliveryInstructions(defaultAddr.deliveryInstructions);
     }
   }, [addresses, deliveryInstructions, selectedAddress]);
 
@@ -860,9 +872,7 @@ const NewSubscriptionPage: React.FC = () => {
   const hasProductsForEverySelectedDay =
     deliveryDays.length > 0 &&
     deliveryDays.every((day) =>
-      Object.values(dayQuantities[day] || {}).some(
-        (quantity) => quantity > 0,
-      ),
+      Object.values(dayQuantities[day] || {}).some((quantity) => quantity > 0),
     );
 
   const canContinue =
@@ -1003,7 +1013,7 @@ const NewSubscriptionPage: React.FC = () => {
 
   const reviewTotal = reviewSubtotal + reviewDeliveryFeeTotal;
   const reviewAddressDetails =
-    addresses.find((a) => a._id === selectedAddress) ?? null;
+    addresses.find((a) => getAddressId(a) === selectedAddress) ?? null;
   const selectedPaymentMethod =
     savedMethods.find((method) => method._id === selectedMethodId) ?? null;
   const reviewFrequencyLabel = formatFrequencyLabel(frequency);
@@ -1310,7 +1320,9 @@ const NewSubscriptionPage: React.FC = () => {
                       {day}
                     </p>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      {unavailable ? "Currently unavailable" : "One delivery day"}
+                      {unavailable
+                        ? "Currently unavailable"
+                        : "One delivery day"}
                     </p>
                   </button>
                 );
@@ -1459,15 +1471,13 @@ const NewSubscriptionPage: React.FC = () => {
                   selectedFlatVariants
                     .filter(
                       (variant) =>
-                        (dayQuantities[activeProductDay]?.[
-                          variant.variantId
-                        ] ?? 0) > 0,
+                        (dayQuantities[activeProductDay]?.[variant.variantId] ??
+                          0) > 0,
                     )
                     .map((variant) => {
                       const currentQuantity =
-                        dayQuantities[activeProductDay]?.[
-                          variant.variantId
-                        ] ?? 1;
+                        dayQuantities[activeProductDay]?.[variant.variantId] ??
+                        1;
                       return (
                         <div
                           key={`${activeProductDay}-${variant.variantId}`}
@@ -2019,10 +2029,7 @@ const NewSubscriptionPage: React.FC = () => {
               {step === 0 || isPreparedSubscription ? "Cancel" : "Back"}
             </Button>
             {step < steps.length - 1 ? (
-              <Button
-                onClick={handleNext}
-                disabled={!canContinue}
-              >
+              <Button onClick={handleNext} disabled={!canContinue}>
                 Next
                 <ArrowRight className="h-4 w-4" />
               </Button>
