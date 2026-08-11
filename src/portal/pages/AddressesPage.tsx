@@ -256,10 +256,20 @@ const AddressesPage: React.FC = () => {
       await deleteAddress(deleteAddressId);
       setDeleteAddressId(null);
     } catch (err) {
-      const errorMessage =
+      let errorMessage =
         err instanceof Error ? err.message : "Failed to delete address";
+
+      // Add helpful suggestions for address not found errors
+      if (
+        errorMessage.toLowerCase().includes("not found") ||
+        errorMessage.toLowerCase().includes("already been removed")
+      ) {
+        errorMessage +=
+          " Try refreshing the page to see the current list of addresses.";
+      }
+
       setFormError(errorMessage);
-      throw err;
+      // Don't throw - just show the error to the user
     } finally {
       setDeleteLoading(false);
     }

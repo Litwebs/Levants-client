@@ -465,7 +465,6 @@ const SubscriptionDetailPage: React.FC = () => {
             sub,
             Boolean(nextCutoff?.isPastCutoff),
             selectedDayNames,
-            nextCutoff,
           ),
         );
       }
@@ -689,13 +688,12 @@ const SubscriptionDetailPage: React.FC = () => {
       subscription,
       Boolean(cutoff?.isPastCutoff),
       deliveryDays,
-      cutoff,
     );
   }, [subscription, cutoff, deliveryDays]);
 
   const liveDayPlanBaseline = useMemo(() => {
     if (!subscription) return {} as Record<string, EditableSubscriptionItem[]>;
-    return buildEditableDayPlans(subscription, false, deliveryDays, cutoff);
+    return buildEditableDayPlans(subscription, false, deliveryDays);
   }, [subscription, deliveryDays]);
 
   const hasScheduledMultiDayPlanChanges = Boolean(
@@ -945,13 +943,6 @@ const SubscriptionDetailPage: React.FC = () => {
     };
 
     const selectedDays = normalizeDayIndexes(deliveryDays.map(dayNameToIndex));
-    const payload = {
-      preferredDeliveryDay: dayNameToIndex(deliveryDays[0] || "Tuesday"),
-      preferredDeliveryDays: selectedDays,
-      deliveryDayPlans: buildDeliveryDayPlansPayload(),
-      deliveryAddressId: selectedAddressId,
-    };
-
     const previousDays = normalizeDayIndexes(
       Array.isArray(subscription?.preferredDeliveryDays) &&
         subscription.preferredDeliveryDays.length > 0
@@ -961,10 +952,28 @@ const SubscriptionDetailPage: React.FC = () => {
     const removedDays = previousDays.filter(
       (day) => !selectedDays.includes(day),
     );
+
+    // Only trigger refund if reducing the number of delivery days
+    // (e.g., multi-day → fewer days). Don't refund for simple day changes
+    // (e.g., Wednesday → Sunday when both are single-day subscriptions)
+    const isReducingDays = selectedDays.length < previousDays.length;
+
+    const payload = {
+      preferredDeliveryDay: dayNameToIndex(deliveryDays[0] || "Tuesday"),
+      preferredDeliveryDays: selectedDays,
+      deliveryDayPlans: buildDeliveryDayPlansPayload(),
+      deliveryAddressId: selectedAddressId,
+      // Only include changed days for refund if reducing the delivery schedule
+      ...(isReducingDays &&
+        removedDays.length > 0 && { changedDeliveryDays: removedDays }),
+    };
+
+    // Only ask for refund method if reducing delivery days
     const shouldAskRefundMethod =
+      isReducingDays &&
       removedDays.length > 0 &&
-      Boolean(cutoff) &&
-      removedDays.some((day) => !isDayPastOwnCutoff(day, cutoff as any));
+      (!cutoff ||
+        removedDays.some((day) => !isDayPastOwnCutoff(day, cutoff as any)));
 
     if (shouldAskRefundMethod) {
       setPendingDeliveryDetailsSave(payload);
@@ -1491,7 +1500,7 @@ const SubscriptionDetailPage: React.FC = () => {
               {hasValidCancellationDate && (
                 <div className="mt-1 text-xs text-blue-700 dark:text-sky-200">
                   Scheduled cancellation date:{" "}
-                  {formatDate(cancellationEffectiveAt)}
+                  {formatDate(cancellationEffectiveAt?.toISOString())}
                 </div>
               )}
             </div>

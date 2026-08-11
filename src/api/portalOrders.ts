@@ -53,6 +53,8 @@ export type PortalOrder = {
   currency?: string;
   customerInstructions?: string;
   deliveryDate?: string | null;
+  deliveryChangeAllowed?: boolean;
+  deliveryChangeCutoffAt?: string | null;
   paidAt?: string | null;
   amountPaid?: number;
   stripePaymentIntentId?: string;
@@ -103,6 +105,14 @@ type GetReceiptUrlResponse = {
   receiptUrl: string;
 };
 
+type UpdateOrderDeliveryResponse = {
+  order: PortalOrder;
+};
+
+export type UpdateOrderDeliveryPayload = {
+  deliveryAddressId: string;
+};
+
 export type ListOrdersQuery = {
   page?: number;
   pageSize?: number;
@@ -118,6 +128,12 @@ export const portalOrdersApi = {
 
   getById: (orderId: string) =>
     api.get<ApiEnvelope<GetOrderResponse>>(`${base}/${orderId}`),
+
+  updateDelivery: (orderId: string, payload: UpdateOrderDeliveryPayload) =>
+    api.patch<ApiEnvelope<UpdateOrderDeliveryResponse>>(
+      `${base}/${orderId}/delivery`,
+      payload,
+    ),
 
   getReceiptUrl: (orderId: string) =>
     api.get<ApiEnvelope<GetReceiptUrlResponse>>(`${base}/${orderId}/receipt-url`),

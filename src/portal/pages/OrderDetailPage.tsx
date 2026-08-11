@@ -8,11 +8,14 @@ import {
   Circle,
   Clock,
   XCircle,
+  Pencil,
+  Save,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { ApiError, resolveApiUrl, resolveImageUrl } from "@/api/client";
 import { portalOrdersApi, type PortalOrder } from "@/api/portalOrders";
+import { portalAddressesApi, type PortalAddress } from "@/api/portalAddresses";
 
 const formatDate = (iso?: string | null) => {
   if (!iso) return "-";
@@ -32,6 +35,31 @@ const formatDateTime = (iso?: string | null) => {
     hour: "2-digit",
     minute: "2-digit",
   });
+};
+
+const formatAddressOption = (address: PortalAddress) =>
+  [address.label, address.line1, address.city, address.postcode]
+    .filter(Boolean)
+    .join(" - ");
+
+const getAddressId = (address: PortalAddress) =>
+  address._id || address.id || "";
+
+const addressMatchesOrder = (address: PortalAddress, order: PortalOrder) => {
+  const normalize = (value?: string | null) =>
+    String(value || "")
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, " ");
+  const deliveryAddress = order.deliveryAddress;
+
+  return (
+    normalize(address.line1) === normalize(deliveryAddress.line1) &&
+    normalize(address.line2) === normalize(deliveryAddress.line2) &&
+    normalize(address.city) === normalize(deliveryAddress.city) &&
+    normalize(address.postcode) === normalize(deliveryAddress.postcode) &&
+    normalize(address.country) === normalize(deliveryAddress.country)
+  );
 };
 
 const formatMoney = (amount: number, currency = "GBP") =>
@@ -135,6 +163,11 @@ const OrderDetailPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [receiptLoading, setReceiptLoading] = useState(false);
+  const [addresses, setAddresses] = useState<PortalAddress[]>([]);
+  const [isEditingDelivery, setIsEditingDelivery] = useState(false);
+  const [deliveryAddressId, setDeliveryAddressId] = useState("");
+  const [deliverySaving, setDeliverySaving] = useState(false);
+  const [deliveryNotice, setDeliveryNotice] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -151,7 +184,29 @@ const OrderDetailPage: React.FC = () => {
         setError(null);
         const res = await portalOrdersApi.getById(id);
         const data = (res as any)?.data;
-        if (!cancelled) setOrder(data?.order || null);
+        const loadedOrder = data?.order || null;
+        if (!cancelled) {
+          setOrder(loadedOrder);
+        }
+
+        try {
+          const addressRes = await portalAddressesApi.list();
+          if (!cancelled) {
+            const savedAddresses =
+              ((addressRes as any)?.data?.addresses as PortalAddress[]) || [];
+            setAddresses(savedAddresses);
+            const currentAddress = loadedOrder
+              ? savedAddresses.find((address) =>
+                  addressMatchesOrder(address, loadedOrder),
+                )
+              : null;
+            setDeliveryAddressId(
+              currentAddress ? getAddressId(currentAddress) : "",
+            );
+          }
+        } catch {
+          if (!cancelled) setAddresses([]);
+        }
       } catch (err) {
         if (cancelled) return;
         const msg =
@@ -175,6 +230,19 @@ const OrderDetailPage: React.FC = () => {
     () => (order ? getDeliveryStatus(order) : "ordered"),
     [order],
   );
+
+  const currentAddressId = useMemo(
+    () =>
+      order
+        ? getAddressId(
+            addresses.find((address) => addressMatchesOrder(address, order)) ||
+              ({} as PortalAddress),
+          )
+        : "",
+    [addresses, order],
+  );
+
+  const hasDeliveryChanges = deliveryAddressId !== currentAddressId;
 
   if (loading) {
     return (
@@ -265,6 +333,42 @@ const OrderDetailPage: React.FC = () => {
       setError(msg);
     } finally {
       setReceiptLoading(false);
+    }
+  };
+
+  const handleSaveDelivery = async () => {
+    if (!order) return;
+    if (!deliveryAddressId) {
+      setError("Please select a saved delivery address.");
+      return;
+    }
+    try {
+      setDeliverySaving(true);
+      setError(null);
+      setDeliveryNotice(null);
+      const res = await portalOrdersApi.updateDelivery(order._id, {
+        deliveryAddressId,
+      });
+      const updatedOrder = (res as any)?.data?.order as PortalOrder | undefined;
+      if (updatedOrder) {
+        setOrder(updatedOrder);
+        const updatedAddress = addresses.find((address) =>
+          addressMatchesOrder(address, updatedOrder),
+        );
+        setDeliveryAddressId(
+          updatedAddress ? getAddressId(updatedAddress) : "",
+        );
+      }
+      setIsEditingDelivery(false);
+      setDeliveryNotice("Delivery details updated.");
+    } catch (err) {
+      setError(
+        err instanceof ApiError
+          ? err.message
+          : "Unable to update delivery details.",
+      );
+    } finally {
+      setDeliverySaving(false);
     }
   };
 
@@ -425,6 +529,22 @@ const OrderDetailPage: React.FC = () => {
                 </p>
               </div>
             )}
+            {order.deliveryChangeAllowed && (
+              <div className="pt-1">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setIsEditingDelivery((value) => !value);
+                    setDeliveryNotice(null);
+                  }}
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                  Change delivery
+                </Button>
+              </div>
+            )}
             {order.customerInstructions && (
               <div>
                 <p className="text-xs text-muted-foreground uppercase tracking-wide mb-0.5">
@@ -437,6 +557,78 @@ const OrderDetailPage: React.FC = () => {
             )}
           </div>
         </div>
+
+        {deliveryNotice && (
+          <p className="text-sm text-forest">{deliveryNotice}</p>
+        )}
+
+        {isEditingDelivery && order.deliveryChangeAllowed && (
+          <>
+            <Separator />
+            <div className="space-y-4">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <h4 className="text-sm font-semibold text-foreground">
+                    Change Delivery
+                  </h4>
+                  <p className="text-xs text-muted-foreground">
+                    Changes are available until{" "}
+                    {formatDateTime(order.deliveryChangeCutoffAt)}.
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setIsEditingDelivery(false)}
+                  disabled={deliverySaving}
+                >
+                  Cancel
+                </Button>
+              </div>
+
+              <div>
+                <label className="space-y-1.5 text-sm font-medium text-foreground">
+                  Saved delivery address
+                  <select
+                    value={deliveryAddressId}
+                    onChange={(event) =>
+                      setDeliveryAddressId(event.target.value)
+                    }
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                    disabled={deliverySaving}
+                  >
+                    {!currentAddressId && (
+                      <option value="">Current delivery address</option>
+                    )}
+                    {addresses.map((address) => {
+                      const addressId = getAddressId(address);
+                      return (
+                        <option key={addressId} value={addressId}>
+                          {formatAddressOption(address)}
+                        </option>
+                      );
+                    })}
+                  </select>
+                </label>
+              </div>
+
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => void handleSaveDelivery()}
+                disabled={deliverySaving || !hasDeliveryChanges}
+              >
+                {deliverySaving ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Save className="h-4 w-4" />
+                )}
+                Save delivery changes
+              </Button>
+            </div>
+          </>
+        )}
 
         {hasPaymentDeliveryEvents && (
           <>

@@ -246,10 +246,13 @@ const SubscriptionPaymentForm: React.FC<{
 
   const handleStripeError = (error: { code?: string; message?: string }) => {
     const message = error.message || "Failed to save payment method.";
+    const normalizedMessage = message.toLowerCase();
     const setupExpired =
       error.code === "resource_missing" ||
-      message.toLowerCase().includes("no such setupintent") ||
-      message.toLowerCase().includes("setup intent has expired");
+      normalizedMessage.includes("no such setupintent") ||
+      normalizedMessage.includes("setup intent has expired") ||
+      normalizedMessage.includes("setupintent is in a terminal state") ||
+      normalizedMessage.includes("cannot be used to initialize elements");
     if (setupExpired) {
       onSetupExpired();
       onError(
@@ -875,11 +878,15 @@ const NewSubscriptionPage: React.FC = () => {
       Object.values(dayQuantities[day] || {}).some((quantity) => quantity > 0),
     );
 
+  const selectedAddressValid =
+    Boolean(selectedAddress) &&
+    addresses.some((a) => getAddressId(a) === selectedAddress);
+
   const canContinue =
     (step === 0 && deliveryDays.length > 0) ||
     step === 1 ||
     (step === 2 && hasProductsForEverySelectedDay) ||
-    (step === 3 && Boolean(selectedAddress));
+    (step === 3 && selectedAddressValid);
 
   const handleNext = () => {
     if (!canContinue) {
@@ -1041,6 +1048,16 @@ const NewSubscriptionPage: React.FC = () => {
   const buildSubscriptionPayload = () => {
     if (!selectedAddress) {
       throw new Error("Please select a delivery address.");
+    }
+
+    // Validate that the selected address actually exists
+    const addressExists = addresses.some(
+      (a) => getAddressId(a) === selectedAddress,
+    );
+    if (!addressExists) {
+      throw new Error(
+        "The selected address is no longer available. Please select another address.",
+      );
     }
 
     if (selectedFlatVariants.length === 0) {
