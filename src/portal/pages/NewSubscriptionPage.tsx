@@ -525,6 +525,7 @@ const NewSubscriptionPage: React.FC = () => {
     addresses,
     loading: addressesLoading,
     fetchAddresses,
+    createAddress,
   } = useAddresses();
   const [selectedVariantIds, setSelectedVariantIds] = useState<string[]>(
     () => (draft?.selectedVariantIds as string[] | undefined) ?? [],
@@ -567,8 +568,85 @@ const NewSubscriptionPage: React.FC = () => {
   const [deliveryInstructions, setDeliveryInstructions] = useState(
     () => (draft?.deliveryInstructions as string | undefined) ?? "",
   );
+  const [isAddressFormOpen, setIsAddressFormOpen] = useState(false);
+  const [newAddressForm, setNewAddressForm] = useState({
+    fullName: "",
+    phone: "",
+    line1: "",
+    line2: "",
+    city: "",
+    postcode: "",
+    country: "",
+    deliveryInstructions: "",
+    isDefault: false,
+  });
+  const [newAddressError, setNewAddressError] = useState<string | null>(null);
+  const [newAddressLoading, setNewAddressLoading] = useState(false);
   const [submitLoading, setSubmitLoading] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+
+  const resetNewAddressForm = () => {
+    setNewAddressForm({
+      fullName: "",
+      phone: "",
+      line1: "",
+      line2: "",
+      city: "",
+      postcode: "",
+      country: "",
+      deliveryInstructions: "",
+      isDefault: false,
+    });
+    setNewAddressError(null);
+    setIsAddressFormOpen(false);
+  };
+
+  const handleCreateAddress = async () => {
+    const line1 = newAddressForm.line1.trim();
+    const city = newAddressForm.city.trim();
+    const postcode = newAddressForm.postcode.trim();
+    const country = newAddressForm.country.trim();
+
+    if (!line1 || !city || !postcode || !country) {
+      setNewAddressError("Please complete the required address fields.");
+      return;
+    }
+
+    try {
+      setNewAddressLoading(true);
+      setNewAddressError(null);
+
+      const createdAddress = await createAddress({
+        ...newAddressForm,
+        fullName: newAddressForm.fullName.trim(),
+        phone: newAddressForm.phone.trim(),
+        line1,
+        line2: newAddressForm.line2.trim(),
+        city,
+        postcode,
+        country,
+        deliveryInstructions: newAddressForm.deliveryInstructions.trim(),
+        isDefault: newAddressForm.isDefault,
+      });
+
+      const nextAddressId = createdAddress._id ?? createdAddress.id ?? "";
+      if (nextAddressId) {
+        setSelectedAddress(nextAddressId);
+        const nextInstructions =
+          createdAddress.deliveryInstructions ??
+          newAddressForm.deliveryInstructions.trim();
+        setDeliveryInstructions(nextInstructions);
+      }
+
+      resetNewAddressForm();
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to create address";
+      setNewAddressError(message);
+    } finally {
+      setNewAddressLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (!isPreparedSubscription || draft) return;
@@ -1634,9 +1712,197 @@ const NewSubscriptionPage: React.FC = () => {
                 </div>
               </>
             )}
-            <Button variant="outline" size="sm" asChild>
-              <Link to="/portal/addresses">Add new address</Link>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setIsAddressFormOpen((open) => !open)}
+            >
+              Add new address
             </Button>
+
+            {isAddressFormOpen && (
+              <div className="mt-4 rounded-xl border border-border bg-card p-4 space-y-4">
+                {newAddressError && (
+                  <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+                    {newAddressError}
+                  </div>
+                )}
+
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium text-foreground">
+                      Full name
+                    </label>
+                    <input
+                      value={newAddressForm.fullName}
+                      onChange={(event) =>
+                        setNewAddressForm((prev) => ({
+                          ...prev,
+                          fullName: event.target.value,
+                        }))
+                      }
+                      className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none ring-0 transition-colors placeholder:text-muted-foreground focus:border-forest"
+                      placeholder="Sarah Mitchell"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium text-foreground">
+                      Phone number
+                    </label>
+                    <input
+                      value={newAddressForm.phone}
+                      onChange={(event) =>
+                        setNewAddressForm((prev) => ({
+                          ...prev,
+                          phone: event.target.value,
+                        }))
+                      }
+                      className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none ring-0 transition-colors placeholder:text-muted-foreground focus:border-forest"
+                      placeholder="+44 7700 900000"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-foreground">
+                    Address line 1{" "}
+                    <span className="text-muted-foreground">*</span>
+                  </label>
+                  <input
+                    value={newAddressForm.line1}
+                    onChange={(event) =>
+                      setNewAddressForm((prev) => ({
+                        ...prev,
+                        line1: event.target.value,
+                      }))
+                    }
+                    className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none ring-0 transition-colors placeholder:text-muted-foreground focus:border-forest"
+                    placeholder="14 Meadow Lane"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-foreground">
+                    Address line 2 (optional)
+                  </label>
+                  <input
+                    value={newAddressForm.line2}
+                    onChange={(event) =>
+                      setNewAddressForm((prev) => ({
+                        ...prev,
+                        line2: event.target.value,
+                      }))
+                    }
+                    className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none ring-0 transition-colors placeholder:text-muted-foreground focus:border-forest"
+                    placeholder="Flat 3"
+                  />
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium text-foreground">
+                      City <span className="text-muted-foreground">*</span>
+                    </label>
+                    <input
+                      value={newAddressForm.city}
+                      onChange={(event) =>
+                        setNewAddressForm((prev) => ({
+                          ...prev,
+                          city: event.target.value,
+                        }))
+                      }
+                      className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none ring-0 transition-colors placeholder:text-muted-foreground focus:border-forest"
+                      placeholder="Manchester"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium text-foreground">
+                      Postcode <span className="text-muted-foreground">*</span>
+                    </label>
+                    <input
+                      value={newAddressForm.postcode}
+                      onChange={(event) =>
+                        setNewAddressForm((prev) => ({
+                          ...prev,
+                          postcode: event.target.value,
+                        }))
+                      }
+                      className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none ring-0 transition-colors placeholder:text-muted-foreground focus:border-forest"
+                      placeholder="M14 5TF"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-foreground">
+                    Country <span className="text-muted-foreground">*</span>
+                  </label>
+                  <input
+                    value={newAddressForm.country}
+                    onChange={(event) =>
+                      setNewAddressForm((prev) => ({
+                        ...prev,
+                        country: event.target.value,
+                      }))
+                    }
+                    className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none ring-0 transition-colors placeholder:text-muted-foreground focus:border-forest"
+                    placeholder="United Kingdom"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-foreground">
+                    Delivery instructions (optional)
+                  </label>
+                  <textarea
+                    value={newAddressForm.deliveryInstructions}
+                    onChange={(event) =>
+                      setNewAddressForm((prev) => ({
+                        ...prev,
+                        deliveryInstructions: event.target.value,
+                      }))
+                    }
+                    rows={3}
+                    maxLength={500}
+                    className="w-full resize-y rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none ring-0 transition-colors placeholder:text-muted-foreground focus:border-forest"
+                    placeholder="Leave at the side gate or ring the doorbell."
+                  />
+                </div>
+
+                <label className="flex items-center gap-2 text-sm text-foreground">
+                  <input
+                    type="checkbox"
+                    checked={newAddressForm.isDefault}
+                    onChange={(event) =>
+                      setNewAddressForm((prev) => ({
+                        ...prev,
+                        isDefault: event.target.checked,
+                      }))
+                    }
+                    className="h-4 w-4 rounded border-input text-forest focus:ring-forest"
+                  />
+                  Set as default delivery address
+                </label>
+
+                <div className="flex justify-end gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={resetNewAddressForm}
+                    type="button"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleCreateAddress}
+                    disabled={newAddressLoading}
+                    type="button"
+                  >
+                    {newAddressLoading ? "Saving..." : "Save address"}
+                  </Button>
+                </div>
+              </div>
+            )}
 
             <div className="mt-6">
               <label

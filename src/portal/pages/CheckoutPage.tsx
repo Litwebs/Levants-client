@@ -28,8 +28,23 @@ const CheckoutPage: React.FC = () => {
     addresses,
     loading: addressesLoading,
     fetchAddresses,
+    createAddress,
   } = useAddresses();
   const [selectedAddress, setSelectedAddress] = useState<string | null>(null);
+  const [showAddressForm, setShowAddressForm] = useState(false);
+  const [newAddressForm, setNewAddressForm] = useState({
+    fullName: "",
+    phone: "",
+    line1: "",
+    line2: "",
+    city: "",
+    postcode: "",
+    country: "",
+    deliveryInstructions: "",
+    isDefault: false,
+  });
+  const [newAddressError, setNewAddressError] = useState<string | null>(null);
+  const [newAddressLoading, setNewAddressLoading] = useState(false);
   const [selectedPayment, setSelectedPayment] = useState(
     mockPaymentMethods.find((p) => p.isDefault)?.id ??
       mockPaymentMethods[0]?.id,
@@ -49,6 +64,65 @@ const CheckoutPage: React.FC = () => {
       setSelectedAddress(defaultAddr?._id ?? addresses[0]?._id ?? null);
     }
   }, [addresses, selectedAddress]);
+
+  const resetNewAddressForm = () => {
+    setNewAddressForm({
+      fullName: "",
+      phone: "",
+      line1: "",
+      line2: "",
+      city: "",
+      postcode: "",
+      country: "",
+      deliveryInstructions: "",
+      isDefault: false,
+    });
+    setNewAddressError(null);
+    setShowAddressForm(false);
+  };
+
+  const handleCreateAddress = async () => {
+    const line1 = newAddressForm.line1.trim();
+    const city = newAddressForm.city.trim();
+    const postcode = newAddressForm.postcode.trim();
+    const country = newAddressForm.country.trim();
+
+    if (!line1 || !city || !postcode || !country) {
+      setNewAddressError("Please complete the required address fields.");
+      return;
+    }
+
+    try {
+      setNewAddressLoading(true);
+      setNewAddressError(null);
+
+      const createdAddress = await createAddress({
+        ...newAddressForm,
+        fullName: newAddressForm.fullName.trim(),
+        phone: newAddressForm.phone.trim(),
+        line1,
+        line2: newAddressForm.line2.trim(),
+        city,
+        postcode,
+        country,
+        deliveryInstructions: newAddressForm.deliveryInstructions.trim(),
+        isDefault: newAddressForm.isDefault,
+      });
+
+      const nextAddressId = createdAddress._id ?? createdAddress.id ?? null;
+      if (nextAddressId) {
+        setSelectedAddress(nextAddressId);
+      }
+
+      resetNewAddressForm();
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to create address";
+      setNewAddressError(message);
+    } finally {
+      setNewAddressLoading(false);
+    }
+  };
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -118,12 +192,188 @@ const CheckoutPage: React.FC = () => {
                 </div>
               </>
             )}
-            <Button variant="outline" size="sm" asChild>
-              <Link to="/portal/addresses">
-                <MapPin className="h-3.5 w-3.5" />
-                Add new address
-              </Link>
+            <Button
+              variant="outline"
+              size="sm"
+              type="button"
+              onClick={() => setShowAddressForm((current) => !current)}
+            >
+              <MapPin className="h-3.5 w-3.5" />
+              Add new address
             </Button>
+
+            {showAddressForm && (
+              <div className="mt-4 rounded-xl border border-border bg-card p-4 space-y-4">
+                {newAddressError && (
+                  <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+                    {newAddressError}
+                  </div>
+                )}
+
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="checkout-address-fullname">Full name</Label>
+                    <input
+                      id="checkout-address-fullname"
+                      value={newAddressForm.fullName}
+                      onChange={(event) =>
+                        setNewAddressForm((prev) => ({
+                          ...prev,
+                          fullName: event.target.value,
+                        }))
+                      }
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="checkout-address-phone">Phone number</Label>
+                    <input
+                      id="checkout-address-phone"
+                      value={newAddressForm.phone}
+                      onChange={(event) =>
+                        setNewAddressForm((prev) => ({
+                          ...prev,
+                          phone: event.target.value,
+                        }))
+                      }
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="checkout-address-line1">
+                    Address line 1 *
+                  </Label>
+                  <input
+                    id="checkout-address-line1"
+                    value={newAddressForm.line1}
+                    onChange={(event) =>
+                      setNewAddressForm((prev) => ({
+                        ...prev,
+                        line1: event.target.value,
+                      }))
+                    }
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="checkout-address-line2">
+                    Address line 2 (optional)
+                  </Label>
+                  <input
+                    id="checkout-address-line2"
+                    value={newAddressForm.line2}
+                    onChange={(event) =>
+                      setNewAddressForm((prev) => ({
+                        ...prev,
+                        line2: event.target.value,
+                      }))
+                    }
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  />
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="checkout-address-city">City *</Label>
+                    <input
+                      id="checkout-address-city"
+                      value={newAddressForm.city}
+                      onChange={(event) =>
+                        setNewAddressForm((prev) => ({
+                          ...prev,
+                          city: event.target.value,
+                        }))
+                      }
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="checkout-address-postcode">
+                      Postcode *
+                    </Label>
+                    <input
+                      id="checkout-address-postcode"
+                      value={newAddressForm.postcode}
+                      onChange={(event) =>
+                        setNewAddressForm((prev) => ({
+                          ...prev,
+                          postcode: event.target.value,
+                        }))
+                      }
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="checkout-address-country">Country *</Label>
+                  <input
+                    id="checkout-address-country"
+                    value={newAddressForm.country}
+                    onChange={(event) =>
+                      setNewAddressForm((prev) => ({
+                        ...prev,
+                        country: event.target.value,
+                      }))
+                    }
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="checkout-address-delivery-instructions">
+                    Delivery instructions (optional)
+                  </Label>
+                  <Textarea
+                    id="checkout-address-delivery-instructions"
+                    value={newAddressForm.deliveryInstructions}
+                    onChange={(event) =>
+                      setNewAddressForm((prev) => ({
+                        ...prev,
+                        deliveryInstructions: event.target.value,
+                      }))
+                    }
+                    rows={3}
+                    maxLength={500}
+                  />
+                </div>
+
+                <label className="flex items-center gap-2 text-sm text-foreground">
+                  <input
+                    type="checkbox"
+                    checked={newAddressForm.isDefault}
+                    onChange={(event) =>
+                      setNewAddressForm((prev) => ({
+                        ...prev,
+                        isDefault: event.target.checked,
+                      }))
+                    }
+                    className="h-4 w-4 rounded border-input text-forest focus:ring-forest"
+                  />
+                  Set as default delivery address
+                </label>
+
+                <div className="flex justify-end gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={resetNewAddressForm}
+                    type="button"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleCreateAddress}
+                    disabled={newAddressLoading}
+                    type="button"
+                  >
+                    {newAddressLoading ? "Saving..." : "Save address"}
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Delivery Date & Window */}
