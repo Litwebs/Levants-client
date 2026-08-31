@@ -91,6 +91,21 @@ export type PortalSubscriptionDelivery = {
     deliveryStatus?: string;
     total?: number;
   } | null;
+  addOns?: Array<{
+    operationId: string;
+    amountMinor: number;
+    stripePaymentIntentId: string;
+    paidAt: string;
+    items: Array<{
+      product: string;
+      variant: string;
+      name: string;
+      sku: string;
+      unitPrice: number;
+      quantity: number;
+      subtotal: number;
+    }>;
+  }>;
 };
 
 export type PaginationMeta = {
@@ -139,6 +154,16 @@ type SubscriptionSettingsResponse = {
 type DeliveriesResponse = {
   deliveries: PortalSubscriptionDelivery[];
   meta: PaginationMeta;
+};
+
+type DeliveryAddOnResponse = {
+  delivery: PortalSubscriptionDelivery;
+  chargedMinor: number;
+  order?: {
+    _id: string;
+    orderId?: string;
+    total?: number;
+  } | null;
 };
 
 export type CreateSubscriptionPayload = {
@@ -218,6 +243,18 @@ export const portalSubscriptionsApi = {
     },
   ) =>
     api.post<ApiEnvelope<SubscriptionResponse>>(`${base}/${subscriptionId}/items`, payload),
+
+  addNextDeliveryAddOn: (
+    subscriptionId: string,
+    payload: {
+      operationId: string;
+      items: Array<{ variantId: string; quantity: number }>;
+    },
+  ) =>
+    api.post<ApiEnvelope<DeliveryAddOnResponse>>(
+      `${base}/${subscriptionId}/next-delivery/add-ons`,
+      payload,
+    ),
 
   updateItem: (
     subscriptionId: string,

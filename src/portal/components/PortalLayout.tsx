@@ -66,9 +66,10 @@ const PortalLayoutInner: React.FC<PortalLayoutProps> = ({ children }) => {
   const navigate = useNavigate();
   const isSubscriptionBuilderRoute =
     location.pathname === "/portal/subscriptions/new";
-  const isAddProductsRoute = /\/portal\/subscriptions\/.+\/add-products$/.test(
-    location.pathname,
-  );
+  const isAddProductsRoute =
+    /\/portal\/subscriptions\/.+\/(add-products|next-delivery\/add-ons)$/.test(
+      location.pathname,
+    );
   const hideDesktopSidebar = isSubscriptionBuilderRoute || isAddProductsRoute;
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);

@@ -11,6 +11,7 @@ import {
   Play,
   X,
   Loader2,
+  ShoppingBag,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -2236,9 +2237,27 @@ const SubscriptionDetailPage: React.FC = () => {
           </section>
 
           <section className="bg-card border border-border rounded-2xl p-4 sm:p-5">
-            <h3 className="font-semibold text-foreground mb-3 text-base sm:text-lg">
-              Upcoming Deliveries
-            </h3>
+            <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h3 className="font-semibold text-foreground text-base sm:text-lg">
+                  Upcoming Deliveries
+                </h3>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  Add a one-time product to your next delivery without changing
+                  the subscription.
+                </p>
+              </div>
+              {subscription.status === "active" && deliveries.length > 0 && (
+                <Button asChild size="sm" className="shrink-0">
+                  <Link
+                    to={`/portal/subscriptions/${id}/next-delivery/add-ons`}
+                  >
+                    <ShoppingBag className="h-3.5 w-3.5" />
+                    Add to next delivery
+                  </Link>
+                </Button>
+              )}
+            </div>
             {deliveries.length === 0 ? (
               <p className="text-sm text-muted-foreground">
                 No upcoming deliveries.
@@ -2247,12 +2266,30 @@ const SubscriptionDetailPage: React.FC = () => {
               <div className="space-y-2">
                 {deliveries.map((d, i) => (
                   <div
-                    key={i}
+                    key={d._id || i}
                     className="rounded-xl border border-border/70 bg-muted/10 px-3 py-2.5 flex items-center justify-between gap-2"
                   >
-                    <span className="text-sm font-medium text-foreground">
-                      {formatDate(d.scheduledDate)}
-                    </span>
+                    <div>
+                      <span className="text-sm font-medium text-foreground">
+                        {formatDate(d.scheduledDate)}
+                      </span>
+                      {i === 0 && (d.addOns || []).length > 0 && (
+                        <p className="mt-0.5 text-xs text-forest">
+                          {(d.addOns || []).reduce(
+                            (count, addOn) => count + addOn.items.length,
+                            0,
+                          )}{" "}
+                          one-time add-on
+                          {(d.addOns || []).reduce(
+                            (count, addOn) => count + addOn.items.length,
+                            0,
+                          ) === 1
+                            ? ""
+                            : "s"}{" "}
+                          confirmed
+                        </p>
+                      )}
+                    </div>
                     <DeliveryStatusBadge status={d.status as any} />
                   </div>
                 ))}
