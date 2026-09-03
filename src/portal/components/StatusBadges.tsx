@@ -116,6 +116,7 @@ const deliveryStatusConfig: Record<
   { label: string; dot: string }
 > = {
   scheduled: { label: "Scheduled", dot: "bg-blue-500" },
+  generated: { label: "Generated", dot: "bg-emerald-500" },
   preparing: { label: "Preparing", dot: "bg-amber-400" },
   "out-for-delivery": { label: "Out for Delivery", dot: "bg-orange-500" },
   delivered: { label: "Delivered", dot: "bg-emerald-500" },
@@ -124,10 +125,10 @@ const deliveryStatusConfig: Record<
 };
 
 export const DeliveryStatusBadge: React.FC<{
-  status: DeliveryStatus;
+  status: string;
   className?: string;
 }> = ({ status, className }) => {
-  const cfg = deliveryStatusConfig[status] ?? {
+  const cfg = deliveryStatusConfig[status as DeliveryStatus] ?? {
     label: status,
     dot: "bg-gray-400",
   };

@@ -12,6 +12,7 @@ import {
   X,
   Loader2,
   ShoppingBag,
+  ChevronDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -209,6 +210,84 @@ const formatMoney = (amount: number) =>
 
 const SUBSCRIPTION_DELIVERY_FEE = 1;
 
+const getDeliveryAddOnTotal = (delivery: PortalSubscriptionDelivery) =>
+  (delivery.addOns || []).reduce(
+    (sum, addOn) => sum + Number(addOn.amountMinor || 0) / 100,
+    0,
+  );
+
+const getDeliveryAddOnQuantity = (delivery: PortalSubscriptionDelivery) =>
+  (delivery.addOns || []).reduce(
+    (total, addOn) =>
+      total +
+      addOn.items.reduce(
+        (itemTotal, item) => itemTotal + Number(item.quantity || 0),
+        0,
+      ),
+    0,
+  );
+
+const getDeliveryAddOnItems = (delivery: PortalSubscriptionDelivery) => {
+  const itemsByVariant = new Map<
+    string,
+    { key: string; name: string; quantity: number; subtotal: number }
+  >();
+
+  for (const addOn of delivery.addOns || []) {
+    for (const item of addOn.items) {
+      const key = String(item.variant || item.sku || item.name);
+      const current = itemsByVariant.get(key);
+      if (current) {
+        current.quantity += Number(item.quantity || 0);
+        current.subtotal += Number(item.subtotal || 0);
+        continue;
+      }
+      itemsByVariant.set(key, {
+        key,
+        name: item.name,
+        quantity: Number(item.quantity || 0),
+        subtotal: Number(item.subtotal || 0),
+      });
+    }
+  }
+
+  return Array.from(itemsByVariant.values());
+};
+
+const getRecurringItemsForDelivery = (
+  delivery: PortalSubscriptionDelivery,
+  subscription: PortalSubscription,
+) => {
+  const deliveryDay = new Date(delivery.scheduledDate).getDay();
+  const dayPlan = subscription.deliveryDayPlans?.find(
+    (plan) => Number(plan.day) === deliveryDay,
+  );
+  return dayPlan?.items?.length ? dayPlan.items : subscription.items;
+};
+
+const getRecurringSubtotalForDelivery = (
+  delivery: PortalSubscriptionDelivery,
+  subscription: PortalSubscription,
+) =>
+  getRecurringItemsForDelivery(delivery, subscription).reduce(
+    (sum, item) =>
+      sum + Number(item.unitPrice || 0) * Number(item.quantity || 0),
+    0,
+  );
+
+const getTotalForDelivery = (
+  delivery: PortalSubscriptionDelivery,
+  subscription: PortalSubscription,
+) => {
+  const orderTotal = Number(delivery.order?.total);
+  if (Number.isFinite(orderTotal) && orderTotal > 0) return orderTotal;
+  return (
+    getRecurringSubtotalForDelivery(delivery, subscription) +
+    SUBSCRIPTION_DELIVERY_FEE +
+    getDeliveryAddOnTotal(delivery)
+  );
+};
+
 const formatDayList = (days: string[]) => {
   if (days.length <= 1) return days[0] || "the selected day";
   if (days.length === 2) return `${days[0]} and ${days[1]}`;
@@ -342,6 +421,9 @@ const SubscriptionDetailPage: React.FC = () => {
   const [notice, setNotice] = useState<string | null>(null);
   const [pauseResumeOn, setPauseResumeOn] = useState("");
   const [pauseError, setPauseError] = useState<string | null>(null);
+  const [expandedDeliveryId, setExpandedDeliveryId] = useState<string | null>(
+    null,
+  );
 
   const [pauseOpen, setPauseOpen] = useState(false);
   const [resumeOpen, setResumeOpen] = useState(false);
@@ -677,6 +759,18 @@ const SubscriptionDetailPage: React.FC = () => {
     () => total + deliveryFeeTotal,
     [total, deliveryFeeTotal],
   );
+
+  const nextDelivery = deliveries[0] || null;
+  const nextDeliveryAddOnTotal = nextDelivery
+    ? getDeliveryAddOnTotal(nextDelivery)
+    : 0;
+  const nextDeliveryAddOnItems = nextDelivery
+    ? getDeliveryAddOnItems(nextDelivery)
+    : [];
+  const nextDeliveryTotal =
+    nextDelivery && subscription
+      ? getTotalForDelivery(nextDelivery, subscription)
+      : 0;
 
   const editableBaseline = useMemo(() => {
     if (!subscription) return [];
@@ -2264,35 +2358,157 @@ const SubscriptionDetailPage: React.FC = () => {
               </p>
             ) : (
               <div className="space-y-2">
-                {deliveries.map((d, i) => (
-                  <div
-                    key={d._id || i}
-                    className="rounded-xl border border-border/70 bg-muted/10 px-3 py-2.5 flex items-center justify-between gap-2"
-                  >
-                    <div>
-                      <span className="text-sm font-medium text-foreground">
-                        {formatDate(d.scheduledDate)}
-                      </span>
-                      {i === 0 && (d.addOns || []).length > 0 && (
-                        <p className="mt-0.5 text-xs text-forest">
-                          {(d.addOns || []).reduce(
-                            (count, addOn) => count + addOn.items.length,
-                            0,
-                          )}{" "}
-                          one-time add-on
-                          {(d.addOns || []).reduce(
-                            (count, addOn) => count + addOn.items.length,
-                            0,
-                          ) === 1
-                            ? ""
-                            : "s"}{" "}
-                          confirmed
-                        </p>
+                {deliveries.map((delivery, index) => {
+                  const deliveryId = delivery._id || `delivery-${index}`;
+                  const detailsId = `delivery-details-${deliveryId}`;
+                  const isExpanded = expandedDeliveryId === deliveryId;
+                  const recurringItems = getRecurringItemsForDelivery(
+                    delivery,
+                    subscription,
+                  );
+                  const recurringSubtotal = getRecurringSubtotalForDelivery(
+                    delivery,
+                    subscription,
+                  );
+                  const addOnTotal = getDeliveryAddOnTotal(delivery);
+                  const addOnQuantity = getDeliveryAddOnQuantity(delivery);
+                  const deliveryTotal = getTotalForDelivery(
+                    delivery,
+                    subscription,
+                  );
+
+                  return (
+                    <div
+                      key={deliveryId}
+                      className="overflow-hidden rounded-xl border border-border/70 bg-muted/10 transition-colors hover:border-forest/30"
+                    >
+                      <button
+                        type="button"
+                        aria-expanded={isExpanded}
+                        aria-controls={detailsId}
+                        aria-label={`${isExpanded ? "Hide" : "View"} details for ${formatDate(delivery.scheduledDate)}`}
+                        onClick={() =>
+                          setExpandedDeliveryId((current) =>
+                            current === deliveryId ? null : deliveryId,
+                          )
+                        }
+                        className="flex w-full items-center justify-between gap-3 px-3 py-3 text-left outline-none transition-colors hover:bg-muted/30 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-forest"
+                      >
+                        <span>
+                          <span className="block text-sm font-medium text-foreground">
+                            {formatDate(delivery.scheduledDate)}
+                          </span>
+                          {addOnQuantity > 0 && (
+                            <span className="mt-0.5 block text-xs text-forest">
+                              {addOnQuantity} one-time add-on
+                              {addOnQuantity === 1 ? "" : "s"} confirmed
+                            </span>
+                          )}
+                        </span>
+                        <span className="flex shrink-0 items-center gap-2">
+                          <DeliveryStatusBadge status={delivery.status} />
+                          <ChevronDown
+                            aria-hidden="true"
+                            className={cn(
+                              "h-4 w-4 text-muted-foreground transition-transform",
+                              isExpanded && "rotate-180",
+                            )}
+                          />
+                        </span>
+                      </button>
+
+                      {isExpanded && (
+                        <div
+                          id={detailsId}
+                          role="region"
+                          aria-label={`Delivery details for ${formatDate(delivery.scheduledDate)}`}
+                          className="border-t border-border/70 bg-card px-3 py-3"
+                        >
+                          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                            Subscription items
+                          </p>
+                          <div className="space-y-1.5 text-sm">
+                            {recurringItems.map((item) => (
+                              <div
+                                key={`${deliveryId}-${item._id || item.sku}`}
+                                className="flex items-start justify-between gap-3"
+                              >
+                                <span className="text-foreground">
+                                  {item.name} × {item.quantity}
+                                </span>
+                                <span className="shrink-0 text-muted-foreground">
+                                  {formatMoney(
+                                    Number(item.unitPrice || 0) *
+                                      Number(item.quantity || 0),
+                                  )}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+
+                          {(delivery.addOns || []).length > 0 && (
+                            <div className="mt-3 border-t border-border/70 pt-3">
+                              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-forest">
+                                One-time add-ons
+                              </p>
+                              <div className="space-y-1.5 text-sm">
+                                {(delivery.addOns || []).flatMap((addOn) =>
+                                  addOn.items.map((item, itemIndex) => (
+                                    <div
+                                      key={`${addOn.operationId}-${item.variant}-${itemIndex}`}
+                                      className="flex items-start justify-between gap-3"
+                                    >
+                                      <span className="text-foreground">
+                                        {item.name} × {item.quantity}
+                                      </span>
+                                      <span className="shrink-0 text-muted-foreground">
+                                        {formatMoney(Number(item.subtotal || 0))}
+                                      </span>
+                                    </div>
+                                  )),
+                                )}
+                              </div>
+                            </div>
+                          )}
+
+                          <div className="mt-3 space-y-1.5 border-t border-border/70 pt-3 text-sm">
+                            <div className="flex items-center justify-between gap-3 text-muted-foreground">
+                              <span>Subscription items</span>
+                              <span>{formatMoney(recurringSubtotal)}</span>
+                            </div>
+                            {addOnTotal > 0 && (
+                              <div className="flex items-center justify-between gap-3 text-forest">
+                                <span>One-time add-ons</span>
+                                <span>{formatMoney(addOnTotal)}</span>
+                              </div>
+                            )}
+                            <div className="flex items-center justify-between gap-3 text-muted-foreground">
+                              <span>Delivery fee</span>
+                              <span>{formatMoney(SUBSCRIPTION_DELIVERY_FEE)}</span>
+                            </div>
+                            <div className="flex items-center justify-between gap-3 border-t border-border/70 pt-2 font-semibold text-foreground">
+                              <span>Delivery total</span>
+                              <span>{formatMoney(deliveryTotal)}</span>
+                            </div>
+                          </div>
+
+                          {delivery.order?._id && (
+                            <Button
+                              asChild
+                              variant="outline"
+                              size="sm"
+                              className="mt-3 w-full sm:w-auto"
+                            >
+                              <Link to={`/portal/orders/${delivery.order._id}`}>
+                                View order {delivery.order.orderId || "details"}
+                              </Link>
+                            </Button>
+                          )}
+                        </div>
                       )}
                     </div>
-                    <DeliveryStatusBadge status={d.status as any} />
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </section>
@@ -2380,6 +2596,48 @@ const SubscriptionDetailPage: React.FC = () => {
                       : formatMoney(totalWithDeliveryFee)}
                   </span>
                 </div>
+                {nextDelivery && nextDeliveryAddOnTotal > 0 && (
+                  <div className="space-y-2 border-t border-border/70 pt-2">
+                    <div className="flex items-center justify-between text-forest">
+                      <span>One-time add-ons</span>
+                      <span className="font-medium">
+                        +{formatMoney(nextDeliveryAddOnTotal)}
+                      </span>
+                    </div>
+                    <ul
+                      aria-label="Items added to next delivery"
+                      className="space-y-1.5 rounded-lg bg-forest/5 p-2.5 dark:bg-emerald-500/10"
+                    >
+                      {nextDeliveryAddOnItems.map((item) => (
+                        <li
+                          key={item.key}
+                          className="flex items-start justify-between gap-3 text-xs"
+                        >
+                          <span className="min-w-0 break-words text-foreground">
+                            {item.name}
+                            <span className="ml-1 text-muted-foreground">
+                              × {item.quantity}
+                            </span>
+                          </span>
+                          <span className="shrink-0 font-medium text-foreground">
+                            {formatMoney(item.subtotal)}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium text-foreground">
+                        Next delivery total
+                      </span>
+                      <span className="font-bold text-foreground">
+                        {formatMoney(nextDeliveryTotal)}
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Includes the one-time add-ons for {formatDate(nextDelivery.scheduledDate)}.
+                    </p>
+                  </div>
+                )}
                 {isMultiDayWeekly ? (
                   <div className="space-y-1 pt-1 border-t border-border/70">
                     {perDayPricing.map((entry) => (

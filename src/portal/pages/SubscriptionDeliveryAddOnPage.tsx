@@ -8,8 +8,19 @@ import {
   Plus,
   ShoppingBag,
   Trash2,
+  TriangleAlert,
 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import ShopPage from "@/pages/ShopPage";
 import { ApiError } from "@/api/client";
@@ -77,6 +88,7 @@ const SubscriptionDeliveryAddOnPage: React.FC = () => {
   const [selected, setSelected] = useState<Record<string, SelectedAddOn>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [confirmationOpen, setConfirmationOpen] = useState(false);
   const [retryLocked, setRetryLocked] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [siteHeaderHeight, setSiteHeaderHeight] = useState(0);
@@ -467,7 +479,13 @@ const SubscriptionDeliveryAddOnPage: React.FC = () => {
               <Button
                 className="mt-4 w-full"
                 disabled={saving || selectedItems.length === 0}
-                onClick={() => void submit()}
+                onClick={() => {
+                  if (retryLocked) {
+                    void submit();
+                    return;
+                  }
+                  setConfirmationOpen(true);
+                }}
               >
                 {saving ? (
                   <>
@@ -484,6 +502,47 @@ const SubscriptionDeliveryAddOnPage: React.FC = () => {
           </aside>
         </div>
       )}
+
+      <AlertDialog
+        open={confirmationOpen}
+        onOpenChange={(open) => {
+          if (!saving) setConfirmationOpen(open);
+        }}
+      >
+        <AlertDialogContent className="w-[calc(100%-2rem)] max-w-md rounded-xl">
+          <AlertDialogHeader>
+            <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-amber-100 text-amber-700 sm:mx-0 dark:bg-amber-500/15 dark:text-amber-300">
+              <TriangleAlert className="h-5 w-5" aria-hidden="true" />
+            </div>
+            <AlertDialogTitle>Confirm your one-time add-on</AlertDialogTitle>
+            <AlertDialogDescription className="space-y-3 text-left">
+              <span className="block">
+                This purchase cannot be changed or reversed after you confirm
+                it. Your saved card will be charged immediately.
+              </span>
+              <span className="block rounded-lg bg-muted/60 p-3 text-foreground">
+                <span className="flex justify-between gap-4 font-medium">
+                  <span>Charge now</span>
+                  <span>{formatMoney(newAddOnTotal)}</span>
+                </span>
+                <span className="mt-1 block text-xs text-muted-foreground">
+                  Delivered once on {formatDate(delivery?.scheduledDate)}.
+                  Future subscription deliveries will not change.
+                </span>
+              </span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={saving}>Go back</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={saving}
+              onClick={() => void submit()}
+            >
+              {`Charge ${formatMoney(newAddOnTotal)} now`}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

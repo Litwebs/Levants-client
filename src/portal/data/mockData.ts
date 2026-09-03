@@ -313,6 +313,7 @@ export const mockSubscriptions: Subscription[] = [
 // ─── Deliveries ───────────────────────────────────────────────────────────────
 export type DeliveryStatus =
   | "scheduled"
+  | "generated"
   | "preparing"
   | "out-for-delivery"
   | "delivered"
