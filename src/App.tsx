@@ -43,6 +43,7 @@ import SubscriptionsPage from "@/portal/pages/SubscriptionsPage";
 import NewSubscriptionPage from "@/portal/pages/NewSubscriptionPage";
 import SubscriptionDetailPage from "@/portal/pages/SubscriptionDetailPage";
 import SubscriptionAddProductsPage from "@/portal/pages/SubscriptionAddProductsPage";
+import SubscriptionDeliveryAddOnPage from "@/portal/pages/SubscriptionDeliveryAddOnPage";
 import PaymentsPage from "@/portal/pages/PaymentsPage";
 import AddressesPage from "@/portal/pages/AddressesPage";
 import SupportPage from "@/portal/pages/SupportPage";
@@ -432,6 +433,16 @@ const App = () => {
                       <RequirePortalAuth>
                         <PortalLayout>
                           <SubscriptionAddProductsPage />
+                        </PortalLayout>
+                      </RequirePortalAuth>
+                    }
+                  />
+                  <Route
+                    path="/portal/subscriptions/:id/next-delivery/add-ons"
+                    element={
+                      <RequirePortalAuth>
+                        <PortalLayout>
+                          <SubscriptionDeliveryAddOnPage />
                         </PortalLayout>
                       </RequirePortalAuth>
                     }
