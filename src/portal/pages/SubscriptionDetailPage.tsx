@@ -420,6 +420,8 @@ const SubscriptionDetailPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [pauseResumeOn, setPauseResumeOn] = useState("");
+  const [pauseRefundMethod, setPauseRefundMethod] =
+    useState<SubscriptionRefundMethod>("refund");
   const [pauseError, setPauseError] = useState<string | null>(null);
   const [expandedDeliveryId, setExpandedDeliveryId] = useState<string | null>(
     null,
@@ -1145,7 +1147,11 @@ const SubscriptionDetailPage: React.FC = () => {
       setError(null);
       setNotice(null);
       setPauseError(null);
-      const res = await portalSubscriptionsApi.pause(id, pauseResumeOn);
+      const res = await portalSubscriptionsApi.pause(
+        id,
+        pauseResumeOn,
+        pauseRefundMethod,
+      );
       await load();
       setPauseOpen(false);
       const message = (res as any)?.message || "Subscription paused.";
@@ -2688,6 +2694,7 @@ const SubscriptionDetailPage: React.FC = () => {
           setPauseOpen(open);
           if (!open) {
             setPauseError(null);
+            setPauseRefundMethod("refund");
           }
         }}
       >
@@ -2717,6 +2724,29 @@ const SubscriptionDetailPage: React.FC = () => {
                 Choose a date between {formatDate(pauseMinDate)} and{" "}
                 {formatDate(pauseMaxDate)}.
               </p>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-foreground">
+                  Settlement method
+                </label>
+                <Select
+                  value={pauseRefundMethod}
+                  onValueChange={(value) =>
+                    setPauseRefundMethod(value as SubscriptionRefundMethod)
+                  }
+                >
+                  <SelectTrigger aria-label="Settlement method">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="refund">Refund to payment card</SelectItem>
+                    <SelectItem value="credit">Store credit</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  If a prepaid delivery is eligible to be settled, choose whether
+                  the amount should return to your card or be added as store credit.
+                </p>
+              </div>
               {pauseError && (
                 <p className="text-xs text-destructive">{pauseError}</p>
               )}

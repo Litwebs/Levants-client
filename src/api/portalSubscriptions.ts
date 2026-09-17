@@ -217,9 +217,14 @@ export const portalSubscriptionsApi = {
     }>,
   ) => api.patch<ApiEnvelope<SubscriptionResponse>>(`${base}/${subscriptionId}`, payload),
 
-  pause: (subscriptionId: string, resumeOn: string) =>
+  pause: (
+    subscriptionId: string,
+    resumeOn: string,
+    refundMethod: SubscriptionRefundMethod = "refund",
+  ) =>
     api.post<ApiEnvelope<SubscriptionResponse>>(`${base}/${subscriptionId}/pause`, {
       resumeOn,
+      refundMethod,
     }),
 
   resume: (subscriptionId: string) =>
