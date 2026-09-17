@@ -1,0 +1,83 @@
+name: Apply pause settlement client patch
+
+on:
+  push:
+    branches:
+      - feature/subscription-portal-hardening
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/subscription-portal-hardening
+          fetch-depth: 0
+
+      - name: Apply guarded client patch
+        shell: bash
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+
+          function replaceOnce(path, before, after) {
+            const source = fs.readFileSync(path, 'utf8');
+            if (source.includes(after)) {
+              console.log(`${path}: replacement already applied`);
+              return;
+            }
+            if (!source.includes(before)) {
+              throw new Error(`${path}: expected source block not found`);
+            }
+            fs.writeFileSync(path, source.replace(before, after));
+            console.log(`${path}: patched`);
+          }
+
+          const apiPath = 'src/api/portalSubscriptions.ts';
+          replaceOnce(
+            apiPath,
+            `  pause: (subscriptionId: string, resumeOn: string) =>\n    api.post<ApiEnvelope<SubscriptionResponse>>(\`${'${base}'}/${'${subscriptionId}'}/pause\`, {\n      resumeOn,\n    }),`,
+            `  pause: (\n    subscriptionId: string,\n    resumeOn: string,\n    refundMethod: SubscriptionRefundMethod = "refund",\n  ) =>\n    api.post<ApiEnvelope<SubscriptionResponse>>(\`${'${base}'}/${'${subscriptionId}'}/pause\`, {\n      resumeOn,\n      refundMethod,\n    }),`,
+          );
+
+          const pagePath = 'src/portal/pages/SubscriptionDetailPage.tsx';
+          replaceOnce(
+            pagePath,
+            `  const [pauseResumeOn, setPauseResumeOn] = useState("");\n  const [pauseError, setPauseError] = useState<string | null>(null);`,
+            `  const [pauseResumeOn, setPauseResumeOn] = useState("");\n  const [pauseRefundMethod, setPauseRefundMethod] =\n    useState<SubscriptionRefundMethod>("refund");\n  const [pauseError, setPauseError] = useState<string | null>(null);`,
+          );
+          replaceOnce(
+            pagePath,
+            `      const res = await portalSubscriptionsApi.pause(id, pauseResumeOn);`,
+            `      const res = await portalSubscriptionsApi.pause(\n        id,\n        pauseResumeOn,\n        pauseRefundMethod,\n      );`,
+          );
+          replaceOnce(
+            pagePath,
+            `          if (!open) {\n            setPauseError(null);\n          }`,
+            `          if (!open) {\n            setPauseError(null);\n            setPauseRefundMethod("refund");\n          }`,
+          );
+          replaceOnce(
+            pagePath,
+            `              <p className="text-xs text-muted-foreground">\n                Choose a date between {formatDate(pauseMinDate)} and{" "}\n                {formatDate(pauseMaxDate)}.\n              </p>\n              {pauseError && (`,
+            `              <p className="text-xs text-muted-foreground">\n                Choose a date between {formatDate(pauseMinDate)} and{" "}\n                {formatDate(pauseMaxDate)}.\n              </p>\n              <div className="space-y-1.5">\n                <label className="text-sm font-medium text-foreground">\n                  Settlement method\n                </label>\n                <Select\n                  value={pauseRefundMethod}\n                  onValueChange={(value) =>\n                    setPauseRefundMethod(value as SubscriptionRefundMethod)\n                  }\n                >\n                  <SelectTrigger aria-label="Settlement method">\n                    <SelectValue />\n                  </SelectTrigger>\n                  <SelectContent>\n                    <SelectItem value="refund">Refund to payment card</SelectItem>\n                    <SelectItem value="credit">Store credit</SelectItem>\n                  </SelectContent>\n                </Select>\n                <p className="text-xs text-muted-foreground">\n                  If a prepaid delivery is eligible to be settled, choose whether\n                  the amount should return to your card or be added as store credit.\n                </p>\n              </div>\n              {pauseError && (`,
+          );
+          NODE
+
+          git diff --check
+
+      - name: Commit client patch
+        shell: bash
+        run: |
+          if git diff --quiet; then
+            echo "No source changes to commit"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/api/portalSubscriptions.ts src/portal/pages/SubscriptionDetailPage.tsx
+          git commit -m "Expose pause settlement method in portal"
+          git push origin HEAD:feature/subscription-portal-hardening
