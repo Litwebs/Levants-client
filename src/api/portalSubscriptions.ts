@@ -53,6 +53,7 @@ export type PortalSubscription = {
   // from `effectiveFrom` (the delivery after the upcoming one).
   pendingChanges?: {
     items?: Array<{
+      _id?: string;
       name: string;
       sku?: string;
       quantity: number;
@@ -217,9 +218,14 @@ export const portalSubscriptionsApi = {
     }>,
   ) => api.patch<ApiEnvelope<SubscriptionResponse>>(`${base}/${subscriptionId}`, payload),
 
-  pause: (subscriptionId: string, resumeOn: string) =>
+  pause: (
+    subscriptionId: string,
+    resumeOn: string,
+    refundMethod: SubscriptionRefundMethod = "refund",
+  ) =>
     api.post<ApiEnvelope<SubscriptionResponse>>(`${base}/${subscriptionId}/pause`, {
       resumeOn,
+      refundMethod,
     }),
 
   resume: (subscriptionId: string) =>
@@ -243,6 +249,18 @@ export const portalSubscriptionsApi = {
     },
   ) =>
     api.post<ApiEnvelope<SubscriptionResponse>>(`${base}/${subscriptionId}/items`, payload),
+
+  replaceItems: (
+    subscriptionId: string,
+    payload: {
+      items: Array<{ itemId: string; quantity: number }>;
+      refundMethod?: SubscriptionRefundMethod;
+    },
+  ) =>
+    api.put<ApiEnvelope<SubscriptionResponse>>(
+      `${base}/${subscriptionId}/items`,
+      payload,
+    ),
 
   addNextDeliveryAddOn: (
     subscriptionId: string,

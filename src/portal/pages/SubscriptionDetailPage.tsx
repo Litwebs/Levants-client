@@ -88,11 +88,12 @@ const toEditablePendingItem = (
   const liveMatch = liveItems.find(
     (liveItem) => getItemMatchKey(liveItem) === matchKey,
   );
+  const pendingItemId = item._id || liveMatch?._id;
 
   return {
-    localId: liveMatch?._id || `pending:${matchKey}:${index}`,
-    existingItemId: liveMatch?._id,
-    variantId: liveMatch?.variant || matchKey,
+    localId: pendingItemId || `pending:${matchKey}:${index}`,
+    existingItemId: pendingItemId,
+    variantId: item.variant || liveMatch?.variant || matchKey,
     name: item.name,
     sku: item.sku || liveMatch?.sku || "",
     quantity: Number(item.quantity || 1),
@@ -420,6 +421,8 @@ const SubscriptionDetailPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [pauseResumeOn, setPauseResumeOn] = useState("");
+  const [pauseRefundMethod, setPauseRefundMethod] =
+    useState<SubscriptionRefundMethod>("refund");
   const [pauseError, setPauseError] = useState<string | null>(null);
   const [expandedDeliveryId, setExpandedDeliveryId] = useState<string | null>(
     null,
@@ -1145,7 +1148,11 @@ const SubscriptionDetailPage: React.FC = () => {
       setError(null);
       setNotice(null);
       setPauseError(null);
-      const res = await portalSubscriptionsApi.pause(id, pauseResumeOn);
+      const res = await portalSubscriptionsApi.pause(
+        id,
+        pauseResumeOn,
+        pauseRefundMethod,
+      );
       await load();
       setPauseOpen(false);
       const message = (res as any)?.message || "Subscription paused.";
@@ -1346,61 +1353,50 @@ const SubscriptionDetailPage: React.FC = () => {
       return;
     }
 
-    const originalById = new Map(
-      subscription.items.map((item) => [item._id, item]),
-    );
-    const draftExistingIds = new Set(
-      productDraft
-        .filter((item) => Boolean(item.existingItemId))
-        .map((item) => item.existingItemId as string),
-    );
-
-    const itemsToRemove = subscription.items
-      .filter((item) => !draftExistingIds.has(item._id))
-      .map((item) => item._id);
-
-    const itemsToUpdate = productDraft.filter((item) => {
-      if (!item.existingItemId) return false;
-      const original = originalById.get(item.existingItemId);
-      if (!original) return false;
-      return Number(original.quantity || 0) !== Number(item.quantity || 0);
-    });
-
     try {
       setSaving(true);
       setError(null);
       setNotice(null);
 
-      let lastMessage: string | null = null;
-      for (const itemId of itemsToRemove) {
-        const res = await portalSubscriptionsApi.removeItem(id, itemId, {
-          refundMethod,
-        });
-        lastMessage = (res as any)?.message || lastMessage;
-      }
-      for (const item of itemsToUpdate) {
-        const res = await portalSubscriptionsApi.updateItem(
-          id,
-          item.existingItemId as string,
-          {
-            quantity: item.quantity,
-            refundMethod,
-          },
+      const replacementItems = productDraft.map((item) => {
+        if (!item.existingItemId) {
+          throw new Error(
+            "Subscription products changed while you were editing. Please reload and try again.",
+          );
+        }
+        return {
+          itemId: item.existingItemId,
+          quantity: Number(item.quantity || 0),
+        };
+      });
+
+      if (replacementItems.length === 0) {
+        throw new Error(
+          "Please keep at least one product in your subscription.",
         );
-        lastMessage = (res as any)?.message || lastMessage;
       }
+
+      const res = await portalSubscriptionsApi.replaceItems(id, {
+        items: replacementItems,
+        refundMethod,
+      });
 
       await load();
       await refreshCustomer().catch(() => {});
-      if (lastMessage) {
-        setNotice(lastMessage);
-        toast.success(lastMessage);
-      }
+      const message =
+        (res as any)?.message ||
+        (cutoff?.isPastCutoff
+          ? "Product changes were scheduled for deliveries after the upcoming one."
+          : "Product changes saved.");
+      setNotice(message);
+      toast.success(message);
     } catch (err) {
       const message =
         err instanceof ApiError
           ? err.message
-          : "Failed to save product changes.";
+          : err instanceof Error
+            ? err.message
+            : "Failed to save product changes.";
       setError(message);
       toast.error(message);
     } finally {
@@ -1982,6 +1978,7 @@ const SubscriptionDetailPage: React.FC = () => {
                               onClick={() =>
                                 updateQty(item.localId, item.quantity - 1)
                               }
+                              aria-label={`Decrease ${item.name} quantity`}
                               disabled={
                                 saving || subscription.status !== "active"
                               }
@@ -1996,6 +1993,7 @@ const SubscriptionDetailPage: React.FC = () => {
                               onClick={() =>
                                 updateQty(item.localId, item.quantity + 1)
                               }
+                              aria-label={`Increase ${item.name} quantity`}
                               disabled={
                                 saving || subscription.status !== "active"
                               }
@@ -2688,6 +2686,7 @@ const SubscriptionDetailPage: React.FC = () => {
           setPauseOpen(open);
           if (!open) {
             setPauseError(null);
+            setPauseRefundMethod("refund");
           }
         }}
       >
@@ -2717,6 +2716,29 @@ const SubscriptionDetailPage: React.FC = () => {
                 Choose a date between {formatDate(pauseMinDate)} and{" "}
                 {formatDate(pauseMaxDate)}.
               </p>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-foreground">
+                  Settlement method
+                </label>
+                <Select
+                  value={pauseRefundMethod}
+                  onValueChange={(value) =>
+                    setPauseRefundMethod(value as SubscriptionRefundMethod)
+                  }
+                >
+                  <SelectTrigger aria-label="Settlement method">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="refund">Refund to payment card</SelectItem>
+                    <SelectItem value="credit">Store credit</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  If a prepaid delivery is eligible to be settled, choose whether
+                  the amount should return to your card or be added as store credit.
+                </p>
+              </div>
               {pauseError && (
                 <p className="text-xs text-destructive">{pauseError}</p>
               )}
