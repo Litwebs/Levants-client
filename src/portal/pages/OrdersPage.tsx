@@ -231,7 +231,7 @@ const OrdersPage: React.FC = () => {
           description="View and manage your order history"
           action={
             <Button asChild size="sm">
-              <Link to="/portal/products">Place New Order</Link>
+              <Link to="/shop">Place New Order</Link>
             </Button>
           }
         />
@@ -286,7 +286,7 @@ const OrdersPage: React.FC = () => {
           description="Try adjusting your search or filter, or place your first order."
           action={
             <Button asChild>
-              <Link to="/portal/products">Browse Products</Link>
+              <Link to="/shop">Browse Products</Link>
             </Button>
           }
         />
