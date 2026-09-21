@@ -1500,21 +1500,16 @@ const SubscriptionDetailPage: React.FC = () => {
   const cancellationEffectiveAt = subscription.cancellationEffectiveAfter
     ? new Date(subscription.cancellationEffectiveAfter)
     : null;
-  const cancellationStartsAt = cancellationEffectiveAt
-    ? new Date(cancellationEffectiveAt)
-    : null;
-  if (cancellationStartsAt) {
-    cancellationStartsAt.setHours(0, 0, 0, 0);
-  }
   const hasValidCancellationDate = Boolean(
     cancellationEffectiveAt &&
-    !Number.isNaN(cancellationEffectiveAt.getTime()) &&
-    cancellationStartsAt,
+    !Number.isNaN(cancellationEffectiveAt.getTime()),
   );
-  const showScheduledCancellationAlert =
-    Boolean(subscription.isCancellationScheduled) &&
-    (!hasValidCancellationDate ||
-      Date.now() < (cancellationStartsAt as Date).getTime());
+  // The backend keeps a deferred cancellation scheduled for the full protected
+  // delivery day and finalizes it only afterwards. Keep the customer-facing
+  // notice visible for as long as the server says cancellation is scheduled.
+  const showScheduledCancellationAlert = Boolean(
+    subscription.isCancellationScheduled,
+  );
 
   return (
     <div className="max-w-6xl mx-auto">
@@ -1554,13 +1549,14 @@ const SubscriptionDetailPage: React.FC = () => {
           {showScheduledCancellationAlert && (
             <div className="rounded-xl border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900 shadow-sm backdrop-blur-sm dark:border-sky-500/30 dark:bg-sky-500/10 dark:text-sky-100">
               <div>
-                Subscription scheduled for cancellation. Your next delivery
+                Subscription scheduled for cancellation. Your protected delivery
                 remains scheduled; future deliveries are stopped.
               </div>
               {hasValidCancellationDate && (
                 <div className="mt-1 text-xs text-blue-700 dark:text-sky-200">
-                  Scheduled cancellation date:{" "}
-                  {formatDate(cancellationEffectiveAt?.toISOString())}
+                  Final protected delivery date:{" "}
+                  {formatDate(cancellationEffectiveAt?.toISOString())}. The
+                  cancellation completes after this day.
                 </div>
               )}
             </div>
