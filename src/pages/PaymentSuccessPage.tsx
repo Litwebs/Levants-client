@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { useCart } from "@/context/CartContext";
 import { ordersApi } from "@/api/orders";
+import { portalOrdersApi } from "@/api/portalOrders";
 import { isPortalLoggedIn } from "@/lib/portalAuth";
 
 type ConfirmationState =
@@ -40,12 +41,30 @@ const PaymentSuccessPage: React.FC = () => {
 
     const confirm = async () => {
       if (paidWithCredit && creditOrderId) {
-        clearCart();
-        if (active) {
+        try {
+          const response = await portalOrdersApi.getById(creditOrderId);
+          const order = response.data?.order;
+          if (!order || order.status !== "paid") {
+            throw new Error("Store-credit order is not confirmed");
+          }
+
+          clearCart();
+          if (active) {
+            setConfirmation({
+              status: "confirmed",
+              orderId: order._id,
+              orderNumber: order.orderId,
+              paidWithCredit: true,
+            });
+          }
+        } catch (error) {
+          if (!active) return;
           setConfirmation({
-            status: "confirmed",
-            orderId: creditOrderId,
-            paidWithCredit: true,
+            status: "error",
+            message:
+              error instanceof Error && error.message
+                ? error.message
+                : "We could not confirm your store-credit order. Please check My Orders before trying again.",
           });
         }
         return;
