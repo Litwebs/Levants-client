@@ -464,6 +464,7 @@ const NewSubscriptionPage: React.FC = () => {
   const [loadingProducts, setLoadingProducts] = useState(true);
   const [productError, setProductError] = useState<string | null>(null);
   const [availableDays, setAvailableDays] = useState<string[] | null>(null);
+  const [deliveryDaysError, setDeliveryDaysError] = useState<string | null>(null);
 
   const fetchProducts = async () => {
     setLoadingProducts(true);
@@ -498,20 +499,31 @@ const NewSubscriptionPage: React.FC = () => {
     ];
     const fetchSettings = async () => {
       try {
+        setDeliveryDaysError(null);
         const res = await portalSubscriptionsApi.getSettings();
         const days = res.data?.settings?.deliveryDays;
-        if (cancelled || !Array.isArray(days) || days.length === 0) return;
+        if (cancelled) return;
+        if (!Array.isArray(days) || days.length === 0) {
+          throw new Error("No delivery days are currently configured.");
+        }
         const names = days
           .map((d) => dayNames[d])
           .filter((n): n is string => Boolean(n));
+        if (names.length === 0) {
+          throw new Error("No valid delivery days are currently configured.");
+        }
         setAvailableDays(names);
         setDeliveryDays((prev) => {
           const filtered = prev.filter((day) => names.includes(day));
           if (filtered.length > 0) return filtered;
-          return names[0] ? [names[0]] : prev;
+          return [names[0]];
         });
       } catch {
-        /* fall back to default day list */
+        if (cancelled) return;
+        setAvailableDays([]);
+        setDeliveryDaysError(
+          "We couldn't load the available delivery days. Please refresh and try again.",
+        );
       }
     };
     void fetchSettings();
@@ -887,8 +899,7 @@ const NewSubscriptionPage: React.FC = () => {
     );
   };
 
-  const selectableDeliveryDays =
-    availableDays?.length ? availableDays : ["Sunday", "Wednesday"];
+  const selectableDeliveryDays = availableDays || [];
 
   const setDayVariantQuantity = (
     day: string,
@@ -975,7 +986,10 @@ const NewSubscriptionPage: React.FC = () => {
     addresses.some((a) => getAddressId(a) === selectedAddress);
 
   const canContinue =
-    (step === 0 && deliveryDays.length > 0) ||
+    (step === 0 &&
+      selectableDeliveryDays.length > 0 &&
+      deliveryDays.length > 0 &&
+      deliveryDays.every((day) => selectableDeliveryDays.includes(day))) ||
     step === 1 ||
     (step === 2 && hasProductsForEverySelectedDay) ||
     (step === 3 && selectedAddressValid);
@@ -1405,6 +1419,16 @@ const NewSubscriptionPage: React.FC = () => {
             <p className="text-sm text-muted-foreground mb-5">
               Choose one or more of the delivery days currently offered.
             </p>
+            {availableDays === null ? (
+              <div className="flex items-center gap-2 rounded-xl border border-border bg-muted/20 p-4 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Loading available delivery days...
+              </div>
+            ) : deliveryDaysError ? (
+              <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
+                {deliveryDaysError}
+              </div>
+            ) : (
             <div className="grid gap-3 sm:grid-cols-3">
               {selectableDeliveryDays.map((day) => {
                 const selected = deliveryDays.includes(day);
@@ -1431,6 +1455,7 @@ const NewSubscriptionPage: React.FC = () => {
                 );
               })}
             </div>
+            )}
           </div>
         )}
 
