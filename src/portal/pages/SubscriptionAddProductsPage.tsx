@@ -11,6 +11,11 @@ import {
   type PortalSubscription,
 } from "@/api/portalSubscriptions";
 import { toast } from "sonner";
+import {
+  formatCutoffDate,
+  getDeliveryDayCutoff,
+  isPastCutoffInstant,
+} from "@/portal/utils/subscriptionCutoff";
 
 type SelectedAddItem = {
   variantId: string;
@@ -72,47 +77,23 @@ const formatDayList = (days: string[]) => {
   return `${days.slice(0, -1).join(", ")}, and ${days[days.length - 1]}`;
 };
 
-const formatDateOnly = (value: Date) =>
-  new Intl.DateTimeFormat("en-GB", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  }).format(value);
-
-const getNextWeekdayDate = (dayIndex: number, referenceDate = new Date()) => {
-  const date = new Date(referenceDate);
-  date.setHours(0, 0, 0, 0);
-  const currentDay = date.getDay();
-  let daysUntil = (dayIndex - currentDay + 7) % 7;
-  if (daysUntil === 0) daysUntil = 7;
-  date.setDate(date.getDate() + daysUntil);
-  return date;
-};
-
 const getDayCutoffLabel = (
-  dayName: string,
   dayIndex: number,
   cutoff: PortalSubscriptionCutoff,
 ) => {
-  const deliveryDate = getNextWeekdayDate(dayIndex);
-  const cutoffDate = new Date(deliveryDate);
-  cutoffDate.setDate(
-    cutoffDate.getDate() - (Number(cutoff.cutoffDaysBefore) || 0),
+  const dayCutoff = getDeliveryDayCutoff(cutoff, dayIndex);
+  const cutoffLabel = formatCutoffDate(
+    dayCutoff?.cutoffAt,
+    cutoff.timeZone,
+  );
+  if (!cutoffLabel) return "Cut-off unavailable";
+
+  const isPastCutoff = isPastCutoffInstant(
+    dayCutoff?.cutoffAt,
+    dayCutoff?.isPastCutoff ?? cutoff.isPastCutoff,
   );
 
-  const [hours, minutes] = String(cutoff.cutoffTime || "00:00")
-    .split(":")
-    .map((part) => Number(part));
-  cutoffDate.setHours(
-    Number.isFinite(hours) ? hours : 0,
-    Number.isFinite(minutes) ? minutes : 0,
-    0,
-    0,
-  );
-
-  const isPastCutoff = Date.now() >= cutoffDate.getTime();
-
-  return `${dayName}: ${isPastCutoff ? "Locked after" : "Editable until"} ${formatDateOnly(cutoffDate)} at ${cutoff.cutoffTime}`;
+  return `${isPastCutoff ? "Locked after" : "Editable until"} ${cutoffLabel} at ${cutoff.cutoffTime}`;
 };
 
 const formatDeliveryDayCount = (days: string[]) =>
@@ -780,7 +761,6 @@ const SubscriptionAddProductsPage: React.FC = () => {
                             </span>{" "}
                             <span>
                               {getDayCutoffLabel(
-                                dayName,
                                 dayNameToIndex(dayName),
                                 cutoff!,
                               )}

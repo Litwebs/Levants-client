@@ -84,6 +84,8 @@ export type PortalSubscriptionDelivery = {
   _id: string;
   scheduledDate: string;
   status: string;
+  cutoffAt?: string | null;
+  isPastCutoff?: boolean;
   generatedAt?: string | null;
   order?: {
     _id: string;
@@ -126,6 +128,14 @@ export type PortalSubscriptionCutoff = {
   cutoffDaysBefore: number;
   cutoffTime: string;
   deliveryDays: number[];
+  timeZone?: string;
+  deliveryDayCutoffs?: Array<{
+    day: number;
+    deliveryDate?: string | null;
+    cutoffAt?: string | null;
+    effectiveFrom?: string | null;
+    isPastCutoff: boolean;
+  }>;
 };
 
 export type SubscriptionRefundMethod = "credit" | "refund";

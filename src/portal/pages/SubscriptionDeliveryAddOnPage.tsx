@@ -31,6 +31,10 @@ import {
   type PortalSubscriptionDelivery,
 } from "@/api/portalSubscriptions";
 import { toast } from "sonner";
+import {
+  formatCutoffDate,
+  isPastCutoffInstant,
+} from "@/portal/utils/subscriptionCutoff";
 
 type SelectedAddOn = {
   variantId: string;
@@ -55,25 +59,6 @@ const formatDate = (value?: string | null) =>
         year: "numeric",
       })
     : "your next delivery";
-
-const getDeliveryCutoff = (
-  deliveryDate: string,
-  cutoff: PortalSubscriptionCutoff | null,
-) => {
-  if (!cutoff) return null;
-  const date = new Date(deliveryDate);
-  date.setDate(date.getDate() - Number(cutoff.cutoffDaysBefore || 0));
-  const [hours, minutes] = String(cutoff.cutoffTime || "22:00")
-    .split(":")
-    .map(Number);
-  date.setHours(
-    Number.isFinite(hours) ? hours : 0,
-    Number.isFinite(minutes) ? minutes : 0,
-    0,
-    0,
-  );
-  return date;
-};
 
 const SubscriptionDeliveryAddOnPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -178,11 +163,13 @@ const SubscriptionDeliveryAddOnPage: React.FC = () => {
       ),
     [delivery],
   );
-  const deliveryCutoff = delivery
-    ? getDeliveryCutoff(delivery.scheduledDate, cutoff)
-    : null;
+  const deliveryCutoffAt = delivery?.cutoffAt || null;
   const isPastCutoff = Boolean(
-    deliveryCutoff && Date.now() >= deliveryCutoff.getTime(),
+    delivery &&
+      isPastCutoffInstant(
+        deliveryCutoffAt,
+        delivery.isPastCutoff ?? cutoff?.isPastCutoff ?? false,
+      ),
   );
   const canPurchase = Boolean(
     subscription?.status === "active" && delivery && !isPastCutoff,
@@ -324,8 +311,11 @@ const SubscriptionDeliveryAddOnPage: React.FC = () => {
                 : "No upcoming delivery"}
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
-              {deliveryCutoff
-                ? `${isPastCutoff ? "The cut-off passed" : "Order before"} ${formatDate(deliveryCutoff.toISOString())} at ${cutoff?.cutoffTime}.`
+              {deliveryCutoffAt
+                ? `${isPastCutoff ? "The cut-off passed" : "Order before"} ${formatCutoffDate(
+                    deliveryCutoffAt,
+                    cutoff?.timeZone,
+                  )} at ${cutoff?.cutoffTime}.`
                 : "Add-ons are available only before the delivery cut-off."}
             </p>
             {existingAddOnTotal > 0 && (

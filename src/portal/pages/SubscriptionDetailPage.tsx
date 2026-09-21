@@ -49,6 +49,11 @@ import {
   type PortalSubscriptionCutoff,
   type SubscriptionRefundMethod,
 } from "@/api/portalSubscriptions";
+import {
+  formatCutoffDate,
+  getDeliveryDayCutoff,
+  isPastCutoffInstant,
+} from "@/portal/utils/subscriptionCutoff";
 
 type EditableSubscriptionItem = {
   localId: string;
@@ -295,70 +300,34 @@ const formatDayList = (days: string[]) => {
   return `${days.slice(0, -1).join(", ")}, and ${days[days.length - 1]}`;
 };
 
-const formatDateOnly = (value: Date) =>
-  new Intl.DateTimeFormat("en-GB", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  }).format(value);
-
-const getNextWeekdayDate = (dayIndex: number, referenceDate = new Date()) => {
-  const date = new Date(referenceDate);
-  date.setHours(0, 0, 0, 0);
-  const currentDay = date.getDay();
-  let daysUntil = (dayIndex - currentDay + 7) % 7;
-  if (daysUntil === 0) daysUntil = 7;
-  date.setDate(date.getDate() + daysUntil);
-  return date;
-};
-
 const getDayCutoffLabel = (
-  dayName: string,
   dayIndex: number,
   cutoff: PortalSubscriptionCutoff,
 ) => {
-  const deliveryDate = getNextWeekdayDate(dayIndex);
-  const cutoffDate = new Date(deliveryDate);
-  cutoffDate.setDate(
-    cutoffDate.getDate() - (Number(cutoff.cutoffDaysBefore) || 0),
+  const dayCutoff = getDeliveryDayCutoff(cutoff, dayIndex);
+  const cutoffLabel = formatCutoffDate(
+    dayCutoff?.cutoffAt,
+    cutoff.timeZone,
+  );
+  if (!cutoffLabel) return "Cut-off unavailable";
+
+  const isPastCutoff = isPastCutoffInstant(
+    dayCutoff?.cutoffAt,
+    dayCutoff?.isPastCutoff ?? cutoff.isPastCutoff,
   );
 
-  const [hours, minutes] = String(cutoff.cutoffTime || "00:00")
-    .split(":")
-    .map((part) => Number(part));
-  cutoffDate.setHours(
-    Number.isFinite(hours) ? hours : 0,
-    Number.isFinite(minutes) ? minutes : 0,
-    0,
-    0,
-  );
-
-  const isPastCutoff = Date.now() >= cutoffDate.getTime();
-
-  return `${dayName}: ${isPastCutoff ? "Locked after" : "Editable until"} ${formatDateOnly(cutoffDate)} at ${cutoff.cutoffTime}`;
+  return `${isPastCutoff ? "Locked after" : "Editable until"} ${cutoffLabel} at ${cutoff.cutoffTime}`;
 };
 
 const isDayPastOwnCutoff = (
   dayIndex: number,
   cutoff: PortalSubscriptionCutoff,
 ) => {
-  const deliveryDate = getNextWeekdayDate(dayIndex);
-  const cutoffDate = new Date(deliveryDate);
-  cutoffDate.setDate(
-    cutoffDate.getDate() - (Number(cutoff.cutoffDaysBefore) || 0),
+  const dayCutoff = getDeliveryDayCutoff(cutoff, dayIndex);
+  return isPastCutoffInstant(
+    dayCutoff?.cutoffAt,
+    dayCutoff?.isPastCutoff ?? cutoff.isPastCutoff,
   );
-
-  const [hours, minutes] = String(cutoff.cutoffTime || "00:00")
-    .split(":")
-    .map((part) => Number(part));
-  cutoffDate.setHours(
-    Number.isFinite(hours) ? hours : 0,
-    Number.isFinite(minutes) ? minutes : 0,
-    0,
-    0,
-  );
-
-  return Date.now() >= cutoffDate.getTime();
 };
 
 // When a delivery day is already past its own cut-off, staged changes for that
@@ -1409,12 +1378,6 @@ const SubscriptionDetailPage: React.FC = () => {
       return false;
     }
 
-    const [hours, minutes] = String(cutoff.cutoffTime || "00:00")
-      .split(":")
-      .map((part) => Number(part));
-    const cutoffHours = Number.isFinite(hours) ? hours : 0;
-    const cutoffMinutes = Number.isFinite(minutes) ? minutes : 0;
-
     return deliveries
       .filter(
         (delivery) =>
@@ -1428,13 +1391,10 @@ const SubscriptionDetailPage: React.FC = () => {
         const deliveryDate = new Date(delivery.scheduledDate);
         if (Number.isNaN(deliveryDate.getTime())) return false;
 
-        const cutoffDate = new Date(deliveryDate);
-        cutoffDate.setDate(
-          cutoffDate.getDate() - (Number(cutoff.cutoffDaysBefore) || 0),
+        return !isPastCutoffInstant(
+          delivery.cutoffAt,
+          delivery.isPastCutoff ?? true,
         );
-        cutoffDate.setHours(cutoffHours, cutoffMinutes, 0, 0);
-
-        return Date.now() < cutoffDate.getTime();
       });
   }, [cutoff, deliveries]);
 
@@ -1647,7 +1607,6 @@ const SubscriptionDetailPage: React.FC = () => {
                     <span className="font-semibold shrink-0">{dayName}</span>
                     <span className="text-muted-foreground">
                       {getDayCutoffLabel(
-                        dayName,
                         dayNameToIndex(dayName),
                         cutoff,
                       )}
@@ -1672,7 +1631,9 @@ const SubscriptionDetailPage: React.FC = () => {
             <>
               You can edit this subscription until{" "}
               <span className="font-semibold">
-                {cutoff.cutoffAt ? formatDate(cutoff.cutoffAt) : "the cut-off"}
+                {cutoff.cutoffAt
+                  ? formatCutoffDate(cutoff.cutoffAt, cutoff.timeZone)
+                  : "the cut-off"}
               </span>
               {cutoff.cutoffTime ? ` at ${cutoff.cutoffTime}` : ""}. Changes
               apply to your next delivery; adding items charges the difference
