@@ -876,6 +876,20 @@ const NewSubscriptionPage: React.FC = () => {
     syncSelectionFromDayPlans(nextPlans);
   };
 
+  const toggleDeliveryDay = (day: string) => {
+    const selected = deliveryDays.includes(day);
+    if (selected && deliveryDays.length === 1) return;
+
+    chooseDeliveryDays(
+      selected
+        ? deliveryDays.filter((candidate) => candidate !== day)
+        : [...deliveryDays, day],
+    );
+  };
+
+  const selectableDeliveryDays =
+    availableDays?.length ? availableDays : ["Sunday", "Wednesday"];
+
   const setDayVariantQuantity = (
     day: string,
     variantId: string,
@@ -1389,23 +1403,19 @@ const NewSubscriptionPage: React.FC = () => {
               Which days would you like delivery?
             </h2>
             <p className="text-sm text-muted-foreground mb-5">
-              Choose Sunday, Wednesday, or both days.
+              Choose one or more of the delivery days currently offered.
             </p>
             <div className="grid gap-3 sm:grid-cols-3">
-              {["Sunday", "Wednesday"].map((day) => {
-                const selected =
-                  deliveryDays.length === 1 && deliveryDays[0] === day;
-                const unavailable =
-                  Array.isArray(availableDays) && !availableDays.includes(day);
+              {selectableDeliveryDays.map((day) => {
+                const selected = deliveryDays.includes(day);
                 return (
                   <button
                     key={day}
                     type="button"
-                    disabled={unavailable}
                     aria-pressed={selected}
-                    onClick={() => chooseDeliveryDays([day])}
+                    onClick={() => toggleDeliveryDay(day)}
                     className={cn(
-                      "rounded-xl border p-4 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-45",
+                      "rounded-xl border p-4 text-left transition-colors",
                       selected
                         ? "border-forest bg-forest/5"
                         : "border-border hover:border-forest/40",
@@ -1415,37 +1425,11 @@ const NewSubscriptionPage: React.FC = () => {
                       {day}
                     </p>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      {unavailable
-                        ? "Currently unavailable"
-                        : "One delivery day"}
+                      {selected ? "Selected" : "Available delivery day"}
                     </p>
                   </button>
                 );
               })}
-              <button
-                type="button"
-                disabled={
-                  Array.isArray(availableDays) &&
-                  !["Sunday", "Wednesday"].every((day) =>
-                    availableDays.includes(day),
-                  )
-                }
-                aria-pressed={deliveryDays.length > 1}
-                onClick={() => chooseDeliveryDays(["Sunday", "Wednesday"])}
-                className={cn(
-                  "rounded-xl border p-4 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-45",
-                  deliveryDays.length > 1
-                    ? "border-forest bg-forest/5"
-                    : "border-border hover:border-forest/40",
-                )}
-              >
-                <p className="text-sm font-semibold text-foreground">
-                  Both days
-                </p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Sunday and Wednesday
-                </p>
-              </button>
             </div>
           </div>
         )}
@@ -1501,8 +1485,8 @@ const NewSubscriptionPage: React.FC = () => {
             </div>
             {deliveryDays.length > 1 && (
               <p className="mt-4 rounded-lg bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
-                Both-day delivery is a weekly plan because it includes separate
-                Sunday and Wednesday orders each week.
+                Multiple delivery days use a weekly plan because each selected
+                day is a separate order each week.
               </p>
             )}
           </div>
