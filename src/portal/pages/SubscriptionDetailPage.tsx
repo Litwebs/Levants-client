@@ -1140,11 +1140,20 @@ const SubscriptionDetailPage: React.FC = () => {
   const handleResume = async () => {
     if (!id) return;
     setSaving(true);
+    setError(null);
     try {
-      await portalSubscriptionsApi.resume(id);
+      const res = await portalSubscriptionsApi.resume(id);
       await load();
-      setNotice("Subscription resumed.");
-      toast.success("Subscription resumed.");
+      const message = (res as any)?.message || "Subscription resumed.";
+      setNotice(message);
+      toast.success(message);
+    } catch (err) {
+      const message =
+        err instanceof ApiError
+          ? err.message
+          : "Failed to resume subscription. Please try again.";
+      setError(message);
+      toast.error(message);
     } finally {
       setSaving(false);
     }
