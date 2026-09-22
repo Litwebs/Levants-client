@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Loader2, Minus, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -102,6 +102,14 @@ const formatDeliveryDayCount = (days: string[]) =>
 const SubscriptionAddProductsPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const operationIdsRef = useRef(new Map<string, string>());
+  const operationIdFor = (fingerprint: string) => {
+    const existing = operationIdsRef.current.get(fingerprint);
+    if (existing) return existing;
+    const operationId = globalThis.crypto.randomUUID();
+    operationIdsRef.current.set(fingerprint, operationId);
+    return operationId;
+  };
 
   const [subscriptionLabel, setSubscriptionLabel] = useState("");
   const [subscriptionSnapshot, setSubscriptionSnapshot] =
@@ -473,21 +481,31 @@ const SubscriptionAddProductsPage: React.FC = () => {
           ),
         );
 
-        await portalSubscriptionsApi.update(id, {
+        const updatePayload = {
           preferredDeliveryDay: selectedDayIndexes[0],
           preferredDeliveryDays: selectedDayIndexes,
           changedDeliveryDays,
           deliveryDayPlans,
+        };
+        await portalSubscriptionsApi.update(id, {
+          ...updatePayload,
+          operationId: operationIdFor(
+            `multi-day-add:${JSON.stringify(updatePayload)}`,
+          ),
         });
       } else {
         for (const item of selectedList) {
           await portalSubscriptionsApi.addItem(id, {
             variantId: item.variantId,
             quantity: item.quantity,
+            operationId: operationIdFor(
+              `single-day-add:${item.variantId}:${item.quantity}`,
+            ),
           });
         }
       }
 
+      operationIdsRef.current.clear();
       navigate(`/portal/subscriptions/${id}`);
     } catch (err) {
       const message =
