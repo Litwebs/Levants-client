@@ -487,21 +487,34 @@ const SubscriptionAddProductsPage: React.FC = () => {
           changedDeliveryDays,
           deliveryDayPlans,
         };
+        if (!subscriptionSnapshot) {
+          throw new Error("Subscription changed while loading. Please reload.");
+        }
         await portalSubscriptionsApi.update(id, {
           ...updatePayload,
+          expectedVersion: subscriptionSnapshot.customerVersion,
           operationId: operationIdFor(
             `multi-day-add:${JSON.stringify(updatePayload)}`,
           ),
         });
       } else {
+        if (!subscriptionSnapshot) {
+          throw new Error("Subscription changed while loading. Please reload.");
+        }
+        let expectedVersion = subscriptionSnapshot.customerVersion;
         for (const item of selectedList) {
-          await portalSubscriptionsApi.addItem(id, {
+          const response = await portalSubscriptionsApi.addItem(id, {
             variantId: item.variantId,
             quantity: item.quantity,
+            expectedVersion,
             operationId: operationIdFor(
               `single-day-add:${item.variantId}:${item.quantity}`,
             ),
           });
+          expectedVersion = Number(
+            (response as any)?.data?.subscription?.customerVersion ??
+              expectedVersion + 1,
+          );
         }
       }
 

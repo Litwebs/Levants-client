@@ -85,6 +85,7 @@ export type PortalSubscription = {
   notes?: string | null;
   createdAt: string;
   updatedAt: string;
+  customerVersion: number;
 };
 
 export type PortalSubscriptionDelivery = {
@@ -221,20 +222,21 @@ export const portalSubscriptionsApi = {
 
   update: (
     subscriptionId: string,
-    payload: Partial<{
-      frequency: PortalSubscriptionFrequency;
-      preferredDeliveryDay: number;
-      preferredDeliveryDays: number[];
-      changedDeliveryDays: number[];
-      deliveryDayPlans: Array<{
+    payload: {
+      expectedVersion: number;
+      operationId?: string;
+      frequency?: PortalSubscriptionFrequency;
+      preferredDeliveryDay?: number;
+      preferredDeliveryDays?: number[];
+      changedDeliveryDays?: number[];
+      deliveryDayPlans?: Array<{
         day: number;
         items: Array<{ variantId: string; quantity: number }>;
       }>;
-      deliveryAddressId: string;
-      notes: string;
-      refundMethod: SubscriptionRefundMethod;
-      operationId: string;
-    }>,
+      deliveryAddressId?: string;
+      notes?: string;
+      refundMethod?: SubscriptionRefundMethod;
+    },
   ) =>
     api.patch<ApiEnvelope<SubscriptionResponse>>(
       `${base}/${subscriptionId}`,
@@ -244,6 +246,7 @@ export const portalSubscriptionsApi = {
   pause: (
     subscriptionId: string,
     resumeOn: string,
+    expectedVersion: number,
     refundMethod: SubscriptionRefundMethod = "refund",
     operationId?: string,
   ) =>
@@ -252,29 +255,36 @@ export const portalSubscriptionsApi = {
       ensureOperationId({
         resumeOn,
         refundMethod,
+        expectedVersion,
         operationId,
       }),
     ),
 
-  resume: (subscriptionId: string, operationId?: string) =>
+  resume: (
+    subscriptionId: string,
+    expectedVersion: number,
+    operationId?: string,
+  ) =>
     api.post<ApiEnvelope<SubscriptionResponse>>(
       `${base}/${subscriptionId}/resume`,
-      ensureOperationId({ operationId }),
+      ensureOperationId({ expectedVersion, operationId }),
     ),
 
   cancel: (
     subscriptionId: string,
     payload: {
+      expectedVersion: number;
       reason?: string;
       refundMethod?: SubscriptionRefundMethod;
       operationId?: string;
-    } = {},
+    },
   ) =>
     api.post<ApiEnvelope<SubscriptionResponse>>(
       `${base}/${subscriptionId}/cancel`,
       ensureOperationId({
         ...(payload.reason ? { reason: payload.reason } : {}),
         ...(payload.refundMethod ? { refundMethod: payload.refundMethod } : {}),
+        expectedVersion: payload.expectedVersion,
         operationId: payload.operationId,
       }),
     ),
@@ -284,6 +294,7 @@ export const portalSubscriptionsApi = {
     payload: {
       variantId: string;
       quantity: number;
+      expectedVersion: number;
       refundMethod?: SubscriptionRefundMethod;
       operationId?: string;
     },
@@ -297,6 +308,7 @@ export const portalSubscriptionsApi = {
     subscriptionId: string,
     payload: {
       items: Array<{ itemId: string; quantity: number }>;
+      expectedVersion: number;
       refundMethod?: SubscriptionRefundMethod;
       operationId?: string;
     },
@@ -323,6 +335,7 @@ export const portalSubscriptionsApi = {
     itemId: string,
     payload: {
       quantity: number;
+      expectedVersion: number;
       refundMethod?: SubscriptionRefundMethod;
       operationId?: string;
     },
@@ -336,9 +349,10 @@ export const portalSubscriptionsApi = {
     subscriptionId: string,
     itemId: string,
     payload: {
+      expectedVersion: number;
       refundMethod?: SubscriptionRefundMethod;
       operationId?: string;
-    } = {},
+    },
   ) =>
     api.delete<ApiEnvelope<SubscriptionResponse>>(
       `${base}/${subscriptionId}/items/${itemId}`,

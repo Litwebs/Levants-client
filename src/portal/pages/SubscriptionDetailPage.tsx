@@ -1057,6 +1057,7 @@ const SubscriptionDetailPage: React.FC = () => {
       await portalSubscriptionsApi.update(id, {
         ...payload,
         ...(refundMethod ? { refundMethod } : {}),
+        expectedVersion: subscription.customerVersion,
       });
       await load();
       setNotice("Delivery details updated.");
@@ -1089,6 +1090,7 @@ const SubscriptionDetailPage: React.FC = () => {
       await portalSubscriptionsApi.update(id, {
         ...pendingDeliveryDetailsSave,
         refundMethod,
+        expectedVersion: subscription.customerVersion,
       });
       await load();
       setNotice("Delivery details updated.");
@@ -1120,6 +1122,7 @@ const SubscriptionDetailPage: React.FC = () => {
       const res = await portalSubscriptionsApi.pause(
         id,
         pauseResumeOn,
+        subscription.customerVersion,
         pauseRefundMethod,
       );
       await load();
@@ -1142,7 +1145,10 @@ const SubscriptionDetailPage: React.FC = () => {
     setSaving(true);
     setError(null);
     try {
-      const res = await portalSubscriptionsApi.resume(id);
+      const res = await portalSubscriptionsApi.resume(
+        id,
+        subscription.customerVersion,
+      );
       await load();
       const message = (res as any)?.message || "Subscription resumed.";
       setNotice(message);
@@ -1163,7 +1169,10 @@ const SubscriptionDetailPage: React.FC = () => {
     if (!id) return;
     setSaving(true);
     try {
-      const res = await portalSubscriptionsApi.cancel(id, { refundMethod });
+      const res = await portalSubscriptionsApi.cancel(id, {
+        refundMethod,
+        expectedVersion: subscription.customerVersion,
+      });
       await load();
       setCancelOpen(false);
       setCancelRefundChoiceOpen(false);
@@ -1305,6 +1314,7 @@ const SubscriptionDetailPage: React.FC = () => {
             deliveryDays.map(dayNameToIndex),
           ),
           refundMethod,
+          expectedVersion: subscription.customerVersion,
         });
 
         await load();
@@ -1357,6 +1367,7 @@ const SubscriptionDetailPage: React.FC = () => {
       const res = await portalSubscriptionsApi.replaceItems(id, {
         items: replacementItems,
         refundMethod,
+        expectedVersion: subscription.customerVersion,
       });
 
       await load();
