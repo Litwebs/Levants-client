@@ -12,6 +12,7 @@
     "deploy": "gh-pages -d dist",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
+    "typecheck": "tsc --noEmit -p tsconfig.app.json && tsc --noEmit -p tsconfig.node.json",
     "preview": "vite preview"
   },
   "dependencies": {
