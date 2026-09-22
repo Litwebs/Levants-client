@@ -6,6 +6,7 @@ import { useOrders } from "@/context/Orders/OrdersContext";
 import { toast } from "sonner";
 import { checkDeliveryPostcode } from "@/api/delivery";
 import { portalAuthApi } from "@/api/portalAuth";
+import { portalOrdersApi } from "@/api/portalOrders";
 import { isPortalLoggedIn } from "@/lib/portalAuth";
 import { useBusinessInfo } from "@/context/BusinessInfoContext";
 
@@ -43,6 +44,7 @@ const CheckoutPage: React.FC = () => {
   );
   const [availableCreditMinor, setAvailableCreditMinor] = useState(0);
   const [applyCredit, setApplyCredit] = useState(false);
+  const [portalCheckoutLoading, setPortalCheckoutLoading] = useState(false);
   const [skipDeliveryStep, setSkipDeliveryStep] = useState(false);
   const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>([]);
   const [selectedSavedAddressId, setSelectedSavedAddressId] = useState<
@@ -401,8 +403,7 @@ const CheckoutPage: React.FC = () => {
         quantity: item.quantity,
       }));
 
-      const result = await createOrder({
-        customerId: activeCustomerId,
+      const checkoutPayload = {
         items: orderItems,
         deliveryAddress: {
           line1: formData.address1,
@@ -416,11 +417,33 @@ const CheckoutPage: React.FC = () => {
           ? undefined
           : validatedDiscount?.code || discountCode.trim() || undefined,
         creditToApplyMinor: usingCredit ? creditAppliedMinor : undefined,
-      });
+      };
+
+      let result;
+      if (loggedInCheckout) {
+        setPortalCheckoutLoading(true);
+        try {
+          const response = await portalOrdersApi.checkout(checkoutPayload);
+          result = response.data || null;
+        } finally {
+          setPortalCheckoutLoading(false);
+        }
+      } else {
+        result = await createOrder({
+          customerId: activeCustomerId,
+          ...checkoutPayload,
+          // Guests cannot spend account store credit.
+          creditToApplyMinor: undefined,
+        });
+      }
 
       if (result?.paidWithCredit) {
         // Fully paid with store credit — no Stripe redirect needed.
-        navigate("/checkout/success");
+        navigate(
+          `/checkout/success?credit=1&order_id=${encodeURIComponent(
+            result.orderId,
+          )}`,
+        );
         return;
       }
 
@@ -442,8 +465,7 @@ const CheckoutPage: React.FC = () => {
 
   // Store credit (in MINOR units / pence). Cannot be combined with a discount.
   const STRIPE_MIN_CHARGE_MINOR = 30;
-  const canUseCredit =
-    loggedInCheckout && availableCreditMinor > 0 && !validatedDiscount;
+  const canUseCredit = loggedInCheckout && availableCreditMinor > 0;
   const orderTotalMinor = Math.round(displayTotal * 100);
   let creditAppliedMinor = 0;
   if (applyCredit && canUseCredit) {
@@ -866,8 +888,8 @@ const CheckoutPage: React.FC = () => {
                           </span>
                           <span className="block text-muted-foreground">
                             You have £{(availableCreditMinor / 100).toFixed(2)}{" "}
-                            available. Credit can't be combined with a discount
-                            code.
+                            available. Selecting store credit removes any
+                            discount code because the two can't be combined.
                           </span>
                         </span>
                       </label>
@@ -950,7 +972,7 @@ const CheckoutPage: React.FC = () => {
                 <button
                   onClick={handleBack}
                   className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
-                  disabled={loading || checkingPostcode}
+                  disabled={loading || portalCheckoutLoading || checkingPostcode}
                 >
                   <ChevronLeft className="w-4 h-4" />
                   Back
@@ -963,7 +985,7 @@ const CheckoutPage: React.FC = () => {
                 <button
                   onClick={handleNext}
                   className="btn-primary"
-                  disabled={loading || checkingPostcode}
+                  disabled={loading || portalCheckoutLoading || checkingPostcode}
                 >
                   {checkingPostcode ? (
                     <span className="inline-flex items-center gap-2">
@@ -978,9 +1000,9 @@ const CheckoutPage: React.FC = () => {
                 <button
                   onClick={handlePlaceOrder}
                   className="btn-primary flex items-center gap-2"
-                  disabled={loading || checkingPostcode}
+                  disabled={loading || portalCheckoutLoading || checkingPostcode}
                 >
-                  {loading ? (
+                  {loading || portalCheckoutLoading ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin" />
                       Processing...
