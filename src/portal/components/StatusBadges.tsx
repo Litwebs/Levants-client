@@ -26,7 +26,19 @@ const StatusDot: React.FC<{
 );
 
 // ─── Order Status Badge ───────────────────────────────────────────────────────
-const orderStatusConfig: Record<OrderStatus, { label: string; dot: string }> = {
+type DisplayOrderStatus =
+  | OrderStatus
+  | "paid"
+  | "partially_paid"
+  | "refund_pending"
+  | "partially_refunded"
+  | "refunded"
+  | "refund_failed";
+
+const orderStatusConfig: Record<
+  DisplayOrderStatus,
+  { label: string; dot: string }
+> = {
   placed: { label: "Placed", dot: "bg-blue-500" },
   confirmed: { label: "Confirmed", dot: "bg-indigo-500" },
   preparing: { label: "Preparing", dot: "bg-amber-400" },
@@ -44,7 +56,7 @@ const orderStatusConfig: Record<OrderStatus, { label: string; dot: string }> = {
 };
 
 export const OrderStatusBadge: React.FC<{
-  status: OrderStatus;
+  status: DisplayOrderStatus;
   className?: string;
 }> = ({ status, className }) => {
   const cfg = orderStatusConfig[status] ?? {

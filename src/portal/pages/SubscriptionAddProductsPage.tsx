@@ -592,8 +592,8 @@ const SubscriptionAddProductsPage: React.FC = () => {
                 ? "!bg-destructive/10 !text-destructive hover:!bg-destructive/20"
                 : undefined
             }
-            cardAfterActionContent={({ variant }) =>
-              renderDayAssignment(variant?.id)
+            cardAfterActionContent={({ lockedVariantId }) =>
+              renderDayAssignment(lockedVariantId)
             }
             onCardAction={({ product, variant, lockedVariantId }) => {
               const variantId = variant?.id ?? lockedVariantId;

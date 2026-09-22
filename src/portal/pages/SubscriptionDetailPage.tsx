@@ -330,13 +330,15 @@ const isDayPastOwnCutoff = (
   );
 };
 
-// When a delivery day is already past its own cut-off, staged changes for that
-// day apply from the delivery AFTER the currently upcoming one for that weekday.
-const getDayScheduledFromDate = (dayIndex: number) => {
-  const upcoming = getNextWeekdayDate(dayIndex);
-  const scheduledFrom = new Date(upcoming);
-  scheduledFrom.setDate(scheduledFrom.getDate() + 7);
-  return scheduledFrom;
+// The server provides the authoritative effective date in the business timezone.
+// Never reconstruct it from the browser's local calendar.
+const getDayScheduledFromLabel = (
+  dayIndex: number,
+  cutoff?: PortalSubscriptionCutoff | null,
+) => {
+  if (!cutoff) return "-";
+  const effectiveFrom = getDeliveryDayCutoff(cutoff, dayIndex)?.effectiveFrom;
+  return formatCutoffDate(effectiveFrom, cutoff.timeZone) || "-";
 };
 
 const getDisplayNextDeliveryDate = (subscription: PortalSubscription) =>
@@ -817,9 +819,7 @@ const SubscriptionDetailPage: React.FC = () => {
     // Open days (before their own cut-off) apply immediately — no staged text.
     if (!isDayPastOwnCutoff(dayIndex, cutoff)) return null;
 
-    const scheduledFromLabel = formatDate(
-      getDayScheduledFromDate(dayIndex).toISOString(),
-    );
+    const scheduledFromLabel = getDayScheduledFromLabel(dayIndex, cutoff);
 
     const liveItem = (liveDayPlanBaseline[dayName] || []).find(
       (candidate) => getDayPlanItemKey(candidate) === getDayPlanItemKey(item),
@@ -1882,10 +1882,9 @@ const SubscriptionDetailPage: React.FC = () => {
                               </p>
                               <p className="text-xs text-blue-700 dark:text-sky-300">
                                 {item.sku} · scheduled for removal from{" "}
-                                {formatDate(
-                                  getDayScheduledFromDate(
-                                    dayNameToIndex(dayName),
-                                  ).toISOString(),
+                                {getDayScheduledFromLabel(
+                                  dayNameToIndex(dayName),
+                                  cutoff,
                                 )}
                               </p>
                             </div>
