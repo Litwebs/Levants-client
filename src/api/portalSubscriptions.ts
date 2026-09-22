@@ -6,6 +6,13 @@ type ApiEnvelope<T> = {
   data?: T;
 };
 
+const ensureOperationId = <T extends { operationId?: string }>(payload: T): T & {
+  operationId: string;
+} => ({
+  ...payload,
+  operationId: payload.operationId || globalThis.crypto.randomUUID(),
+});
+
 export type PortalSubscriptionStatus = "active" | "paused" | "cancelled";
 export type PortalSubscriptionFrequency =
   | "weekly"
@@ -53,6 +60,7 @@ export type PortalSubscription = {
   // from `effectiveFrom` (the delivery after the upcoming one).
   pendingChanges?: {
     items?: Array<{
+      _id?: string;
       name: string;
       sku?: string;
       quantity: number;
@@ -77,12 +85,15 @@ export type PortalSubscription = {
   notes?: string | null;
   createdAt: string;
   updatedAt: string;
+  customerVersion: number;
 };
 
 export type PortalSubscriptionDelivery = {
   _id: string;
   scheduledDate: string;
   status: string;
+  cutoffAt?: string | null;
+  isPastCutoff?: boolean;
   generatedAt?: string | null;
   order?: {
     _id: string;
@@ -125,6 +136,14 @@ export type PortalSubscriptionCutoff = {
   cutoffDaysBefore: number;
   cutoffTime: string;
   deliveryDays: number[];
+  timeZone?: string;
+  deliveryDayCutoffs?: Array<{
+    day: number;
+    deliveryDate?: string | null;
+    cutoffAt?: string | null;
+    effectiveFrom?: string | null;
+    isPastCutoff: boolean;
+  }>;
 };
 
 export type SubscriptionRefundMethod = "credit" | "refund";
@@ -167,6 +186,7 @@ type DeliveryAddOnResponse = {
 };
 
 export type CreateSubscriptionPayload = {
+  operationId?: string;
   frequency: PortalSubscriptionFrequency;
   preferredDeliveryDay?: number;
   preferredDeliveryDays?: number[];
@@ -198,51 +218,105 @@ export const portalSubscriptionsApi = {
     api.get<ApiEnvelope<SubscriptionResponse>>(`${base}/${subscriptionId}`),
 
   create: (payload: CreateSubscriptionPayload) =>
-    api.post<ApiEnvelope<SubscriptionResponse>>(base, payload),
+    api.post<ApiEnvelope<SubscriptionResponse>>(base, ensureOperationId(payload)),
 
   update: (
     subscriptionId: string,
-    payload: Partial<{
-      frequency: PortalSubscriptionFrequency;
-      preferredDeliveryDay: number;
-      preferredDeliveryDays: number[];
-      changedDeliveryDays: number[];
-      deliveryDayPlans: Array<{
+    payload: {
+      expectedVersion: number;
+      operationId?: string;
+      frequency?: PortalSubscriptionFrequency;
+      preferredDeliveryDay?: number;
+      preferredDeliveryDays?: number[];
+      changedDeliveryDays?: number[];
+      deliveryDayPlans?: Array<{
         day: number;
         items: Array<{ variantId: string; quantity: number }>;
       }>;
-      deliveryAddressId: string;
-      notes: string;
-      refundMethod: SubscriptionRefundMethod;
-    }>,
-  ) => api.patch<ApiEnvelope<SubscriptionResponse>>(`${base}/${subscriptionId}`, payload),
+      deliveryAddressId?: string;
+      notes?: string;
+      refundMethod?: SubscriptionRefundMethod;
+    },
+  ) =>
+    api.patch<ApiEnvelope<SubscriptionResponse>>(
+      `${base}/${subscriptionId}`,
+      ensureOperationId(payload),
+    ),
 
-  pause: (subscriptionId: string, resumeOn: string) =>
-    api.post<ApiEnvelope<SubscriptionResponse>>(`${base}/${subscriptionId}/pause`, {
-      resumeOn,
-    }),
+  pause: (
+    subscriptionId: string,
+    resumeOn: string,
+    expectedVersion: number,
+    refundMethod: SubscriptionRefundMethod = "refund",
+    operationId?: string,
+  ) =>
+    api.post<ApiEnvelope<SubscriptionResponse>>(
+      `${base}/${subscriptionId}/pause`,
+      ensureOperationId({
+        resumeOn,
+        refundMethod,
+        expectedVersion,
+        operationId,
+      }),
+    ),
 
-  resume: (subscriptionId: string) =>
-    api.post<ApiEnvelope<SubscriptionResponse>>(`${base}/${subscriptionId}/resume`),
+  resume: (
+    subscriptionId: string,
+    expectedVersion: number,
+    operationId?: string,
+  ) =>
+    api.post<ApiEnvelope<SubscriptionResponse>>(
+      `${base}/${subscriptionId}/resume`,
+      ensureOperationId({ expectedVersion, operationId }),
+    ),
 
   cancel: (
     subscriptionId: string,
-    payload: { reason?: string; refundMethod?: SubscriptionRefundMethod } = {},
+    payload: {
+      expectedVersion: number;
+      reason?: string;
+      refundMethod?: SubscriptionRefundMethod;
+      operationId?: string;
+    },
   ) =>
-    api.post<ApiEnvelope<SubscriptionResponse>>(`${base}/${subscriptionId}/cancel`, {
-      ...(payload.reason ? { reason: payload.reason } : {}),
-      ...(payload.refundMethod ? { refundMethod: payload.refundMethod } : {}),
-    }),
+    api.post<ApiEnvelope<SubscriptionResponse>>(
+      `${base}/${subscriptionId}/cancel`,
+      ensureOperationId({
+        ...(payload.reason ? { reason: payload.reason } : {}),
+        ...(payload.refundMethod ? { refundMethod: payload.refundMethod } : {}),
+        expectedVersion: payload.expectedVersion,
+        operationId: payload.operationId,
+      }),
+    ),
 
   addItem: (
     subscriptionId: string,
     payload: {
       variantId: string;
       quantity: number;
+      expectedVersion: number;
       refundMethod?: SubscriptionRefundMethod;
+      operationId?: string;
     },
   ) =>
-    api.post<ApiEnvelope<SubscriptionResponse>>(`${base}/${subscriptionId}/items`, payload),
+    api.post<ApiEnvelope<SubscriptionResponse>>(
+      `${base}/${subscriptionId}/items`,
+      ensureOperationId(payload),
+    ),
+
+  replaceItems: (
+    subscriptionId: string,
+    payload: {
+      items: Array<{ itemId: string; quantity: number }>;
+      expectedVersion: number;
+      refundMethod?: SubscriptionRefundMethod;
+      operationId?: string;
+    },
+  ) =>
+    api.put<ApiEnvelope<SubscriptionResponse>>(
+      `${base}/${subscriptionId}/items`,
+      ensureOperationId(payload),
+    ),
 
   addNextDeliveryAddOn: (
     subscriptionId: string,
@@ -259,21 +333,30 @@ export const portalSubscriptionsApi = {
   updateItem: (
     subscriptionId: string,
     itemId: string,
-    payload: { quantity: number; refundMethod?: SubscriptionRefundMethod },
+    payload: {
+      quantity: number;
+      expectedVersion: number;
+      refundMethod?: SubscriptionRefundMethod;
+      operationId?: string;
+    },
   ) =>
     api.patch<ApiEnvelope<SubscriptionResponse>>(
       `${base}/${subscriptionId}/items/${itemId}`,
-      payload,
+      ensureOperationId(payload),
     ),
 
   removeItem: (
     subscriptionId: string,
     itemId: string,
-    payload: { refundMethod?: SubscriptionRefundMethod } = {},
+    payload: {
+      expectedVersion: number;
+      refundMethod?: SubscriptionRefundMethod;
+      operationId?: string;
+    },
   ) =>
     api.delete<ApiEnvelope<SubscriptionResponse>>(
       `${base}/${subscriptionId}/items/${itemId}`,
-      payload,
+      ensureOperationId(payload),
     ),
 
   listDeliveries: (

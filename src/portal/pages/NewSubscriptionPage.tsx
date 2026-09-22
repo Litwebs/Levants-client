@@ -413,6 +413,10 @@ function readDraft() {
 
 const NewSubscriptionPage: React.FC = () => {
   const navigate = useNavigate();
+  const createOperationRef = useRef<{
+    fingerprint: string;
+    operationId: string;
+  } | null>(null);
   const [searchParams] = useSearchParams();
   const isPreparedSubscription = searchParams.get("prepared") === "1";
   const draft = readDraft();
@@ -464,6 +468,7 @@ const NewSubscriptionPage: React.FC = () => {
   const [loadingProducts, setLoadingProducts] = useState(true);
   const [productError, setProductError] = useState<string | null>(null);
   const [availableDays, setAvailableDays] = useState<string[] | null>(null);
+  const [deliveryDaysError, setDeliveryDaysError] = useState<string | null>(null);
 
   const fetchProducts = async () => {
     setLoadingProducts(true);
@@ -498,20 +503,31 @@ const NewSubscriptionPage: React.FC = () => {
     ];
     const fetchSettings = async () => {
       try {
+        setDeliveryDaysError(null);
         const res = await portalSubscriptionsApi.getSettings();
         const days = res.data?.settings?.deliveryDays;
-        if (cancelled || !Array.isArray(days) || days.length === 0) return;
+        if (cancelled) return;
+        if (!Array.isArray(days) || days.length === 0) {
+          throw new Error("No delivery days are currently configured.");
+        }
         const names = days
           .map((d) => dayNames[d])
           .filter((n): n is string => Boolean(n));
+        if (names.length === 0) {
+          throw new Error("No valid delivery days are currently configured.");
+        }
         setAvailableDays(names);
         setDeliveryDays((prev) => {
           const filtered = prev.filter((day) => names.includes(day));
           if (filtered.length > 0) return filtered;
-          return names[0] ? [names[0]] : prev;
+          return [names[0]];
         });
       } catch {
-        /* fall back to default day list */
+        if (cancelled) return;
+        setAvailableDays([]);
+        setDeliveryDaysError(
+          "We couldn't load the available delivery days. Please refresh and try again.",
+        );
       }
     };
     void fetchSettings();
@@ -876,6 +892,19 @@ const NewSubscriptionPage: React.FC = () => {
     syncSelectionFromDayPlans(nextPlans);
   };
 
+  const toggleDeliveryDay = (day: string) => {
+    const selected = deliveryDays.includes(day);
+    if (selected && deliveryDays.length === 1) return;
+
+    chooseDeliveryDays(
+      selected
+        ? deliveryDays.filter((candidate) => candidate !== day)
+        : [...deliveryDays, day],
+    );
+  };
+
+  const selectableDeliveryDays = availableDays || [];
+
   const setDayVariantQuantity = (
     day: string,
     variantId: string,
@@ -961,7 +990,10 @@ const NewSubscriptionPage: React.FC = () => {
     addresses.some((a) => getAddressId(a) === selectedAddress);
 
   const canContinue =
-    (step === 0 && deliveryDays.length > 0) ||
+    (step === 0 &&
+      selectableDeliveryDays.length > 0 &&
+      deliveryDays.length > 0 &&
+      deliveryDays.every((day) => selectableDeliveryDays.includes(day))) ||
     step === 1 ||
     (step === 2 && hasProductsForEverySelectedDay) ||
     (step === 3 && selectedAddressValid);
@@ -1236,7 +1268,22 @@ const NewSubscriptionPage: React.FC = () => {
 
   const completeSubscription = async () => {
     const payload = buildSubscriptionPayload();
-    await portalSubscriptionsApi.create(payload);
+    const fingerprint = JSON.stringify(payload);
+    if (
+      !createOperationRef.current ||
+      createOperationRef.current.fingerprint !== fingerprint
+    ) {
+      createOperationRef.current = {
+        fingerprint,
+        operationId: globalThis.crypto.randomUUID(),
+      };
+    }
+
+    await portalSubscriptionsApi.create({
+      ...payload,
+      operationId: createOperationRef.current.operationId,
+    });
+    createOperationRef.current = null;
     clearDraft();
     navigate("/portal/subscriptions");
   };
@@ -1389,23 +1436,29 @@ const NewSubscriptionPage: React.FC = () => {
               Which days would you like delivery?
             </h2>
             <p className="text-sm text-muted-foreground mb-5">
-              Choose Sunday, Wednesday, or both days.
+              Choose one or more of the delivery days currently offered.
             </p>
+            {availableDays === null ? (
+              <div className="flex items-center gap-2 rounded-xl border border-border bg-muted/20 p-4 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Loading available delivery days...
+              </div>
+            ) : deliveryDaysError ? (
+              <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
+                {deliveryDaysError}
+              </div>
+            ) : (
             <div className="grid gap-3 sm:grid-cols-3">
-              {["Sunday", "Wednesday"].map((day) => {
-                const selected =
-                  deliveryDays.length === 1 && deliveryDays[0] === day;
-                const unavailable =
-                  Array.isArray(availableDays) && !availableDays.includes(day);
+              {selectableDeliveryDays.map((day) => {
+                const selected = deliveryDays.includes(day);
                 return (
                   <button
                     key={day}
                     type="button"
-                    disabled={unavailable}
                     aria-pressed={selected}
-                    onClick={() => chooseDeliveryDays([day])}
+                    onClick={() => toggleDeliveryDay(day)}
                     className={cn(
-                      "rounded-xl border p-4 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-45",
+                      "rounded-xl border p-4 text-left transition-colors",
                       selected
                         ? "border-forest bg-forest/5"
                         : "border-border hover:border-forest/40",
@@ -1415,38 +1468,13 @@ const NewSubscriptionPage: React.FC = () => {
                       {day}
                     </p>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      {unavailable
-                        ? "Currently unavailable"
-                        : "One delivery day"}
+                      {selected ? "Selected" : "Available delivery day"}
                     </p>
                   </button>
                 );
               })}
-              <button
-                type="button"
-                disabled={
-                  Array.isArray(availableDays) &&
-                  !["Sunday", "Wednesday"].every((day) =>
-                    availableDays.includes(day),
-                  )
-                }
-                aria-pressed={deliveryDays.length > 1}
-                onClick={() => chooseDeliveryDays(["Sunday", "Wednesday"])}
-                className={cn(
-                  "rounded-xl border p-4 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-45",
-                  deliveryDays.length > 1
-                    ? "border-forest bg-forest/5"
-                    : "border-border hover:border-forest/40",
-                )}
-              >
-                <p className="text-sm font-semibold text-foreground">
-                  Both days
-                </p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Sunday and Wednesday
-                </p>
-              </button>
             </div>
+            )}
           </div>
         )}
 
@@ -1501,8 +1529,8 @@ const NewSubscriptionPage: React.FC = () => {
             </div>
             {deliveryDays.length > 1 && (
               <p className="mt-4 rounded-lg bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
-                Both-day delivery is a weekly plan because it includes separate
-                Sunday and Wednesday orders each week.
+                Multiple delivery days use a weekly plan because each selected
+                day is a separate order each week.
               </p>
             )}
           </div>

@@ -69,7 +69,7 @@ const statusAccent: Record<string, string> = {
 
 const SubscriptionCard: React.FC<{
   subscription: PortalSubscription;
-  onResume: (id: string) => Promise<void>;
+  onResume: (subscription: PortalSubscription) => Promise<void>;
   actionLoadingId: string | null;
 }> = ({ subscription: sub, onResume, actionLoadingId }) => {
   const [resumeOpen, setResumeOpen] = useState(false);
@@ -266,7 +266,7 @@ const SubscriptionCard: React.FC<{
         title="Resume Subscription?"
         description="This subscription will become active again and new delivery slots will be created."
         confirmLabel="Resume Subscription"
-        onConfirm={() => onResume(sub._id)}
+        onConfirm={() => onResume(sub)}
       />
     </div>
   );
@@ -299,10 +299,13 @@ const SubscriptionsPage: React.FC = () => {
     void loadSubscriptions();
   }, []);
 
-  const handleResume = async (id: string) => {
+  const handleResume = async (subscription: PortalSubscription) => {
     try {
-      setActionLoadingId(id);
-      await portalSubscriptionsApi.resume(id);
+      setActionLoadingId(subscription._id);
+      await portalSubscriptionsApi.resume(
+        subscription._id,
+        subscription.customerVersion,
+      );
       await loadSubscriptions();
     } catch (err) {
       setError(

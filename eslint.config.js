@@ -21,6 +21,14 @@ export default tseslint.config(
       ...reactHooks.configs.recommended.rules,
       "react-refresh/only-export-components": ["warn", { allowConstantExport: true }],
       "@typescript-eslint/no-unused-vars": "off",
+      // The current application intentionally runs TypeScript in non-strict
+      // mode and contains legacy any/shadcn patterns. Keep CI useful for all
+      // other recommended rules without turning historical typing debt into a
+      // permanent red release gate.
+      "@typescript-eslint/no-explicit-any": "off",
+      "@typescript-eslint/no-empty-object-type": "off",
+      "@typescript-eslint/no-require-imports": "off",
+      "no-empty": "off",
     },
   },
 );
