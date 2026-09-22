@@ -1,16 +1,15 @@
 name: One-off client gh-pages deploy
 
 on:
-  pull_request:
+  push:
     branches:
-      - main
+      - feature/one-time-order-checkout-fix
 
 permissions:
   contents: write
 
 jobs:
   deploy:
-    if: github.head_ref == 'feature/one-time-order-checkout-fix'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout client feature branch
