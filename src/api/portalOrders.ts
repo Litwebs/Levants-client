@@ -113,6 +113,27 @@ export type UpdateOrderDeliveryPayload = {
   deliveryAddressId: string;
 };
 
+
+export type PortalCheckoutPayload = {
+  items: Array<{ variantId: string; quantity: number }>;
+  deliveryAddress: {
+    line1: string;
+    line2?: string;
+    city: string;
+    postcode: string;
+    country: string;
+  };
+  customerInstructions?: string;
+  discountCode?: string;
+  creditToApplyMinor?: number;
+};
+
+export type PortalCheckoutResponse = {
+  orderId: string;
+  checkoutUrl: string | null;
+  paidWithCredit?: boolean;
+};
+
 export type ListOrdersQuery = {
   page?: number;
   pageSize?: number;
@@ -123,6 +144,9 @@ export type ListOrdersQuery = {
 const base = "/portal/orders";
 
 export const portalOrdersApi = {
+  checkout: (payload: PortalCheckoutPayload) =>
+    api.post<ApiEnvelope<PortalCheckoutResponse>>(`${base}/checkout`, payload),
+
   list: (query: ListOrdersQuery = {}) =>
     api.get<ApiEnvelope<ListOrdersResponse>>(base, query),
 

@@ -33,10 +33,6 @@ import ForgotPasswordPage from "@/portal/pages/auth/ForgotPasswordPage";
 import ResetPasswordPage from "@/portal/pages/auth/ResetPasswordPage";
 import ConfirmEmailChangePage from "@/portal/pages/auth/ConfirmEmailChangePage";
 import DashboardPage from "@/portal/pages/DashboardPage";
-import PortalProductsPage from "@/portal/pages/ProductsPage";
-import PortalCartPage from "@/portal/pages/CartPage";
-import PortalCheckoutPage from "@/portal/pages/CheckoutPage";
-import PortalOrderConfirmationPage from "@/portal/pages/PortalOrderConfirmationPage";
 import OrdersPage from "@/portal/pages/OrdersPage";
 import OrderDetailPage from "@/portal/pages/OrderDetailPage";
 import SubscriptionsPage from "@/portal/pages/SubscriptionsPage";
@@ -333,46 +329,6 @@ const App = () => {
                       <RequirePortalAuth>
                         <PortalLayout>
                           <DashboardPage />
-                        </PortalLayout>
-                      </RequirePortalAuth>
-                    }
-                  />
-                  <Route
-                    path="/portal/products"
-                    element={
-                      <RequirePortalAuth>
-                        <PortalLayout>
-                          <PortalProductsPage />
-                        </PortalLayout>
-                      </RequirePortalAuth>
-                    }
-                  />
-                  <Route
-                    path="/portal/cart"
-                    element={
-                      <RequirePortalAuth>
-                        <PortalLayout>
-                          <PortalCartPage />
-                        </PortalLayout>
-                      </RequirePortalAuth>
-                    }
-                  />
-                  <Route
-                    path="/portal/checkout"
-                    element={
-                      <RequirePortalAuth>
-                        <PortalLayout>
-                          <PortalCheckoutPage />
-                        </PortalLayout>
-                      </RequirePortalAuth>
-                    }
-                  />
-                  <Route
-                    path="/portal/order-confirmation"
-                    element={
-                      <RequirePortalAuth>
-                        <PortalLayout>
-                          <PortalOrderConfirmationPage />
                         </PortalLayout>
                       </RequirePortalAuth>
                     }
