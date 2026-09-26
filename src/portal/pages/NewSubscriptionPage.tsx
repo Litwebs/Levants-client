@@ -74,8 +74,10 @@ const DRAFT_FLOW_VERSION = 2;
 
 const paymentElementOptions = {
   layout: "tabs" as const,
-  // Stripe still decides eligibility; this only controls the preferred order.
-  paymentMethodOrder: ["apple_pay", "google_pay", "card"],
+  // Wallets are rendered separately by ExpressCheckoutElement. Keeping the
+  // Payment Element card-only prevents Stripe Link from taking over the card
+  // setup flow and surfacing a provider-level processing error.
+  paymentMethodOrder: ["card"],
   wallets: { applePay: "auto" as const, googlePay: "auto" as const },
   terms: {
     card: "never" as const,
@@ -415,7 +417,10 @@ const NewSubscriptionPage: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const isPreparedSubscription = searchParams.get("prepared") === "1";
-  const draft = readDraft();
+  // Admin-prepared links must always hydrate from the server. Reusing an
+  // unrelated browser draft here can hide or replace the order the admin
+  // prepared for this customer.
+  const draft = isPreparedSubscription ? null : readDraft();
   const [step, setStep] = useState(() => {
     if (isPreparedSubscription) return steps.length - 1;
     if (Number(draft?.flowVersion) !== DRAFT_FLOW_VERSION) return 0;
@@ -471,7 +476,7 @@ const NewSubscriptionPage: React.FC = () => {
     try {
       const json = await api.get<{ data: { items: ApiProduct[] } }>(
         "/products",
-        { page: 1, pageSize: 50 },
+        { page: 1, pageSize: 50, sort: "category_order" },
       );
       setProducts(json?.data?.items ?? []);
     } catch {
