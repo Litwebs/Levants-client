@@ -415,7 +415,10 @@ const NewSubscriptionPage: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const isPreparedSubscription = searchParams.get("prepared") === "1";
-  const draft = readDraft();
+  // Admin-prepared links must always hydrate from the server. Reusing an
+  // unrelated browser draft here can hide or replace the order the admin
+  // prepared for this customer.
+  const draft = isPreparedSubscription ? null : readDraft();
   const [step, setStep] = useState(() => {
     if (isPreparedSubscription) return steps.length - 1;
     if (Number(draft?.flowVersion) !== DRAFT_FLOW_VERSION) return 0;
