@@ -474,7 +474,7 @@ const NewSubscriptionPage: React.FC = () => {
     try {
       const json = await api.get<{ data: { items: ApiProduct[] } }>(
         "/products",
-        { page: 1, pageSize: 50 },
+        { page: 1, pageSize: 50, sort: "category_order" },
       );
       setProducts(json?.data?.items ?? []);
     } catch {
