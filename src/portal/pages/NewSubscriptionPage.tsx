@@ -74,8 +74,10 @@ const DRAFT_FLOW_VERSION = 2;
 
 const paymentElementOptions = {
   layout: "tabs" as const,
-  // Stripe still decides eligibility; this only controls the preferred order.
-  paymentMethodOrder: ["apple_pay", "google_pay", "card"],
+  // Wallets are rendered separately by ExpressCheckoutElement. Keeping the
+  // Payment Element card-only prevents Stripe Link from taking over the card
+  // setup flow and surfacing a provider-level processing error.
+  paymentMethodOrder: ["card"],
   wallets: { applePay: "auto" as const, googlePay: "auto" as const },
   terms: {
     card: "never" as const,
