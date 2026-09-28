@@ -2783,6 +2783,105 @@ const SubscriptionDetailPage: React.FC = () => {
       </div>
 
       <Dialog
+        open={reduceOpen}
+        onOpenChange={(open) => {
+          if (!reduceSaving) setReduceOpen(open);
+        }}
+      >
+        <DialogContent className="max-w-md p-6">
+          <DialogHeader>
+            <DialogTitle>Reduce next delivery</DialogTitle>
+            <DialogDescription>
+              This changes only {formatDate(nextReducibleDelivery?.scheduledDate)}.
+              The value removed is added to store credit. Future subscription
+              deliveries stay unchanged.
+            </DialogDescription>
+          </DialogHeader>
+          {subscription && nextReducibleDelivery && (
+            <div className="space-y-3 pt-2">
+              {getRecurringItemsForDelivery(nextReducibleDelivery, subscription).map((item) => {
+                const original = Number(item.quantity || 0);
+                const quantity = Number(
+                  reduceDraft[String(item.variant)] ?? original,
+                );
+                return (
+                  <div
+                    key={String(item.variant)}
+                    className="flex items-center justify-between gap-3 rounded-lg border border-border p-3"
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-foreground">
+                        {item.name}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {formatMoney(Number(item.unitPrice || 0))} each · normally{" "}
+                        {original}
+                      </p>
+                    </div>
+                    <div className="flex h-8 items-center rounded-md border border-border">
+                      <button
+                        type="button"
+                        aria-label={`Decrease ${item.name} quantity`}
+                        disabled={reduceSaving || quantity <= 0}
+                        onClick={() =>
+                          setReduceDraft((current) => ({
+                            ...current,
+                            [String(item.variant)]: Math.max(0, quantity - 1),
+                          }))
+                        }
+                        className="flex h-8 w-8 items-center justify-center hover:bg-muted disabled:opacity-40"
+                      >
+                        <Minus className="h-3 w-3" />
+                      </button>
+                      <span className="w-8 text-center text-xs font-medium">
+                        {quantity}
+                      </span>
+                      <button
+                        type="button"
+                        aria-label={`Increase ${item.name} quantity`}
+                        disabled={reduceSaving || quantity >= original}
+                        onClick={() =>
+                          setReduceDraft((current) => ({
+                            ...current,
+                            [String(item.variant)]: Math.min(
+                              original,
+                              quantity + 1,
+                            ),
+                          }))
+                        }
+                        className="flex h-8 w-8 items-center justify-center hover:bg-muted disabled:opacity-40"
+                      >
+                        <Plus className="h-3 w-3" />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+              <p className="rounded-lg bg-muted/50 p-3 text-xs text-muted-foreground">
+                Store credit is calculated from the server-side price snapshot.
+                This does not change your recurring quantities.
+              </p>
+              <div className="flex justify-end gap-2 pt-1">
+                <Button
+                  variant="outline"
+                  onClick={() => setReduceOpen(false)}
+                  disabled={reduceSaving}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={() => void submitReduction()}
+                  disabled={reduceSaving}
+                >
+                  {reduceSaving ? "Applying..." : "Confirm reduction"}
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
         open={pauseOpen}
         onOpenChange={(open) => {
           setPauseOpen(open);
