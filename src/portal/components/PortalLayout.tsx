@@ -41,6 +41,11 @@ const navItems = [
     href: "/portal/subscriptions",
     icon: RefreshCcw,
   },
+  {
+    label: "Subscription Guide",
+    href: "/portal/subscription-guide",
+    icon: BookOpen,
+  },
   { label: "My Orders", href: "/portal/orders", icon: ClipboardList },
   { label: "Payments", href: "/portal/payments", icon: CreditCard },
   { label: "Store Credit", href: "/portal/credit", icon: Wallet },
