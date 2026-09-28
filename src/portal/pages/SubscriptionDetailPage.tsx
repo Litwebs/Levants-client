@@ -216,6 +216,12 @@ const getDeliveryAddOnTotal = (delivery: PortalSubscriptionDelivery) =>
     0,
   );
 
+const getDeliveryReductionCredit = (delivery: PortalSubscriptionDelivery) =>
+  (delivery.reductions || []).reduce(
+    (sum, reduction) => sum + Number(reduction.amountMinor || 0) / 100,
+    0,
+  );
+
 const getDeliveryAddOnQuantity = (delivery: PortalSubscriptionDelivery) =>
   (delivery.addOns || []).reduce(
     (total, addOn) =>
@@ -2479,6 +2485,7 @@ const SubscriptionDetailPage: React.FC = () => {
                   );
                   const addOnTotal = getDeliveryAddOnTotal(delivery);
                   const addOnQuantity = getDeliveryAddOnQuantity(delivery);
+                  const reductionCredit = getDeliveryReductionCredit(delivery);
                   const deliveryTotal = getTotalForDelivery(
                     delivery,
                     subscription,
@@ -2509,6 +2516,11 @@ const SubscriptionDetailPage: React.FC = () => {
                             <span className="mt-0.5 block text-xs text-forest">
                               {addOnQuantity} one-time add-on
                               {addOnQuantity === 1 ? "" : "s"} confirmed
+                            </span>
+                          )}
+                          {reductionCredit > 0 && (
+                            <span className="mt-0.5 block text-xs text-forest">
+                              One-time reduction · {formatMoney(reductionCredit)} store credit
                             </span>
                           )}
                         </span>
