@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import {
   ArrowLeft,
@@ -216,6 +216,12 @@ const getDeliveryAddOnTotal = (delivery: PortalSubscriptionDelivery) =>
     0,
   );
 
+const getDeliveryReductionCredit = (delivery: PortalSubscriptionDelivery) =>
+  (delivery.reductions || []).reduce(
+    (sum, reduction) => sum + Number(reduction.amountMinor || 0) / 100,
+    0,
+  );
+
 const getDeliveryAddOnQuantity = (delivery: PortalSubscriptionDelivery) =>
   (delivery.addOns || []).reduce(
     (total, addOn) =>
@@ -259,6 +265,7 @@ const getRecurringItemsForDelivery = (
   subscription: PortalSubscription,
 ) => {
   const deliveryDay = new Date(delivery.scheduledDate).getDay();
+  if (delivery.itemOverride?.length) return delivery.itemOverride;
   const dayPlan = subscription.deliveryDayPlans?.find(
     (plan) => Number(plan.day) === deliveryDay,
   );
@@ -424,6 +431,10 @@ const SubscriptionDetailPage: React.FC = () => {
   const [expandedDeliveryId, setExpandedDeliveryId] = useState<string | null>(
     null,
   );
+  const [reduceOpen, setReduceOpen] = useState(false);
+  const [reduceSaving, setReduceSaving] = useState(false);
+  const [reduceDraft, setReduceDraft] = useState<Record<string, number>>({});
+  const reductionOperationIdRef = useRef<string | null>(null);
 
   const [pauseOpen, setPauseOpen] = useState(false);
   const [resumeOpen, setResumeOpen] = useState(false);
@@ -502,6 +513,95 @@ const SubscriptionDetailPage: React.FC = () => {
       return next;
     });
   }, [deliveryDays, frequency, productDraft]);
+
+  const nextReducibleDelivery = useMemo(
+    () =>
+      deliveries.find(
+        (delivery) =>
+          delivery.status === "scheduled" ||
+          (delivery.status === "generated" &&
+            delivery.order?.deliveryStatus === "ordered" &&
+            ["paid", "partially_paid", "partially_refunded"].includes(
+              String(delivery.order?.status || ""),
+            )),
+      ) || null,
+    [deliveries],
+  );
+
+  const openReduction = () => {
+    if (!subscription || !nextReducibleDelivery) return;
+    reductionOperationIdRef.current = null;
+    const recurring = getRecurringItemsForDelivery(
+      nextReducibleDelivery,
+      subscription,
+    );
+    setReduceDraft(
+      Object.fromEntries(
+        recurring.map((item) => [String(item.variant), Number(item.quantity || 1)]),
+      ),
+    );
+    setReduceOpen(true);
+  };
+
+  const submitReduction = async () => {
+    if (!id || !subscription || !nextReducibleDelivery) return;
+    const recurring = getRecurringItemsForDelivery(
+      nextReducibleDelivery,
+      subscription,
+    );
+    const items = recurring
+      .map((item) => ({
+        variantId: String(item.variant),
+        quantity: Number(reduceDraft[String(item.variant)] || 0),
+      }))
+      .filter((item) => item.quantity > 0);
+    const beforeMinor = recurring.reduce(
+      (sum, item) =>
+        sum +
+        Math.round(Number(item.unitPrice || 0) * 100) *
+          Number(item.quantity || 0),
+      0,
+    );
+    const afterMinor = recurring.reduce(
+      (sum, item) =>
+        sum +
+        Math.round(Number(item.unitPrice || 0) * 100) *
+          Number(reduceDraft[String(item.variant)] || 0),
+      0,
+    );
+    if (items.length === 0 || afterMinor >= beforeMinor) {
+      setError("Reduce at least one quantity and keep at least one item in the delivery.");
+      return;
+    }
+
+    try {
+      setReduceSaving(true);
+      setError(null);
+      reductionOperationIdRef.current ||= crypto.randomUUID();
+      const response = await portalSubscriptionsApi.reduceNextDelivery(id, {
+        operationId: reductionOperationIdRef.current,
+        items,
+      });
+      const creditedMinor = Number((response as any)?.data?.creditedMinor || 0);
+      toast.success("Next delivery updated", {
+        description: `${formatMoney(creditedMinor / 100)} was added to your store credit. Future deliveries are unchanged.`,
+      });
+      setReduceOpen(false);
+      reductionOperationIdRef.current = null;
+      await Promise.all([load(), refreshCustomer()]);
+    } catch (err) {
+      if (err instanceof ApiError && err.status < 500) {
+        reductionOperationIdRef.current = null;
+      }
+      setError(
+        err instanceof ApiError
+          ? err.message
+          : "Failed to reduce the next delivery.",
+      );
+    } finally {
+      setReduceSaving(false);
+    }
+  };
 
   const load = async () => {
     if (!id) return;
@@ -2342,14 +2442,27 @@ const SubscriptionDetailPage: React.FC = () => {
                 </p>
               </div>
               {subscription.status === "active" && deliveries.length > 0 && (
-                <Button asChild size="sm" className="shrink-0">
-                  <Link
-                    to={`/portal/subscriptions/${id}/next-delivery/add-ons`}
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="shrink-0"
+                    onClick={openReduction}
+                    disabled={!nextReducibleDelivery || Boolean(cutoff?.isPastCutoff)}
                   >
-                    <ShoppingBag className="h-3.5 w-3.5" />
-                    Add to next delivery
-                  </Link>
-                </Button>
+                    <Minus className="h-3.5 w-3.5" />
+                    Reduce next delivery
+                  </Button>
+                  <Button asChild size="sm" className="shrink-0">
+                    <Link
+                      to={`/portal/subscriptions/${id}/next-delivery/add-ons`}
+                    >
+                      <ShoppingBag className="h-3.5 w-3.5" />
+                      Add to next delivery
+                    </Link>
+                  </Button>
+                </div>
               )}
             </div>
             {deliveries.length === 0 ? (
@@ -2372,6 +2485,7 @@ const SubscriptionDetailPage: React.FC = () => {
                   );
                   const addOnTotal = getDeliveryAddOnTotal(delivery);
                   const addOnQuantity = getDeliveryAddOnQuantity(delivery);
+                  const reductionCredit = getDeliveryReductionCredit(delivery);
                   const deliveryTotal = getTotalForDelivery(
                     delivery,
                     subscription,
@@ -2402,6 +2516,11 @@ const SubscriptionDetailPage: React.FC = () => {
                             <span className="mt-0.5 block text-xs text-forest">
                               {addOnQuantity} one-time add-on
                               {addOnQuantity === 1 ? "" : "s"} confirmed
+                            </span>
+                          )}
+                          {reductionCredit > 0 && (
+                            <span className="mt-0.5 block text-xs text-forest">
+                              One-time reduction · {formatMoney(reductionCredit)} store credit
                             </span>
                           )}
                         </span>
@@ -2681,6 +2800,105 @@ const SubscriptionDetailPage: React.FC = () => {
           </div>
         </aside>
       </div>
+
+      <Dialog
+        open={reduceOpen}
+        onOpenChange={(open) => {
+          if (!reduceSaving) setReduceOpen(open);
+        }}
+      >
+        <DialogContent className="max-w-md p-6">
+          <DialogHeader>
+            <DialogTitle>Reduce next delivery</DialogTitle>
+            <DialogDescription>
+              This changes only {formatDate(nextReducibleDelivery?.scheduledDate)}.
+              The value removed is added to store credit. Future subscription
+              deliveries stay unchanged.
+            </DialogDescription>
+          </DialogHeader>
+          {subscription && nextReducibleDelivery && (
+            <div className="space-y-3 pt-2">
+              {getRecurringItemsForDelivery(nextReducibleDelivery, subscription).map((item) => {
+                const original = Number(item.quantity || 0);
+                const quantity = Number(
+                  reduceDraft[String(item.variant)] ?? original,
+                );
+                return (
+                  <div
+                    key={String(item.variant)}
+                    className="flex items-center justify-between gap-3 rounded-lg border border-border p-3"
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-foreground">
+                        {item.name}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {formatMoney(Number(item.unitPrice || 0))} each · normally{" "}
+                        {original}
+                      </p>
+                    </div>
+                    <div className="flex h-8 items-center rounded-md border border-border">
+                      <button
+                        type="button"
+                        aria-label={`Decrease ${item.name} quantity`}
+                        disabled={reduceSaving || quantity <= 0}
+                        onClick={() =>
+                          setReduceDraft((current) => ({
+                            ...current,
+                            [String(item.variant)]: Math.max(0, quantity - 1),
+                          }))
+                        }
+                        className="flex h-8 w-8 items-center justify-center hover:bg-muted disabled:opacity-40"
+                      >
+                        <Minus className="h-3 w-3" />
+                      </button>
+                      <span className="w-8 text-center text-xs font-medium">
+                        {quantity}
+                      </span>
+                      <button
+                        type="button"
+                        aria-label={`Increase ${item.name} quantity`}
+                        disabled={reduceSaving || quantity >= original}
+                        onClick={() =>
+                          setReduceDraft((current) => ({
+                            ...current,
+                            [String(item.variant)]: Math.min(
+                              original,
+                              quantity + 1,
+                            ),
+                          }))
+                        }
+                        className="flex h-8 w-8 items-center justify-center hover:bg-muted disabled:opacity-40"
+                      >
+                        <Plus className="h-3 w-3" />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+              <p className="rounded-lg bg-muted/50 p-3 text-xs text-muted-foreground">
+                Store credit is calculated from the server-side price snapshot.
+                This does not change your recurring quantities.
+              </p>
+              <div className="flex justify-end gap-2 pt-1">
+                <Button
+                  variant="outline"
+                  onClick={() => setReduceOpen(false)}
+                  disabled={reduceSaving}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={() => void submitReduction()}
+                  disabled={reduceSaving}
+                >
+                  {reduceSaving ? "Applying..." : "Confirm reduction"}
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       <Dialog
         open={pauseOpen}
