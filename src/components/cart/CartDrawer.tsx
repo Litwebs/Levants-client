@@ -69,7 +69,7 @@ const CartDrawer: React.FC = () => {
                 return (
                   <div
                     key={"deal-" + deal.id}
-                    className="flex gap-4 rounded-xl border border-primary/15 bg-primary/5 p-4"
+                    className="flex gap-4 p-4 bg-secondary/30 rounded-xl"
                   >
                     <div className="h-20 w-20 flex-shrink-0 overflow-hidden rounded-lg bg-muted">
                       {deal.imageUrl ? (
@@ -87,7 +87,7 @@ const CartDrawer: React.FC = () => {
                     <div className="min-w-0 flex-1">
                       <div className="mb-1 flex items-start justify-between gap-2">
                         <div>
-                          <span className="text-[10px] font-semibold uppercase tracking-wide text-primary">
+                          <span className="badge-fresh text-[10px]">
                             Package deal
                           </span>
                           <h4 className="truncate text-sm font-medium">
