@@ -441,6 +441,7 @@ const CheckoutPage: React.FC = () => {
             ? deals.map((entry) => ({
                 dealId: entry.deal.id,
                 quantity: entry.quantity,
+                expectedPackagePrice: entry.deal.packagePrice,
               }))
             : undefined,
         deliveryAddress: {
