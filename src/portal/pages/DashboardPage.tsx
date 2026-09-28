@@ -490,6 +490,32 @@ const DashboardPage: React.FC = () => {
             </CardContent>
           </Card>
 
+          {/* Subscription guide */}
+          <Card className="border-forest/20 bg-forest/5">
+            <CardContent className="pt-5 space-y-3">
+              <div className="flex items-start gap-3">
+                <div className="h-9 w-9 rounded-xl bg-forest/10 text-forest flex items-center justify-center flex-shrink-0">
+                  <BookOpen className="h-4 w-4" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-foreground">
+                    New to subscriptions?
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Read the customer guide for deliveries, changes, payments,
+                    add-ons and account controls.
+                  </p>
+                </div>
+              </div>
+              <Button asChild variant="outline" size="sm" className="w-full">
+                <Link to="/portal/subscription-guide">
+                  How subscriptions work
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </Link>
+              </Button>
+            </CardContent>
+          </Card>
+
           {/* One-time order nudge */}
           <Card className="border-dashed">
             <CardContent className="pt-5 text-center space-y-2">
