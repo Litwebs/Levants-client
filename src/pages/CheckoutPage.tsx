@@ -27,7 +27,7 @@ type SavedAddress = {
 const CheckoutPage: React.FC = () => {
   const navigate = useNavigate();
   const businessInfo = useBusinessInfo();
-  const { items, subtotal } = useCart();
+  const { items, deals, subtotal } = useCart();
   const {
     customer,
     createGuestCustomer,
@@ -217,7 +217,41 @@ const CheckoutPage: React.FC = () => {
     return true;
   };
 
+  const buildOrderItems = () => {
+    const quantities = new Map<string, number>();
+
+    for (const item of items) {
+      const variantId = item.variant?.id || item.product.id;
+      quantities.set(
+        variantId,
+        (quantities.get(variantId) || 0) + Number(item.quantity || 0),
+      );
+    }
+
+    for (const packageLine of deals) {
+      for (const component of packageLine.deal.items) {
+        const quantity =
+          Number(component.quantity || 0) * Number(packageLine.quantity || 0);
+        quantities.set(
+          component.variantId,
+          (quantities.get(component.variantId) || 0) + quantity,
+        );
+      }
+    }
+
+    return Array.from(quantities.entries()).map(([variantId, quantity]) => ({
+      variantId,
+      quantity,
+    }));
+  };
+
   const ensureDiscountValidatedIfNeeded = async (customerId: string) => {
+    if (deals.length > 0) {
+      setDiscountCode("");
+      setValidatedDiscount(null);
+      return true;
+    }
+
     const code = discountCode.trim();
     if (!code) {
       setValidatedDiscount(null);
@@ -231,10 +265,7 @@ const CheckoutPage: React.FC = () => {
       return true;
     }
 
-    const orderItems = items.map((item) => ({
-      variantId: item.variant?.id || item.product.id,
-      quantity: item.quantity,
-    }));
+    const orderItems = buildOrderItems();
 
     const res = await validateDiscount({
       customerId,
@@ -397,14 +428,21 @@ const CheckoutPage: React.FC = () => {
         }
       }
 
-      // 2. Create order → get Stripe checkout URL
-      const orderItems = items.map((item) => ({
-        variantId: item.variant?.id || item.product.id,
-        quantity: item.quantity,
-      }));
+      // 2. Create order → get Stripe checkout URL.
+      // Package lines are expanded to their component variants for stock and
+      // fulfilment, while the deal claims are sent separately for server-side
+      // price validation.
+      const orderItems = buildOrderItems();
 
       const checkoutPayload = {
         items: orderItems,
+        deals:
+          deals.length > 0
+            ? deals.map((entry) => ({
+                dealId: entry.deal.id,
+                quantity: entry.quantity,
+              }))
+            : undefined,
         deliveryAddress: {
           line1: formData.address1,
           line2: formData.address2 || undefined,
@@ -413,9 +451,10 @@ const CheckoutPage: React.FC = () => {
           country: "UK",
         },
         customerInstructions: formData.customerInstructions || undefined,
-        discountCode: usingCredit
-          ? undefined
-          : validatedDiscount?.code || discountCode.trim() || undefined,
+        discountCode:
+          usingCredit || deals.length > 0
+            ? undefined
+            : validatedDiscount?.code || discountCode.trim() || undefined,
         creditToApplyMinor: usingCredit ? creditAppliedMinor : undefined,
       };
 
@@ -481,7 +520,7 @@ const CheckoutPage: React.FC = () => {
   const creditApplied = creditAppliedMinor / 100;
   const amountDueTotal = Math.max(0, displayTotal - creditApplied);
 
-  if (items.length === 0) {
+  if (items.length === 0 && deals.length === 0) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
@@ -548,7 +587,7 @@ const CheckoutPage: React.FC = () => {
                           <Check className="w-4 h-4" />
                         ) : (
                           step.id
-                        )}
+                        ) : null}
                       </div>
                       <span className="hidden sm:block text-sm font-medium">
                         {step.name}
@@ -786,7 +825,38 @@ const CheckoutPage: React.FC = () => {
                 <div className="mb-4 p-4 rounded-xl border border-border">
                   <h3 className="font-medium mb-3">Order Summary</h3>
 
-                  <div className="space-y-3 mb-4 max-h-64 overflow-y-auto">
+                  <div className="space-y-3 mb-4 max-h-72 overflow-y-auto">
+                    {deals.map((entry) => (
+                      <div
+                        key={"deal-" + entry.deal.id}
+                        className="flex gap-3 rounded-lg bg-primary/5 p-2"
+                      >
+                        <div className="w-12 h-12 rounded-lg overflow-hidden bg-muted flex-shrink-0">
+                          {entry.deal.imageUrl ? (
+                            <img
+                              src={entry.deal.imageUrl}
+                              alt={entry.deal.name}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : null}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-semibold uppercase tracking-wide text-primary">
+                            Package deal
+                          </p>
+                          <p className="text-sm font-medium truncate">
+                            {entry.deal.name}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {entry.deal.items.length} products × {entry.quantity}
+                          </p>
+                        </div>
+                        <p className="text-sm font-medium">
+                          £{(entry.deal.packagePrice * entry.quantity).toFixed(2)}
+                        </p>
+                      </div>
+                    ))}
+
                     {items.map((item) => {
                       const price = item.variant?.price ?? item.product.price;
                       return (
@@ -821,7 +891,17 @@ const CheckoutPage: React.FC = () => {
                     })}
                   </div>
 
-                  {!applyCredit && (
+                  {deals.length > 0 ? (
+                    <div className="mb-4 rounded-xl border border-primary/20 bg-primary/5 p-4 text-sm">
+                      <p className="font-medium text-primary">
+                        Package savings applied
+                      </p>
+                      <p className="mt-1 text-muted-foreground">
+                        Deal packages already include their advertised saving,
+                        so discount codes cannot be combined with them.
+                      </p>
+                    </div>
+                  ) : !applyCredit ? (
                     <div className="mb-4">
                       <label className="block text-sm font-medium mb-2">
                         Discount Code
