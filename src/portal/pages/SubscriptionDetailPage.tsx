@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import {
   ArrowLeft,
@@ -428,6 +428,7 @@ const SubscriptionDetailPage: React.FC = () => {
   const [reduceOpen, setReduceOpen] = useState(false);
   const [reduceSaving, setReduceSaving] = useState(false);
   const [reduceDraft, setReduceDraft] = useState<Record<string, number>>({});
+  const reductionOperationIdRef = useRef<string | null>(null);
 
   const [pauseOpen, setPauseOpen] = useState(false);
   const [resumeOpen, setResumeOpen] = useState(false);
@@ -523,6 +524,7 @@ const SubscriptionDetailPage: React.FC = () => {
 
   const openReduction = () => {
     if (!subscription || !nextReducibleDelivery) return;
+    reductionOperationIdRef.current = null;
     const recurring = getRecurringItemsForDelivery(
       nextReducibleDelivery,
       subscription,
@@ -569,8 +571,9 @@ const SubscriptionDetailPage: React.FC = () => {
     try {
       setReduceSaving(true);
       setError(null);
+      reductionOperationIdRef.current ||= crypto.randomUUID();
       const response = await portalSubscriptionsApi.reduceNextDelivery(id, {
-        operationId: crypto.randomUUID(),
+        operationId: reductionOperationIdRef.current,
         items,
       });
       const creditedMinor = Number((response as any)?.data?.creditedMinor || 0);
@@ -578,8 +581,12 @@ const SubscriptionDetailPage: React.FC = () => {
         description: `${formatMoney(creditedMinor / 100)} was added to your store credit. Future deliveries are unchanged.`,
       });
       setReduceOpen(false);
+      reductionOperationIdRef.current = null;
       await Promise.all([load(), refreshCustomer()]);
     } catch (err) {
+      if (err instanceof ApiError && err.status < 500) {
+        reductionOperationIdRef.current = null;
+      }
       setError(
         err instanceof ApiError
           ? err.message
