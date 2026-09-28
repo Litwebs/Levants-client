@@ -91,6 +91,19 @@ export type PortalSubscriptionDelivery = {
     deliveryStatus?: string;
     total?: number;
   } | null;
+  itemOverride?: Array<{
+    product: string;
+    variant: string;
+    name: string;
+    sku: string;
+    unitPrice: number;
+    quantity: number;
+  }>;
+  reductions?: Array<{
+    operationId: string;
+    amountMinor: number;
+    creditedAt: string;
+  }>;
   addOns?: Array<{
     operationId: string;
     amountMinor: number;
@@ -243,6 +256,18 @@ export const portalSubscriptionsApi = {
     },
   ) =>
     api.post<ApiEnvelope<SubscriptionResponse>>(`${base}/${subscriptionId}/items`, payload),
+
+  reduceNextDelivery: (
+    subscriptionId: string,
+    payload: {
+      operationId: string;
+      items: Array<{ variantId: string; quantity: number }>;
+    },
+  ) =>
+    api.post<ApiEnvelope<{ delivery: PortalSubscriptionDelivery; creditedMinor: number }>>(
+      `${base}/${subscriptionId}/next-delivery/reduce`,
+      payload,
+    ),
 
   addNextDeliveryAddOn: (
     subscriptionId: string,
