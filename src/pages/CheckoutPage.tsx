@@ -587,7 +587,7 @@ const CheckoutPage: React.FC = () => {
                           <Check className="w-4 h-4" />
                         ) : (
                           step.id
-                        ) : null}
+                        )}
                       </div>
                       <span className="hidden sm:block text-sm font-medium">
                         {step.name}
@@ -943,7 +943,7 @@ const CheckoutPage: React.FC = () => {
                         </button>
                       </div>
                     </div>
-                  )}
+                  : null}
 
                   {canUseCredit && (
                     <div className="mb-4 p-4 rounded-xl border border-border bg-secondary/20">
