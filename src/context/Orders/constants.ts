@@ -37,7 +37,11 @@ export interface OrderItemPayload {
 export interface CreateOrderPayload {
   customerId: string;
   items: OrderItemPayload[];
-  deals?: Array<{ dealId: string; quantity: number }>;
+  deals?: Array<{
+    dealId: string;
+    quantity: number;
+    expectedPackagePrice: number;
+  }>;
   deliveryAddress: CustomerAddress;
   /**
    * New field name (backend Order schema).
