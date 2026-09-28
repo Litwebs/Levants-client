@@ -35,7 +35,7 @@ import ConfirmEmailChangePage from "@/portal/pages/auth/ConfirmEmailChangePage";
 import DashboardPage from "@/portal/pages/DashboardPage";
 import OrdersPage from "@/portal/pages/OrdersPage";
 import OrderDetailPage from "@/portal/pages/OrderDetailPage";
-import SubscriptionsPage from "@/portal/pages/SubscriptionsPage";
+import SubscriptionsPage from "@/portal/pages/SubscriptionsPage";\nimport SubscriptionGuidePage from "@/portal/pages/SubscriptionGuidePage";
 import NewSubscriptionPage from "@/portal/pages/NewSubscriptionPage";
 import SubscriptionDetailPage from "@/portal/pages/SubscriptionDetailPage";
 import SubscriptionAddProductsPage from "@/portal/pages/SubscriptionAddProductsPage";
@@ -359,6 +359,16 @@ const App = () => {
                       <RequirePortalAuth>
                         <PortalLayout>
                           <SubscriptionsPage />
+                        </PortalLayout>
+                      </RequirePortalAuth>
+                    }
+                  />
+                  <Route
+                    path="/portal/subscription-guide"
+                    element={
+                      <RequirePortalAuth>
+                        <PortalLayout>
+                          <SubscriptionGuidePage />
                         </PortalLayout>
                       </RequirePortalAuth>
                     }
