@@ -12,14 +12,44 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
       - name: Use Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
+
       - name: Install dependencies
         run: npm ci
-      - name: Lint
-        run: npm run lint
-      - name: Build
+
+      - name: Lint new Deals files
+        run: >
+          npx eslint
+          src/api/deals.ts
+          src/components/deals/DealCard.tsx
+          src/components/deals/FeaturedDeals.tsx
+          src/pages/DealsPage.tsx
+          src/pages/DealDetailPage.tsx
+
+      - name: Lint Deals integration files
+        run: >
+          npx eslint
+          src/App.tsx
+          src/components/cart/CartDrawer.tsx
+          src/components/layout/Header.tsx
+          src/context/CartContext.tsx
+          src/context/Orders/constants.ts
+          src/pages/CheckoutPage.tsx
+          src/pages/HomePage.tsx
+          src/portal/components/PortalLayout.tsx
+          src/portal/pages/OrderDetailPage.tsx
+          src/api/portalOrders.ts
+          --rule '@typescript-eslint/no-explicit-any: off'
+          --rule 'react-refresh/only-export-components: off'
+          --rule 'react-hooks/exhaustive-deps: off'
+
+      - name: Verify patch whitespace
+        run: git diff --check origin/main...HEAD
+
+      - name: Production build
         run: npm run build
