@@ -2443,7 +2443,7 @@ const SubscriptionDetailPage: React.FC = () => {
                     variant="outline"
                     className="shrink-0"
                     onClick={openReduction}
-                    disabled={!nextReducibleDelivery}
+                    disabled={!nextReducibleDelivery || Boolean(cutoff?.isPastCutoff)}
                   >
                     <Minus className="h-3.5 w-3.5" />
                     Reduce next delivery
