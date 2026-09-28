@@ -92,6 +92,7 @@ export type PortalSubscriptionDelivery = {
     total?: number;
   } | null;
   itemOverride?: Array<{
+    _id?: string;
     product: string;
     variant: string;
     name: string;
