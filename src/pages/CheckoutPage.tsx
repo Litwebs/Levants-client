@@ -943,7 +943,7 @@ const CheckoutPage: React.FC = () => {
                         </button>
                       </div>
                     </div>
-                  : null}
+                  ) : null}
 
                   {canUseCredit && (
                     <div className="mb-4 p-4 rounded-xl border border-border bg-secondary/20">
