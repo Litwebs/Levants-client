@@ -41,5 +41,8 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
+      - name: Subscription retry tests
+        run: npm run test:subscription-retries
+
       - name: Build
         run: npm run build

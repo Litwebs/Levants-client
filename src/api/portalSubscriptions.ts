@@ -1,4 +1,5 @@
 import api from "@/api/client";
+import { withSubscriptionMutationRetry } from "./subscriptionMutationRetry";
 
 type ApiEnvelope<T> = {
   success: boolean;
@@ -238,10 +239,8 @@ export const portalSubscriptionsApi = {
       refundMethod?: SubscriptionRefundMethod;
     },
   ) =>
-    api.patch<ApiEnvelope<SubscriptionResponse>>(
-      `${base}/${subscriptionId}`,
-      ensureOperationId(payload),
-    ),
+    withSubscriptionMutationRetry(`patch:${subscriptionId}/update`, payload,
+      (body) => api.patch<ApiEnvelope<SubscriptionResponse>>(`${base}/${subscriptionId}`, body)),
 
   pause: (
     subscriptionId: string,
@@ -299,10 +298,8 @@ export const portalSubscriptionsApi = {
       operationId?: string;
     },
   ) =>
-    api.post<ApiEnvelope<SubscriptionResponse>>(
-      `${base}/${subscriptionId}/items`,
-      ensureOperationId(payload),
-    ),
+    withSubscriptionMutationRetry(`post:${subscriptionId}/addItem`, payload,
+      (body) => api.post<ApiEnvelope<SubscriptionResponse>>(`${base}/${subscriptionId}/items`, body)),
 
   replaceItems: (
     subscriptionId: string,
@@ -313,10 +310,8 @@ export const portalSubscriptionsApi = {
       operationId?: string;
     },
   ) =>
-    api.put<ApiEnvelope<SubscriptionResponse>>(
-      `${base}/${subscriptionId}/items`,
-      ensureOperationId(payload),
-    ),
+    withSubscriptionMutationRetry(`put:${subscriptionId}/replaceItems`, payload,
+      (body) => api.put<ApiEnvelope<SubscriptionResponse>>(`${base}/${subscriptionId}/items`, body)),
 
   addNextDeliveryAddOn: (
     subscriptionId: string,
@@ -340,10 +335,8 @@ export const portalSubscriptionsApi = {
       operationId?: string;
     },
   ) =>
-    api.patch<ApiEnvelope<SubscriptionResponse>>(
-      `${base}/${subscriptionId}/items/${itemId}`,
-      ensureOperationId(payload),
-    ),
+    withSubscriptionMutationRetry(`patch:${subscriptionId}/${itemId}`, payload,
+      (body) => api.patch<ApiEnvelope<SubscriptionResponse>>(`${base}/${subscriptionId}/items/${itemId}`, body)),
 
   removeItem: (
     subscriptionId: string,
