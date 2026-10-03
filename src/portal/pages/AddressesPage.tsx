@@ -49,7 +49,7 @@ const AddressForm: React.FC<{
   const postcodeRef = useRef<HTMLInputElement>(null);
   const countryRef = useRef<HTMLInputElement>(null);
   const deliveryInstructionsRef = useRef<HTMLTextAreaElement>(null);
-  const isDefaultRef = useRef<HTMLInputElement>(null);
+  const [isDefault, setIsDefault] = useState(Boolean(initial?.isDefault));
   const [instructionsLength, setInstructionsLength] = useState(
     initial?.deliveryInstructions?.length || 0,
   );
@@ -70,8 +70,9 @@ const AddressForm: React.FC<{
       if (deliveryInstructionsRef.current)
         deliveryInstructionsRef.current.value =
           initial.deliveryInstructions || "";
-      if (isDefaultRef.current)
-        isDefaultRef.current.checked = initial.isDefault || false;
+      setIsDefault(Boolean(initial.isDefault));
+    } else {
+      setIsDefault(false);
     }
   }, [initial]);
 
@@ -92,7 +93,7 @@ const AddressForm: React.FC<{
       postcode: postcodeRef.current?.value || "",
       country: countryRef.current?.value || "",
       deliveryInstructions: deliveryInstructionsRef.current?.value || "",
-      isDefault: isDefaultRef.current?.checked || false,
+      isDefault,
     };
 
     try {
@@ -205,7 +206,12 @@ const AddressForm: React.FC<{
         </p>
       </div>
       <div className="flex items-center gap-2">
-        <Checkbox id="setDefault" ref={isDefaultRef} disabled={isDisabled} />
+        <Checkbox
+          id="setDefault"
+          checked={isDefault}
+          onCheckedChange={(checked) => setIsDefault(checked === true)}
+          disabled={isDisabled}
+        />
         <Label htmlFor="setDefault" className="cursor-pointer font-normal">
           Set as default delivery address
         </Label>

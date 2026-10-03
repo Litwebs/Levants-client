@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Loader2, Minus, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,11 @@ import {
   type PortalSubscription,
 } from "@/api/portalSubscriptions";
 import { toast } from "sonner";
+import {
+  formatCutoffDate,
+  getDeliveryDayCutoff,
+  isPastCutoffInstant,
+} from "@/portal/utils/subscriptionCutoff";
 
 type SelectedAddItem = {
   variantId: string;
@@ -72,47 +77,23 @@ const formatDayList = (days: string[]) => {
   return `${days.slice(0, -1).join(", ")}, and ${days[days.length - 1]}`;
 };
 
-const formatDateOnly = (value: Date) =>
-  new Intl.DateTimeFormat("en-GB", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  }).format(value);
-
-const getNextWeekdayDate = (dayIndex: number, referenceDate = new Date()) => {
-  const date = new Date(referenceDate);
-  date.setHours(0, 0, 0, 0);
-  const currentDay = date.getDay();
-  let daysUntil = (dayIndex - currentDay + 7) % 7;
-  if (daysUntil === 0) daysUntil = 7;
-  date.setDate(date.getDate() + daysUntil);
-  return date;
-};
-
 const getDayCutoffLabel = (
-  dayName: string,
   dayIndex: number,
   cutoff: PortalSubscriptionCutoff,
 ) => {
-  const deliveryDate = getNextWeekdayDate(dayIndex);
-  const cutoffDate = new Date(deliveryDate);
-  cutoffDate.setDate(
-    cutoffDate.getDate() - (Number(cutoff.cutoffDaysBefore) || 0),
+  const dayCutoff = getDeliveryDayCutoff(cutoff, dayIndex);
+  const cutoffLabel = formatCutoffDate(
+    dayCutoff?.cutoffAt,
+    cutoff.timeZone,
+  );
+  if (!cutoffLabel) return "Cut-off unavailable";
+
+  const isPastCutoff = isPastCutoffInstant(
+    dayCutoff?.cutoffAt,
+    dayCutoff?.isPastCutoff ?? cutoff.isPastCutoff,
   );
 
-  const [hours, minutes] = String(cutoff.cutoffTime || "00:00")
-    .split(":")
-    .map((part) => Number(part));
-  cutoffDate.setHours(
-    Number.isFinite(hours) ? hours : 0,
-    Number.isFinite(minutes) ? minutes : 0,
-    0,
-    0,
-  );
-
-  const isPastCutoff = Date.now() >= cutoffDate.getTime();
-
-  return `${dayName}: ${isPastCutoff ? "Locked after" : "Editable until"} ${formatDateOnly(cutoffDate)} at ${cutoff.cutoffTime}`;
+  return `${isPastCutoff ? "Locked after" : "Editable until"} ${cutoffLabel} at ${cutoff.cutoffTime}`;
 };
 
 const formatDeliveryDayCount = (days: string[]) =>
@@ -121,6 +102,14 @@ const formatDeliveryDayCount = (days: string[]) =>
 const SubscriptionAddProductsPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const operationIdsRef = useRef(new Map<string, string>());
+  const operationIdFor = (fingerprint: string) => {
+    const existing = operationIdsRef.current.get(fingerprint);
+    if (existing) return existing;
+    const operationId = globalThis.crypto.randomUUID();
+    operationIdsRef.current.set(fingerprint, operationId);
+    return operationId;
+  };
 
   const [subscriptionLabel, setSubscriptionLabel] = useState("");
   const [subscriptionSnapshot, setSubscriptionSnapshot] =
@@ -492,21 +481,44 @@ const SubscriptionAddProductsPage: React.FC = () => {
           ),
         );
 
-        await portalSubscriptionsApi.update(id, {
+        const updatePayload = {
           preferredDeliveryDay: selectedDayIndexes[0],
           preferredDeliveryDays: selectedDayIndexes,
           changedDeliveryDays,
           deliveryDayPlans,
+        };
+        if (!subscriptionSnapshot) {
+          throw new Error("Subscription changed while loading. Please reload.");
+        }
+        await portalSubscriptionsApi.update(id, {
+          ...updatePayload,
+          expectedVersion: subscriptionSnapshot.customerVersion,
+          operationId: operationIdFor(
+            `multi-day-add:${JSON.stringify(updatePayload)}`,
+          ),
         });
       } else {
+        if (!subscriptionSnapshot) {
+          throw new Error("Subscription changed while loading. Please reload.");
+        }
+        let expectedVersion = subscriptionSnapshot.customerVersion;
         for (const item of selectedList) {
-          await portalSubscriptionsApi.addItem(id, {
+          const response = await portalSubscriptionsApi.addItem(id, {
             variantId: item.variantId,
             quantity: item.quantity,
+            expectedVersion,
+            operationId: operationIdFor(
+              `single-day-add:${item.variantId}:${item.quantity}`,
+            ),
           });
+          expectedVersion = Number(
+            (response as any)?.data?.subscription?.customerVersion ??
+              expectedVersion + 1,
+          );
         }
       }
 
+      operationIdsRef.current.clear();
       navigate(`/portal/subscriptions/${id}`);
     } catch (err) {
       const message =
@@ -580,8 +592,8 @@ const SubscriptionAddProductsPage: React.FC = () => {
                 ? "!bg-destructive/10 !text-destructive hover:!bg-destructive/20"
                 : undefined
             }
-            cardAfterActionContent={({ variant }) =>
-              renderDayAssignment(variant?.id)
+            cardAfterActionContent={({ lockedVariantId }) =>
+              renderDayAssignment(lockedVariantId)
             }
             onCardAction={({ product, variant, lockedVariantId }) => {
               const variantId = variant?.id ?? lockedVariantId;
@@ -780,7 +792,6 @@ const SubscriptionAddProductsPage: React.FC = () => {
                             </span>{" "}
                             <span>
                               {getDayCutoffLabel(
-                                dayName,
                                 dayNameToIndex(dayName),
                                 cutoff!,
                               )}
