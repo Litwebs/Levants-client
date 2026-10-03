@@ -14,7 +14,7 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit -p tsconfig.app.json && tsc --noEmit -p tsconfig.node.json",
     "preview": "vite preview",
-    "test:subscription-retries": "node --test tests/subscriptionMutationRetry.test.mjs"
+    "test:subscription-retries": "node --test tests/subscription*Retry.test.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
