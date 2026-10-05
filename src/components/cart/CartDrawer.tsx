@@ -6,10 +6,13 @@ import { useCart } from "@/context/CartContext";
 const CartDrawer: React.FC = () => {
   const {
     items,
+    deals,
     isOpen,
     closeCart,
     removeItem,
     updateQuantity,
+    removeDeal,
+    updateDealQuantity,
     itemCount,
     subtotal,
     deliveryFee,
@@ -46,7 +49,7 @@ const CartDrawer: React.FC = () => {
 
         {/* Cart Items */}
         <div className="flex-1 overflow-y-auto px-6 py-4">
-          {items.length === 0 ? (
+          {items.length === 0 && deals.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-center py-12">
               <ShoppingBag className="w-16 h-16 text-muted-foreground/30 mb-4" />
               <h3 className="font-heading text-lg font-medium mb-2">
@@ -61,6 +64,79 @@ const CartDrawer: React.FC = () => {
             </div>
           ) : (
             <div className="space-y-4">
+              {deals.map((entry) => {
+                const deal = entry.deal;
+                return (
+                  <div
+                    key={"deal-" + deal.id}
+                    className="flex gap-4 p-4 bg-secondary/30 rounded-xl"
+                  >
+                    <div className="h-20 w-20 flex-shrink-0 overflow-hidden rounded-lg bg-muted">
+                      {deal.imageUrl ? (
+                        <img
+                          src={deal.imageUrl}
+                          alt={deal.name}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center">
+                          <ShoppingBag className="h-7 w-7 text-muted-foreground/40" />
+                        </div>
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="mb-1 flex items-start justify-between gap-2">
+                        <div>
+                          <span className="badge-fresh text-[10px]">
+                            Package deal
+                          </span>
+                          <h4 className="truncate text-sm font-medium">
+                            {deal.name}
+                          </h4>
+                        </div>
+                        <button
+                          onClick={() => removeDeal(deal.id)}
+                          className="p-1 text-muted-foreground transition-colors hover:text-destructive"
+                          aria-label={"Remove " + deal.name}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {deal.items.length} product{deal.items.length === 1 ? "" : "s"} · save £{deal.savings.toFixed(2)}
+                      </p>
+                      <p className="mt-1 text-sm font-semibold text-primary">
+                        £{deal.packagePrice.toFixed(2)}
+                      </p>
+                      <div className="mt-3 flex items-center gap-2 rounded-lg border border-border bg-card w-fit">
+                        <button
+                          onClick={() =>
+                            updateDealQuantity(deal.id, entry.quantity - 1)
+                          }
+                          className="rounded-l-lg p-1.5 transition-colors hover:bg-secondary"
+                          aria-label="Decrease package quantity"
+                        >
+                          <Minus className="h-4 w-4" />
+                        </button>
+                        <span className="w-8 text-center text-sm font-medium">
+                          {entry.quantity}
+                        </span>
+                        <button
+                          onClick={() =>
+                            updateDealQuantity(deal.id, entry.quantity + 1)
+                          }
+                          disabled={entry.quantity >= deal.maxPackages}
+                          className="rounded-r-lg p-1.5 transition-colors hover:bg-secondary disabled:opacity-40"
+                          aria-label="Increase package quantity"
+                        >
+                          <Plus className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+
               {items.map((item) => {
                 const itemKey = item.variant
                   ? `${item.product.id}-${item.variant.id}`
@@ -158,7 +234,7 @@ const CartDrawer: React.FC = () => {
         </div>
 
         {/* Footer */}
-        {items.length > 0 && (
+        {(items.length > 0 || deals.length > 0) && (
           <div className="border-t border-border px-6 py-4 space-y-4">
             {/* Free Delivery Notice */}
 

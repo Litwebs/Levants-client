@@ -16,6 +16,7 @@ import { resolveImageUrl } from "@/api/client";
 import ProductCard from "@/components/products/ProductCard";
 import CategoryCard from "@/components/products/CategoryCard";
 import OrderTypeChoice from "@/components/commerce/OrderTypeChoice";
+import FeaturedDeals from "@/components/deals/FeaturedDeals";
 import heroImage from "@/assets/hero-farm.jpg";
 import { checkDeliveryPostcode } from "@/api/delivery";
 import { useBusinessInfo } from "@/context/BusinessInfoContext";
@@ -328,6 +329,8 @@ const HomePage: React.FC = () => {
           </div>
         </div>
       </section>
+
+      <FeaturedDeals />
 
       {/* Best Sellers */}
       {bestSellerProducts.length > 0 && (

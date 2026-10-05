@@ -7,6 +7,8 @@ import React, {
 } from "react";
 import { Product, ProductVariant } from "@/data/products";
 import { resolveImageUrl } from "@/api/client";
+import { getDeal, type Deal } from "@/api/deals";
+import { ApiError } from "@/api/client";
 
 export interface CartItem {
   product: Product;
@@ -14,8 +16,14 @@ export interface CartItem {
   quantity: number;
 }
 
+export interface DealCartItem {
+  deal: Deal;
+  quantity: number;
+}
+
 interface CartState {
   items: CartItem[];
+  deals: DealCartItem[];
   isOpen: boolean;
 }
 
@@ -29,11 +37,21 @@ type CartAction =
       type: "UPDATE_QUANTITY";
       payload: { productId: string; variantId?: string; quantity: number };
     }
+  | { type: "ADD_DEAL"; payload: { deal: Deal; quantity: number } }
+  | { type: "REMOVE_DEAL"; payload: { dealId: string } }
+  | {
+      type: "UPDATE_DEAL_QUANTITY";
+      payload: { dealId: string; quantity: number };
+    }
+  | { type: "REFRESH_DEALS"; payload: Array<{ id: string; deal: Deal | null }> }
   | { type: "CLEAR_CART" }
   | { type: "TOGGLE_CART" }
   | { type: "OPEN_CART" }
   | { type: "CLOSE_CART" }
-  | { type: "LOAD_CART"; payload: CartItem[] };
+  | {
+      type: "LOAD_CART";
+      payload: { items: CartItem[]; deals: DealCartItem[] };
+    };
 
 interface CartContextType extends CartState {
   addItem: (
@@ -41,6 +59,11 @@ interface CartContextType extends CartState {
     variant?: ProductVariant,
     quantity?: number,
   ) => void;
+  deals: DealCartItem[];
+  addDeal: (deal: Deal, quantity?: number) => void;
+  removeDeal: (dealId: string) => void;
+  refreshDeals: () => Promise<void>;
+  updateDealQuantity: (dealId: string, quantity: number) => void;
   removeItem: (productId: string, variantId?: string) => void;
   updateQuantity: (
     productId: string,
@@ -69,13 +92,12 @@ const getMaxStock = (
   product: Product,
   variant?: ProductVariant,
 ): number | undefined => {
-  const vStock = (variant as any)?.stockQuantity;
+  const vStock = variant?.stockQuantity;
   if (typeof vStock === "number") return vStock;
 
-  const pvStock = product.variants?.find((v) => v.id === variant?.id)
-    ? (product.variants?.find((v) => v.id === variant?.id) as any)
-        ?.stockQuantity
-    : undefined;
+  const pvStock = product.variants?.find(
+    (v) => v.id === variant?.id,
+  )?.stockQuantity;
   if (typeof pvStock === "number") return pvStock;
 
   return undefined;
@@ -160,8 +182,96 @@ const cartReducer = (state: CartState, action: CartAction): CartState => {
       };
     }
 
+    case "ADD_DEAL": {
+      const { deal, quantity } = action.payload;
+      const existing = state.deals.find((item) => item.deal.id === deal.id);
+      const max = Math.min(99, Math.max(1, Number(deal.maxPackages || 1)));
+      if (existing) {
+        return {
+          ...state,
+          deals: state.deals.map((item) =>
+            item.deal.id === deal.id
+              ? {
+                  ...item,
+                  deal,
+                  quantity: Math.min(max, item.quantity + quantity),
+                }
+              : item,
+          ),
+          isOpen: true,
+        };
+      }
+      return {
+        ...state,
+        deals: [
+          ...state.deals,
+          { deal, quantity: Math.min(max, Math.max(1, quantity)) },
+        ],
+        isOpen: true,
+      };
+    }
+
+    case "REMOVE_DEAL":
+      return {
+        ...state,
+        deals: state.deals.filter(
+          (item) => item.deal.id !== action.payload.dealId,
+        ),
+      };
+
+    case "UPDATE_DEAL_QUANTITY": {
+      const current = state.deals.find(
+        (item) => item.deal.id === action.payload.dealId,
+      );
+      if (!current) return state;
+      if (action.payload.quantity <= 0) {
+        return {
+          ...state,
+          deals: state.deals.filter(
+            (item) => item.deal.id !== action.payload.dealId,
+          ),
+        };
+      }
+      const max = Math.min(
+        99,
+        Math.max(1, Number(current.deal.maxPackages || 1)),
+      );
+      return {
+        ...state,
+        deals: state.deals.map((item) =>
+          item.deal.id === action.payload.dealId
+            ? {
+                ...item,
+                quantity: Math.min(
+                  max,
+                  Math.max(1, Math.floor(action.payload.quantity)),
+                ),
+              }
+            : item,
+        ),
+      };
+    }
+
+    case "REFRESH_DEALS":
+      return {
+        ...state,
+        deals: state.deals.flatMap((entry) => {
+          const result = action.payload.find(
+            (value) => value.id === entry.deal.id,
+          );
+          if (!result) return [entry];
+          if (!result.deal) return [];
+          return [
+            {
+              deal: result.deal,
+              quantity: Math.min(99, result.deal.maxPackages, entry.quantity),
+            },
+          ];
+        }),
+      };
+
     case "CLEAR_CART":
-      return { ...state, items: [], isOpen: false };
+      return { ...state, items: [], deals: [], isOpen: false };
 
     case "TOGGLE_CART":
       return { ...state, isOpen: !state.isOpen };
@@ -173,7 +283,11 @@ const cartReducer = (state: CartState, action: CartAction): CartState => {
       return { ...state, isOpen: false };
 
     case "LOAD_CART":
-      return { ...state, items: action.payload };
+      return {
+        ...state,
+        items: action.payload.items,
+        deals: action.payload.deals,
+      };
 
     default:
       return state;
@@ -185,16 +299,42 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({
 }) => {
   const [state, dispatch] = useReducer(cartReducer, {
     items: [],
+    deals: [],
     isOpen: false,
   });
 
   // Load cart from localStorage on mount
   useEffect(() => {
-    const savedCart = localStorage.getItem(STORAGE_KEY);
+    let savedCart: string | null = null;
+    try {
+      savedCart = localStorage.getItem(STORAGE_KEY);
+    } catch {
+      return;
+    }
     if (savedCart) {
       try {
         const parsedCart = JSON.parse(savedCart);
-        dispatch({ type: "LOAD_CART", payload: parsedCart });
+        dispatch({
+          type: "LOAD_CART",
+          payload: Array.isArray(parsedCart)
+            ? { items: parsedCart, deals: [] }
+            : {
+                items: Array.isArray(parsedCart?.items) ? parsedCart.items : [],
+                deals: Array.isArray(parsedCart?.deals)
+                  ? parsedCart.deals.filter(
+                      (entry: DealCartItem) =>
+                        entry?.deal?.id &&
+                        Array.isArray(entry.deal.items) &&
+                        entry.deal.items.length &&
+                        Number.isInteger(entry.quantity) &&
+                        entry.quantity > 0 &&
+                        entry.quantity <= 99 &&
+                        Number.isFinite(entry.deal.packagePrice) &&
+                        entry.deal.packagePrice > 0,
+                    )
+                  : [],
+              },
+        });
       } catch (error) {
         console.error("Failed to load cart from storage:", error);
       }
@@ -203,8 +343,15 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({
 
   // Save cart to localStorage whenever it changes
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state.items));
-  }, [state.items]);
+    try {
+      localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({ items: state.items, deals: state.deals }),
+      );
+    } catch {
+      /* The basket still works when storage is blocked. */
+    }
+  }, [state.items, state.deals]);
 
   const addItem = (
     product: Product,
@@ -227,9 +374,9 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({
     let primaryImage = images[0];
     if (variant) {
       const variantImage = resolveImageUrl(
-        (variant as any).thumbnailImage ??
-          (variant as any).image ??
-          (variant as any).imageUrl,
+        (variant.thumbnailImage as Parameters<typeof resolveImageUrl>[0]) ??
+          (variant.image as Parameters<typeof resolveImageUrl>[0]) ??
+          variant.imageUrl,
       );
       if (variantImage) {
         primaryImage = variantImage;
@@ -263,6 +410,47 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({
     });
   };
 
+  const addDeal = (deal: Deal, quantity: number = 1) => {
+    if (
+      !deal ||
+      Number(deal.maxPackages || 0) <= 0 ||
+      (deal.endsAt && new Date(deal.endsAt).getTime() <= Date.now())
+    )
+      return;
+    if (!Number.isFinite(quantity)) return;
+    dispatch({
+      type: "ADD_DEAL",
+      payload: { deal, quantity: Math.max(1, Math.floor(quantity || 1)) },
+    });
+  };
+
+  const refreshDeals = async () => {
+    const refreshed = await Promise.all(
+      state.deals.map(async (entry) => {
+        try {
+          return { id: entry.deal.id, deal: await getDeal(entry.deal.slug) };
+        } catch (err) {
+          if (err instanceof ApiError && err.status === 404)
+            return { id: entry.deal.id, deal: null };
+          throw err;
+        }
+      }),
+    );
+    dispatch({ type: "REFRESH_DEALS", payload: refreshed });
+  };
+
+  const removeDeal = (dealId: string) => {
+    dispatch({ type: "REMOVE_DEAL", payload: { dealId } });
+  };
+
+  const updateDealQuantity = (dealId: string, quantity: number) => {
+    if (!Number.isFinite(quantity)) return;
+    dispatch({
+      type: "UPDATE_DEAL_QUANTITY",
+      payload: { dealId, quantity },
+    });
+  };
+
   const removeItem = (productId: string, variantId?: string) => {
     dispatch({ type: "REMOVE_ITEM", payload: { productId, variantId } });
   };
@@ -290,7 +478,10 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({
   const clearCart = () => {
     // Clear persisted cart immediately (don’t rely on effects timing).
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify([]));
+      localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({ items: [], deals: [] }),
+      );
     } catch {
       // Ignore storage errors (private mode / blocked storage)
     }
@@ -300,15 +491,20 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({
   const openCart = () => dispatch({ type: "OPEN_CART" });
   const closeCart = () => dispatch({ type: "CLOSE_CART" });
 
-  const itemCount = state.items.reduce(
-    (total, item) => total + item.quantity,
-    0,
-  );
+  const itemCount =
+    state.items.reduce((total, item) => total + item.quantity, 0) +
+    state.deals.reduce((total, item) => total + item.quantity, 0);
 
-  const subtotal = state.items.reduce((total, item) => {
+  const productSubtotal = state.items.reduce((total, item) => {
     const price = item.variant?.price ?? item.product.price;
     return total + price * item.quantity;
   }, 0);
+  const dealSubtotal = state.deals.reduce(
+    (total, item) =>
+      total + Number(item.deal.packagePrice || 0) * item.quantity,
+    0,
+  );
+  const subtotal = productSubtotal + dealSubtotal;
 
   const deliveryFee = 1;
   const total = subtotal + deliveryFee;
@@ -318,6 +514,10 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({
       value={{
         ...state,
         addItem,
+        addDeal,
+        removeDeal,
+        refreshDeals,
+        updateDealQuantity,
         removeItem,
         updateQuantity,
         clearCart,
