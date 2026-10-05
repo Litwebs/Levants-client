@@ -986,7 +986,9 @@ const SubscriptionDetailPage: React.FC = () => {
     if (!id || !selectedAddressId) return;
 
     const buildDeliveryDayPlansPayload = () => {
-      if (!isMultiDayWeekly) return undefined;
+      const wasMultiDayWeekly = subscription?.frequency === "weekly" &&
+        (subscription.preferredDeliveryDays?.length || 0) > 1;
+      if (!isMultiDayWeekly && !wasMultiDayWeekly) return undefined;
 
       return deliveryDays.map((dayName) => {
         const dayItems = (dayProductDraft[dayName] || [])
