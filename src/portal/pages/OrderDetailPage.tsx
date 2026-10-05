@@ -269,6 +269,18 @@ const OrderDetailPage: React.FC = () => {
     );
   }
 
+  const dealSnapshots = Array.isArray(order.metadata?.deals)
+    ? (order.metadata.deals as Array<{
+        dealId?: string;
+        name?: string;
+        slug?: string;
+        quantity?: number;
+        packagePrice?: number;
+        originalValue?: number;
+        saving?: number;
+      }>)
+    : [];
+
   const deliveryProofUrl = resolveImageUrl(
     order.metadata?.deliveryProofUrl as string | undefined,
   );
@@ -664,6 +676,55 @@ const OrderDetailPage: React.FC = () => {
         )}
 
         <Separator />
+
+        {dealSnapshots.length > 0 && (
+          <>
+            <div>
+              <p className="text-xs text-muted-foreground uppercase tracking-wide mb-2">
+                Package Deals
+              </p>
+              <div className="space-y-2">
+                {dealSnapshots.map((deal, index) => (
+                  <div
+                    key={deal.dealId || deal.slug || index}
+                    className="rounded-xl border border-forest/20 bg-forest/5 p-3"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-semibold text-foreground">
+                          {deal.name || "Product package"}
+                        </p>
+                        <p className="mt-0.5 text-xs text-muted-foreground">
+                          Quantity {Number(deal.quantity || 1)}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm font-semibold text-forest">
+                          {formatMoney(
+                            Number(deal.packagePrice || 0) *
+                              Number(deal.quantity || 1),
+                            order.currency || "GBP",
+                          )}
+                        </p>
+                        {Number(deal.saving || 0) > 0 && (
+                          <p className="text-xs text-muted-foreground">
+                            Saved{" "}
+                            {formatMoney(
+                              Number(deal.saving || 0) *
+                                Number(deal.quantity || 1),
+                              order.currency || "GBP",
+                            )}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <Separator />
+          </>
+        )}
 
         <div>
           <p className="text-xs text-muted-foreground uppercase tracking-wide mb-2">

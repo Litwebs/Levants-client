@@ -1,0 +1,25 @@
+name: Customer deals checks
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [feat/customer-deals]
+permissions:
+  contents: read
+jobs:
+  storefront:
+    name: Storefront deals, typecheck and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run test:deals
+      - run: npx tsc --noEmit -p tsconfig.app.json
+      - name: Lint deal implementation
+        run: npx eslint src/api/deals.ts src/components/deals src/context/CartContext.tsx src/pages/DealsPage.tsx src/pages/DealDetailPage.tsx tests/deals.test.tsx tests/addresses.test.tsx vitest.config.ts
+      - run: npm run build

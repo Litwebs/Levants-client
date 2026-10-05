@@ -49,7 +49,7 @@ const AddressForm: React.FC<{
   const postcodeRef = useRef<HTMLInputElement>(null);
   const countryRef = useRef<HTMLInputElement>(null);
   const deliveryInstructionsRef = useRef<HTMLTextAreaElement>(null);
-  const isDefaultRef = useRef<HTMLInputElement>(null);
+  const [isDefault, setIsDefault] = useState(initial?.isDefault || false);
   const [instructionsLength, setInstructionsLength] = useState(
     initial?.deliveryInstructions?.length || 0,
   );
@@ -70,8 +70,7 @@ const AddressForm: React.FC<{
       if (deliveryInstructionsRef.current)
         deliveryInstructionsRef.current.value =
           initial.deliveryInstructions || "";
-      if (isDefaultRef.current)
-        isDefaultRef.current.checked = initial.isDefault || false;
+      setIsDefault(initial.isDefault || false);
     }
   }, [initial]);
 
@@ -92,7 +91,7 @@ const AddressForm: React.FC<{
       postcode: postcodeRef.current?.value || "",
       country: countryRef.current?.value || "",
       deliveryInstructions: deliveryInstructionsRef.current?.value || "",
-      isDefault: isDefaultRef.current?.checked || false,
+      isDefault,
     };
 
     try {
@@ -205,7 +204,12 @@ const AddressForm: React.FC<{
         </p>
       </div>
       <div className="flex items-center gap-2">
-        <Checkbox id="setDefault" ref={isDefaultRef} disabled={isDisabled} />
+        <Checkbox
+          id="setDefault"
+          checked={isDefault}
+          onCheckedChange={(checked) => setIsDefault(checked === true)}
+          disabled={isDisabled}
+        />
         <Label htmlFor="setDefault" className="cursor-pointer font-normal">
           Set as default delivery address
         </Label>
@@ -448,6 +452,7 @@ const AddressesPage: React.FC = () => {
                     variant="ghost"
                     size="icon"
                     className="h-8 w-8"
+                    aria-label="Edit address"
                     onClick={() => requestEdit(addr)}
                     disabled={formLoading}
                   >
@@ -457,6 +462,7 @@ const AddressesPage: React.FC = () => {
                     variant="ghost"
                     size="icon"
                     className="h-8 w-8 text-destructive hover:bg-destructive/10"
+                    aria-label="Delete address"
                     onClick={() => requestDelete(addr)}
                     disabled={addr.isDefault || formLoading || deleteLoading}
                   >
