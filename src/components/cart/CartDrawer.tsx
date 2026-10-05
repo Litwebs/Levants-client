@@ -86,7 +86,7 @@ const CartDrawer: React.FC = () => {
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="mb-1 flex items-start justify-between gap-2">
-                        <div>
+                        <div className="min-w-0 flex-1">
                           <span className="badge-fresh text-[10px]">
                             Package deal
                           </span>
@@ -96,7 +96,7 @@ const CartDrawer: React.FC = () => {
                         </div>
                         <button
                           onClick={() => removeDeal(deal.id)}
-                          className="p-1 text-muted-foreground transition-colors hover:text-destructive"
+                          className="shrink-0 p-1 text-muted-foreground transition-colors hover:text-destructive"
                           aria-label={"Remove " + deal.name}
                         >
                           <Trash2 className="h-4 w-4" />
@@ -125,7 +125,7 @@ const CartDrawer: React.FC = () => {
                           onClick={() =>
                             updateDealQuantity(deal.id, entry.quantity + 1)
                           }
-                          disabled={entry.quantity >= deal.maxPackages}
+                          disabled={entry.quantity >= Math.min(99, deal.maxPackages)}
                           className="rounded-r-lg p-1.5 transition-colors hover:bg-secondary disabled:opacity-40"
                           aria-label="Increase package quantity"
                         >

@@ -857,7 +857,7 @@ const CheckoutPage: React.FC = () => {
                             {entry.deal.name}
                           </p>
                           <p className="text-xs text-muted-foreground">
-                            {entry.deal.items.length} products × {entry.quantity}
+                            {entry.deal.items.length} product{entry.deal.items.length === 1 ? "" : "s"} × {entry.quantity}
                           </p>
                         </div>
                         <p className="text-sm font-medium">
