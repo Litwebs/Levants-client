@@ -15,9 +15,26 @@ packages; store credit remains supported. **Refresh offers** at checkout reloads
 changed offers and removes unavailable ones while preserving the basket if the
 network fails. Old product-only basket storage remains compatible.
 
-Run `npm ci`, `npm run test:deals` and `npm run build`. Component interaction
-tests cover adding packages, quantity limits, expiry, saved baskets, changed
-prices, stock refresh and network failure. Before release, review desktop/mobile
-layouts and complete a guest and signed-in Stripe test-mode checkout against the
-paired server. Browser visual verification was blocked in the implementation
-environment. Existing baseline TypeScript errors are unchanged.
+Run `npm ci`, `npm run test:deals`,
+`npx tsc --noEmit -p tsconfig.app.json` and `npm run build`. The storefront
+PR workflow runs those checks plus lint on the deals implementation. The full
+legacy storefront lint baseline still has unrelated errors; the deals lint gate
+is scoped explicitly.
+
+Component tests cover adding packages, quantity limits, expiry, saved baskets,
+changed prices/content, stock refresh, network failure and out-of-order requests.
+The address-form regression test verifies preservation and changes to the default
+address checkbox.
+
+The paired server GitHub Actions workflow runs the actual API, admin and storefront
+with an isolated MongoDB replica set and real Stripe test-mode payments. Its deals
+browser suite covers desktop/mobile creation and discovery, basket/checkout display,
+admin edit/schedule/deactivate/reactivate/archive persistence, fully funded store
+credit, and guest/signed-in purchases through storefront checkout and hosted Stripe
+Checkout. Signed webhooks and browser reconciliation must consume stock exactly
+once. Screenshots and failure traces are uploaded as `deals-e2e-diagnostics`.
+
+CI captures the image-upload provider boundary and email transport and substitutes
+geocoding. Real production image-provider credentials, email delivery and deployed
+environment configuration require a deployment smoke test. Require green checks
+on both PRs before release; deploy the server before this storefront.
