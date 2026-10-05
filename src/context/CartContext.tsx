@@ -1,6 +1,7 @@
 import React, {
   createContext,
   useContext,
+  useCallback,
   useReducer,
   useEffect,
   ReactNode,
@@ -475,7 +476,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({
     });
   };
 
-  const clearCart = () => {
+  const clearCart = useCallback(() => {
     // Clear persisted cart immediately (don’t rely on effects timing).
     try {
       localStorage.setItem(
@@ -486,7 +487,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({
       // Ignore storage errors (private mode / blocked storage)
     }
     dispatch({ type: "CLEAR_CART" });
-  };
+  }, []);
   const toggleCart = () => dispatch({ type: "TOGGLE_CART" });
   const openCart = () => dispatch({ type: "OPEN_CART" });
   const closeCart = () => dispatch({ type: "CLOSE_CART" });

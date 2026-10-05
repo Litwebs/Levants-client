@@ -3,12 +3,17 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { Link, MemoryRouter, Route, Routes } from "react-router-dom";
 import DealDetailPage from "@/pages/DealDetailPage";
+import PaymentSuccessPage from "@/pages/PaymentSuccessPage";
 import { CartProvider, useCart } from "@/context/CartContext";
 import DealCard from "@/components/deals/DealCard";
 import type { Deal } from "@/api/deals";
 import { ApiError } from "@/api/client";
 
-const { getDeal } = vi.hoisted(() => ({ getDeal: vi.fn() }));
+const { getDeal, confirmCheckout } = vi.hoisted(() => ({
+  getDeal: vi.fn(),
+  confirmCheckout: vi.fn(),
+}));
+vi.mock("@/api/orders", () => ({ ordersApi: { confirmCheckout } }));
 vi.mock("@/api/deals", () => ({ getDeal }));
 vi.mock("sonner", () => ({ toast: { success: vi.fn() } }));
 
@@ -183,5 +188,37 @@ describe("customer deals and basket", () => {
     expect(basket.items).toHaveLength(1);
     expect(basket.deals).toHaveLength(0);
     expect(basket.subtotal).toBe(10);
+  });
+});
+
+test("successful checkout stays confirmed when clearing or changing the real basket", async () => {
+  confirmCheckout.mockResolvedValueOnce({
+    data: { orderId: "order-1", orderNumber: "ORD-1" },
+  });
+  confirmCheckout.mockRejectedValue(
+    new Error("Unexpected repeated confirmation"),
+  );
+  render(
+    <MemoryRouter
+      initialEntries={["/checkout/success?session_id=cs_test_paid"]}
+    >
+      <CartProvider>
+        <PaymentSuccessPage />
+        <Basket />
+      </CartProvider>
+    </MemoryRouter>,
+  );
+  await screen.findByRole("heading", { name: "Thank You for Your Order!" });
+  await act(async () => {
+    basket.openCart();
+  });
+  expect(confirmCheckout).toHaveBeenCalledTimes(1);
+  expect(
+    screen.getByRole("heading", { name: "Thank You for Your Order!" }),
+  ).toBeTruthy();
+  expect(screen.queryByText("Unexpected repeated confirmation")).toBeNull();
+  expect(JSON.parse(localStorage.getItem("levants-dairy-cart")!)).toEqual({
+    items: [],
+    deals: [],
   });
 });
