@@ -66,7 +66,7 @@ const DealCard: React.FC<DealCardProps> = ({ deal, compact = false }) => {
               {deal.description}
             </p>
           )}
-          <div className="mt-3 flex items-baseline gap-2">
+          <div className="mt-3 flex flex-wrap items-baseline gap-2">
             <p className="text-lg font-semibold text-primary">
               £{deal.packagePrice.toFixed(2)}
             </p>

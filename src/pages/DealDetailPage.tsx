@@ -102,24 +102,24 @@ const DealDetailPage: React.FC = () => {
             </div>
           </div>
 
-          <div>
+          <div className="min-w-0">
             <div className="mb-3 flex flex-wrap gap-2">
               <span className="badge-fresh">Save {deal.savingsPercent}%</span>
               {deal.isFeatured && <span className="badge-gold">Featured</span>}
               {soldOut && <span className="badge-bestseller">Unavailable</span>}
             </div>
 
-            <h1 className="font-heading text-3xl font-semibold lg:text-4xl">
+            <h1 className="break-words font-heading text-3xl font-semibold lg:text-4xl">
               {deal.name}
             </h1>
 
             {deal.description && (
-              <p className="mt-4 leading-relaxed text-muted-foreground">
+              <p className="mt-4 break-words leading-relaxed text-muted-foreground">
                 {deal.description}
               </p>
             )}
 
-            <div className="mt-6 flex items-baseline gap-3">
+            <div className="mt-6 flex flex-wrap items-baseline gap-3">
               <span className="text-3xl font-semibold text-primary">
                 £{deal.packagePrice.toFixed(2)}
               </span>
@@ -146,7 +146,7 @@ const DealDetailPage: React.FC = () => {
                 {deal.items.map((item) => (
                   <div key={item.variantId} className="flex items-start gap-3">
                     <Check className="mt-0.5 h-4 w-4 flex-shrink-0 text-primary" />
-                    <div>
+                    <div className="min-w-0 break-words">
                       <p className="text-sm font-medium">{item.product.name}</p>
                       <p className="text-xs text-muted-foreground">
                         {item.variant.name} × {item.quantity}
