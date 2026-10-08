@@ -24,6 +24,7 @@ import { useCart } from "@/context/CartContext";
 import { sortByStorefrontCategoryOrder } from "@/lib/categoryOrder";
 import { toast } from "sonner";
 import { isPortalLoggedIn } from "@/lib/portalAuth";
+import { cn } from "@/lib/utils";
 
 const HomePage: React.FC = () => {
   const { products, meta, fetchProducts } = useProducts();
@@ -39,6 +40,12 @@ const HomePage: React.FC = () => {
     type: "success" | "error";
     message: string;
   } | null>(null);
+  const postcodeResultStyle = cn(
+    "text-sm font-semibold leading-6 sm:text-base",
+    postcodeResult?.type === "success"
+      ? "text-emerald-300"
+      : "text-gold",
+  );
 
   const handleCheckPostcode = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -205,103 +212,103 @@ const HomePage: React.FC = () => {
 
   return (
     <div className="min-h-screen">
-      {/* Hero Section */}
-      <section className="relative min-h-[85vh] flex items-center overflow-hidden">
-        <div className="absolute inset-0">
+      {/* Hero and deals */}
+      <section aria-labelledby="home-heading" className="relative isolate overflow-hidden bg-forest-dark text-white">
+        <div className="absolute inset-0 -z-10">
           <img
             src={heroImage}
-            alt="Beautiful countryside farm with grazing cows"
-            className="w-full h-full object-cover"
+            alt=""
+            className="h-full w-full object-cover"
+            fetchPriority="high"
           />
-          <div className="absolute inset-0 bg-gradient-to-r from-foreground/70 via-foreground/50 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-r from-black/75 via-black/55 to-black/30" />
         </div>
-        <div className="container-custom relative z-10 py-20">
-          <div className="max-w-2xl">
-            <h1 className="font-heading text-4xl sm:text-5xl lg:text-6xl font-semibold text-card mb-6 opacity-0 animate-fade-in-up">
-              Farm-fresh milk, dairy, and more—delivered to your doorstep. 🥛 🚪
-            </h1>
-            <p className="text-lg sm:text-xl text-card/90 mb-8 opacity-0 animate-fade-in-up stagger-1">
-              Milk, Milkshakes, Cream, Butter, Eggs and more - Fresh and Local
+        <div className="container-custom grid items-center gap-10 py-10 sm:py-14 lg:grid-cols-[minmax(0,4.5fr)_minmax(0,7.5fr)] lg:gap-10 lg:py-16">
+          <div className="min-w-0 max-w-xl">
+            <p className="mb-5 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-white/90">
+              <Leaf className="h-4 w-4" aria-hidden="true" /> Fresh from the farm
             </p>
-            <div className="flex flex-col gap-4 mb-6 opacity-0 animate-fade-in-up stagger-2">
-              <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-4">
+            <h1 id="home-heading" className="font-heading text-4xl font-semibold leading-[1.08] tracking-tight text-white sm:text-5xl lg:text-5xl xl:text-6xl">
+              Farm fresh.<br />
+              To your doorstep.
+            </h1>
+            <p className="mb-7 mt-5 max-w-md text-base leading-relaxed text-white/85 sm:text-lg">
+              Milk, dairy and everyday favourites, delivered fresh. Order once or make it a weekly ritual.
+            </p>
+            <div className="flex flex-wrap items-center gap-3">
                 <Link
                   to="/shop"
-                  className="btn-primary inline-flex items-center gap-2"
+                  className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-primary px-6 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                 >
-                  One-time Order <ArrowRight className="w-4 h-4" />
+                  Shop fresh <ArrowRight className="w-4 h-4" aria-hidden="true" />
                 </Link>
-
                 <Link
                   to={subscriptionHref}
-                  className="btn-gold inline-flex items-center gap-2"
+                  className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-white/40 bg-white/10 px-5 text-sm font-semibold text-white transition-colors hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
                 >
-                  Weekly Subscription <RefreshCw className="w-4 h-4" />
+                  Weekly subscription <RefreshCw className="w-4 h-4" aria-hidden="true" />
                 </Link>
-
+            </div>
+            <div className="mt-8 border-t border-white/25 pt-6">
+              <label htmlFor="hero-postcode" className="mb-3 block text-sm font-medium">
+                Fresh delivery starts with your postcode
+              </label>
                 <form
-                  className="w-full sm:w-auto"
+                  className="max-w-md"
                   onSubmit={handleCheckPostcode}
                 >
-                  <div className="flex flex-col sm:flex-row sm:items-stretch rounded-xl overflow-hidden border border-card/20 bg-card/15 backdrop-blur-sm">
-                    <div className="relative flex-1 sm:w-72">
-                      <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-card/80" />
+                  <div className="flex items-stretch gap-2 rounded-full border border-white/30 bg-white/10 p-1.5 backdrop-blur-md focus-within:ring-2 focus-within:ring-white/70">
+                    <div className="relative min-w-0 flex-1">
+                      <MapPin className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/85" aria-hidden="true" />
                       <input
+                        id="hero-postcode"
                         type="text"
                         placeholder="Enter your postcode"
-                        className="w-full h-12 pl-10 pr-4 bg-transparent text-card placeholder:text-card/70 focus:outline-none"
+                        autoComplete="postal-code"
+                        className="h-11 w-full rounded-full bg-transparent pl-9 pr-2 text-sm uppercase text-white placeholder:normal-case placeholder:text-white/75 focus:outline-none"
                         value={postcode}
                         onChange={(e) => setPostcode(e.target.value)}
                         disabled={checkingPostcode}
+                        aria-describedby={postcodeResult ? "hero-postcode-result" : undefined}
                       />
                     </div>
                     <button
-                      className="btn-gold whitespace-nowrap rounded-none"
+                      className="shrink-0 rounded-full bg-primary px-4 text-xs font-semibold text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-60 sm:px-5 sm:text-sm"
                       type="submit"
                       disabled={checkingPostcode}
                     >
-                      {checkingPostcode ? "Checking..." : "Check My Postcode"}
+                      {checkingPostcode ? "Checking…" : "Check delivery"}
                     </button>
                   </div>
                 </form>
-
+                {postcodeResult && (
+                  <p id="hero-postcode-result" className={cn("mt-3 max-w-md", postcodeResultStyle)} role="status" aria-live="polite">
+                    <span>{postcodeResult.message}</span>
+                  </p>
+                )}
                 <Link
                   to="/delivery"
-                  className="btn-secondary inline-flex items-center gap-2 whitespace-nowrap"
+                  className="mt-2 inline-flex min-h-11 items-center gap-2 rounded-sm text-xs text-white/80 underline-offset-4 hover:text-white hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
                 >
-                  How Delivery Works
+                  How delivery works <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
                 </Link>
-              </div>
             </div>
-
-            {postcodeResult && (
-              <div
-                className="mb-4 text-base font-semibold text-card bg-card/10 border border-card/20 rounded-xl px-4 py-3 opacity-0 animate-fade-in-up"
-                role="status"
-                aria-live="polite"
-              >
-                {postcodeResult.message}
+            <div className="mt-4 flex flex-wrap gap-x-5 gap-y-3 text-xs text-white/85">
+              <div className="flex items-center gap-1.5">
+                <Leaf className="h-4 w-4 text-gold" aria-hidden="true" />
+                <span>Farm fresh</span>
               </div>
-            )}
-            <div className="flex flex-wrap gap-6 opacity-0 animate-fade-in-up stagger-3">
-              <div className="trust-badge text-card/80">
-                <Leaf className="w-5 h-5 text-gold" />
-                <span>Farm Fresh</span>
+              <div className="flex items-center gap-1.5">
+                <Snowflake className="h-4 w-4 text-gold" aria-hidden="true" />
+                <span>Chilled delivery</span>
               </div>
-              <div className="trust-badge text-card/80">
-                <MapPin className="w-5 h-5 text-gold" />
-                <span>Local</span>
-              </div>
-              <div className="trust-badge text-card/80">
-                <Snowflake className="w-5 h-5 text-gold" />
-                <span>Chilled Delivery</span>
-              </div>
-              <div className="trust-badge text-card/80">
-                <Shield className="w-5 h-5 text-gold" />
-                <span>Secure Checkout</span>
+              <div className="flex items-center gap-1.5">
+                <Shield className="h-4 w-4 text-gold" aria-hidden="true" />
+                <span>Secure checkout</span>
               </div>
             </div>
           </div>
+          <FeaturedDeals fallbackImage={heroImage} onImage />
         </div>
       </section>
 
@@ -329,8 +336,6 @@ const HomePage: React.FC = () => {
           </div>
         </div>
       </section>
-
-      <FeaturedDeals />
 
       {/* Best Sellers */}
       {bestSellerProducts.length > 0 && (
@@ -480,11 +485,11 @@ const HomePage: React.FC = () => {
 
               {postcodeResult && (
                 <div
-                  className="mt-4 text-base font-semibold text-primary-foreground bg-primary-foreground/10 border border-primary-foreground/20 rounded-xl px-4 py-3 opacity-0 animate-fade-in-up"
+                  className={cn("mt-4 text-left", postcodeResultStyle)}
                   role="status"
                   aria-live="polite"
                 >
-                  {postcodeResult.message}
+                  <span>{postcodeResult.message}</span>
                 </div>
               )}
             </form>

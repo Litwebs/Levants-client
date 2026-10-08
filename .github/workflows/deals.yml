@@ -1,7 +1,7 @@
 name: Customer deals checks
 on:
   pull_request:
-    branches: [main]
+    branches: [main, feat/customer-deals]
   push:
     branches: [feat/customer-deals]
 permissions:
@@ -21,5 +21,15 @@ jobs:
       - run: npm run test:deals
       - run: npx tsc --noEmit -p tsconfig.app.json
       - name: Lint deal implementation
-        run: npx eslint src/api/deals.ts src/components/deals src/context/CartContext.tsx src/pages/DealsPage.tsx src/pages/DealDetailPage.tsx tests/deals.test.tsx tests/addresses.test.tsx vitest.config.ts
+        run: npx eslint src/api/deals.ts src/components/deals src/context/CartContext.tsx src/pages/DealsPage.tsx src/pages/DealDetailPage.tsx src/pages/HomePage.tsx src/components/layout/Header.tsx tests/deals.test.tsx tests/deals-presentation.test.tsx tests/addresses.test.tsx tests/browser playwright.config.ts vitest.config.ts
       - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:deals:browser
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: deals-browser-review
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7

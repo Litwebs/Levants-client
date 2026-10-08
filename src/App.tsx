@@ -24,6 +24,7 @@ import ContactPage from "./pages/ContactPage";
 import ReviewsPage from "./pages/ReviewsPage";
 import DealsPage from "./pages/DealsPage";
 import DealDetailPage from "./pages/DealDetailPage";
+import ComponentCatalogPage from "./pages/ComponentCatalogPage";
 import NotFound from "./pages/NotFound";
 import WebsiteInDevelopmentPage from "./pages/WebsiteInDevelopmentPage.tsx";
 
@@ -177,6 +178,9 @@ const App = () => {
                 <ScrollToTop />
                 <ScrollToTopButton />
                 <Routes>
+                  {import.meta.env.DEV && (
+                    <Route path="/component-catalog" element={<ComponentCatalogPage />} />
+                  )}
                   <Route
                     path="/"
                     element={

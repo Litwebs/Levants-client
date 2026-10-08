@@ -178,8 +178,52 @@
     @apply bg-gold text-charcoal px-6 py-3 rounded-xl font-medium transition-all duration-200 hover:bg-gold-dark active:scale-[0.98];
   }
 
+  /* Shared field surface for the catalog controls and existing native forms. */
+  .form-control,
   .input-field {
-    @apply w-full px-4 py-3 rounded-xl border border-border bg-card text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-200;
+    width: 100%;
+    min-width: 0;
+    height: 44px;
+    padding: 0 0.875rem;
+    border: 1px solid hsl(var(--input));
+    border-radius: var(--radius);
+    background: hsl(var(--card));
+    color: hsl(var(--foreground));
+    font-size: 1rem;
+    line-height: 1.5;
+    transition: border-color 150ms ease, box-shadow 150ms ease;
+  }
+
+  .form-control::placeholder,
+  .input-field::placeholder { color: hsl(var(--muted-foreground)); }
+
+  .form-control:focus-visible,
+  .input-field:focus-visible {
+    outline: none;
+    border-color: hsl(var(--primary));
+    box-shadow: 0 0 0 3px hsl(var(--ring) / 0.16);
+  }
+
+  .form-control[aria-invalid="true"],
+  .input-field[aria-invalid="true"] { border-color: hsl(var(--destructive)); }
+
+  .form-control[aria-invalid="true"]:focus-visible,
+  .input-field[aria-invalid="true"]:focus-visible {
+    box-shadow: 0 0 0 3px hsl(var(--destructive) / 0.16);
+  }
+
+  .form-control:disabled,
+  .input-field:disabled { background: hsl(var(--muted)); cursor: not-allowed; opacity: 0.65; }
+
+  .form-control--sm { height: 40px; }
+  .form-control--lg { height: 48px; }
+
+  textarea.form-control,
+  textarea.input-field { height: auto; min-height: 104px; padding-top: 0.625rem; padding-bottom: 0.625rem; }
+
+  @media (min-width: 768px) {
+    .form-control,
+    .input-field { font-size: 0.875rem; }
   }
 
   .badge-fresh {

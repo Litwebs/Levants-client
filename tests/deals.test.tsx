@@ -110,7 +110,7 @@ describe("customer deals and basket", () => {
       screen.getByRole("button", { name: "Add package to basket" }),
     );
     await user.click(
-      screen.getByRole("button", { name: "Add package to basket" }),
+      screen.getByRole("button", { name: "Add another package" }),
     );
     expect(basket.deals[0].quantity).toBe(2);
     expect(screen.getByLabelText("Basket total").textContent).toBe("16.00");
