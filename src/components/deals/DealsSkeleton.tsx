@@ -6,16 +6,26 @@ export default function DealsSkeleton({ home = false }: { home?: boolean }) {
       <div
         role="status"
         aria-label="Loading deals"
-        className="grid overflow-hidden rounded-2xl border border-border/70 bg-card md:grid-cols-2"
+        className="grid grid-rows-[auto_1fr] overflow-hidden rounded-2xl border border-border/70 bg-card md:grid-cols-2 md:grid-rows-1"
       >
         <Skeleton className="aspect-[4/3] rounded-none motion-reduce:animate-none md:aspect-auto md:min-h-[28rem]" />
         <div aria-hidden="true" className="space-y-4 p-5 sm:p-6 lg:p-8">
           <Skeleton className="h-3 w-24 motion-reduce:animate-none" />
           <Skeleton className="h-9 w-4/5 motion-reduce:animate-none" />
           <Skeleton className="h-4 w-full motion-reduce:animate-none" />
-          <Skeleton className="h-24 w-full motion-reduce:animate-none" />
+          <Skeleton className="h-4 w-28 motion-reduce:animate-none" />
+          <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-1 xl:grid-cols-2">
+            {Array.from({ length: 3 }, (_, index) => (
+              <Skeleton
+                key={index}
+                className="h-[4.5rem] rounded-xl motion-reduce:animate-none"
+              />
+            ))}
+          </div>
           <Skeleton className="h-10 w-28 motion-reduce:animate-none" />
+          <Skeleton className="h-4 w-20 motion-reduce:animate-none" />
           <Skeleton className="h-11 w-full motion-reduce:animate-none" />
+          <Skeleton className="mx-auto h-4 w-2/3 motion-reduce:animate-none" />
         </div>
       </div>
     );
@@ -23,7 +33,7 @@ export default function DealsSkeleton({ home = false }: { home?: boolean }) {
     <div
       role="status"
       aria-label="Loading deals"
-      className={`grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4`}
+      className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
     >
       {Array.from({ length: 4 }, (_, index) => (
         <div

@@ -49,7 +49,7 @@ export default function DealCard({ deal, variant = "card" }: DealCardProps) {
       className={cn(
         "deal-card group h-full w-full min-w-0 overflow-hidden rounded-2xl border border-border/70 bg-card shadow-soft transition-colors hover:border-primary/40",
         featured
-          ? "grid md:grid-cols-2"
+          ? "grid grid-rows-[auto_1fr] md:grid-cols-2 md:grid-rows-1"
           : "mx-auto flex max-w-sm flex-col sm:mx-0",
       )}
     >
@@ -65,7 +65,7 @@ export default function DealCard({ deal, variant = "card" }: DealCardProps) {
           to={"/deals/" + deal.slug}
           tabIndex={-1}
           aria-hidden="true"
-          className="block h-full"
+          className="absolute inset-0 block"
         >
           <DealImage
             src={deal.imageUrl}

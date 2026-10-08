@@ -301,11 +301,16 @@ test("touch swipe changes the visible package", async ({ browser }) => {
   await page.goto("/");
   await collection(page).scrollIntoViewIfNeeded();
   await collection(page)
-    .locator(".deal-card")
+    .locator(".deal-card img")
     .first()
-    .locator("img")
-    .first()
-    .scrollIntoViewIfNeeded();
+    .evaluate((image) => {
+      const header =
+        document.querySelector("header")?.getBoundingClientRect().height ?? 0;
+      window.scrollTo({
+        top: image.getBoundingClientRect().top + window.scrollY - header - 24,
+        behavior: "instant",
+      });
+    });
   const card = await collection(page)
     .locator(".deal-card img")
     .first()
@@ -313,6 +318,13 @@ test("touch swipe changes the visible package", async ({ browser }) => {
   if (!card) throw new Error("Missing deal card");
   const cdp = await context.newCDPSession(page);
   const y = card.y + 100;
+  expect(
+    await page.evaluate(
+      ({ x, y }) =>
+        Boolean(document.elementFromPoint(x, y)?.closest(".deal-card")),
+      { x: 330, y },
+    ),
+  ).toBe(true);
   await cdp.send("Input.dispatchTouchEvent", {
     type: "touchStart",
     touchPoints: [{ x: 330, y }],
