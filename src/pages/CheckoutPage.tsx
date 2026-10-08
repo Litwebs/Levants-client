@@ -9,6 +9,7 @@ import { portalAuthApi } from "@/api/portalAuth";
 import { portalOrdersApi } from "@/api/portalOrders";
 import { isPortalLoggedIn } from "@/lib/portalAuth";
 import { useBusinessInfo } from "@/context/BusinessInfoContext";
+import { Input, Textarea } from "@/components/common/FormControls";
 
 type CheckoutStep = 1 | 2 | 3;
 
@@ -22,6 +23,17 @@ type SavedAddress = {
   country?: string;
   deliveryInstructions?: string;
   isDefault?: boolean;
+};
+
+type CheckoutProfile = {
+  _id?: string;
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  phone?: string;
+  addresses?: Array<Partial<SavedAddress> & { _id?: string }>;
+  storeCreditBalanceMinor?: number;
+  creditBalance?: number;
 };
 
 const CheckoutPage: React.FC = () => {
@@ -108,11 +120,11 @@ const CheckoutPage: React.FC = () => {
     (async () => {
       try {
         const res = await portalAuthApi.me();
-        const profile = (res?.data as { customer?: any } | undefined)?.customer;
+        const profile = (res?.data as { customer?: CheckoutProfile } | undefined)?.customer;
         if (!active || !profile) return;
 
         const addresses: SavedAddress[] = Array.isArray(profile.addresses)
-          ? profile.addresses.map((a: any, idx: number) => ({
+          ? profile.addresses.map((a, idx: number) => ({
               id: String(a?._id || a?.id || `addr-${idx}`),
               label: a?.label,
               line1: String(a?.line1 || ""),
@@ -624,54 +636,42 @@ const CheckoutPage: React.FC = () => {
                 </h2>
                 <div className="grid sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium mb-2">
-                      First Name
-                    </label>
-                    <input
+                    <Input
+                      label="First Name"
                       type="text"
                       name="firstName"
                       value={formData.firstName}
                       onChange={handleInputChange}
-                      className="input-field"
                       placeholder="John"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium mb-2">
-                      Last Name
-                    </label>
-                    <input
+                    <Input
+                      label="Last Name"
                       type="text"
                       name="lastName"
                       value={formData.lastName}
                       onChange={handleInputChange}
-                      className="input-field"
                       placeholder="Smith"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium mb-2">
-                      Email
-                    </label>
-                    <input
+                    <Input
+                      label="Email"
                       type="email"
                       name="email"
                       value={formData.email}
                       onChange={handleInputChange}
-                      className="input-field"
                       placeholder="john@example.com"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium mb-2">
-                      Phone
-                    </label>
-                    <input
+                    <Input
+                      label="Phone"
                       type="tel"
                       name="phone"
                       value={formData.phone}
                       onChange={handleInputChange}
-                      className="input-field"
                       placeholder="+44 7123 456789"
                     />
                   </div>
@@ -687,68 +687,53 @@ const CheckoutPage: React.FC = () => {
                 </h2>
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium mb-2">
-                      Address Line 1
-                    </label>
-                    <input
+                    <Input
+                      label="Address Line 1"
                       type="text"
                       name="address1"
                       value={formData.address1}
                       onChange={handleInputChange}
-                      className="input-field"
                       placeholder="123 Farm Lane"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium mb-2">
-                      Address Line 2 (Optional)
-                    </label>
-                    <input
+                    <Input
+                      label="Address Line 2 (Optional)"
                       type="text"
                       name="address2"
                       value={formData.address2}
                       onChange={handleInputChange}
-                      className="input-field"
                       placeholder="Apartment, suite, etc."
                     />
                   </div>
                   <div className="grid sm:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium mb-2">
-                        City
-                      </label>
-                      <input
+                      <Input
+                        label="City"
                         type="text"
                         name="city"
                         value={formData.city}
                         onChange={handleInputChange}
-                        className="input-field"
                         placeholder="Cambridge"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium mb-2">
-                        Postcode
-                      </label>
-                      <input
+                      <Input
+                        label="Postcode"
                         type="text"
                         name="postcode"
                         value={formData.postcode}
                         onChange={handleInputChange}
-                        className="input-field"
                         placeholder="CB1 2AB"
                       />
                     </div>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium mb-2">
-                      Delivery Instructions (Optional)
-                    </label>
-                    <textarea
+                    <Textarea
+                      label="Delivery Instructions (Optional)"
                       name="customerInstructions"
                       value={formData.customerInstructions}
                       onChange={handleInputChange}
-                      className="input-field min-h-[100px]"
                       placeholder="Leave at door, ring bell, etc."
                     />
                   </div>
@@ -806,6 +791,7 @@ const CheckoutPage: React.FC = () => {
                       Delivery Address Bookmarks
                     </h3>
                     <select
+                      aria-label="Saved delivery address"
                       value={selectedSavedAddressId || ""}
                       onChange={(e) => {
                         const id = e.target.value;
@@ -815,7 +801,7 @@ const CheckoutPage: React.FC = () => {
                         );
                         if (selected) applySavedAddress(selected);
                       }}
-                      className="w-full rounded-md border border-input bg-background pl-3 pr-10 py-2 text-sm"
+                      className="form-control"
                     >
                       {savedAddresses.map((addr) => (
                         <option key={addr.id} value={addr.id}>
@@ -913,11 +899,12 @@ const CheckoutPage: React.FC = () => {
                     </div>
                   ) : !applyCredit ? (
                     <div className="mb-4">
-                      <label className="block text-sm font-medium mb-2">
+                      <label htmlFor="discount-code" className="block text-sm font-medium mb-2">
                         Discount Code
                       </label>
                       <div className="flex gap-2">
                         <input
+                          id="discount-code"
                           type="text"
                           placeholder="Enter code"
                           className="flex-1 input-field py-2.5"

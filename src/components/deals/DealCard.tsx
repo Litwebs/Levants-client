@@ -1,9 +1,9 @@
 import { useId } from "react";
 import { Link } from "react-router-dom";
-import { Check, Package, ShoppingBag } from "lucide-react";
+import { Check, Package } from "lucide-react";
 import type { Deal } from "@/api/deals";
 import { useCart } from "@/context/CartContext";
-import { Button } from "@/components/ui/button";
+import { BasketButton, SavingsTag } from "@/components/products/CatalogCardControls";
 import { toast } from "sonner";
 import { dealPresentation } from "./dealPresentation";
 import { cn } from "@/lib/utils";
@@ -13,9 +13,12 @@ import DealContents from "./DealContents";
 interface DealCardProps {
   deal: Deal;
   variant?: "card" | "featured";
+  showContents?: boolean;
+  imageAspectClassName?: string;
+  compactAction?: boolean;
 }
 
-export default function DealCard({ deal, variant = "card" }: DealCardProps) {
+export default function DealCard({ deal, variant = "card", showContents = true, imageAspectClassName, compactAction = false }: DealCardProps) {
   const titleId = useId();
   const { addDeal, deals, openCart } = useCart();
   const featured = variant === "featured";
@@ -43,23 +46,92 @@ export default function DealCard({ deal, variant = "card" }: DealCardProps) {
     });
   };
 
+  if (featured) {
+    return (
+      <article
+        aria-labelledby={titleId}
+        className={cn(
+          "deal-card flex h-full min-w-0 flex-col overflow-hidden bg-transparent text-white",
+          showContents ? "rounded-2xl" : "rounded-t-2xl",
+        )}
+      >
+        <div className={cn("relative isolate overflow-hidden rounded-t-2xl bg-forest-dark", imageAspectClassName ?? "aspect-[4/5] sm:aspect-[4/3]")}>
+          <Link
+            to={"/deals/" + deal.slug}
+            tabIndex={-1}
+            aria-hidden="true"
+            className="absolute inset-0"
+          >
+            <DealImage
+              src={deal.imageUrl}
+              className="h-full w-full object-cover"
+            />
+          </Link>
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/85 via-black/10 to-black/10" />
+          {value.saving && !soldOut && (
+            <SavingsTag overlay className={compactAction ? "absolute left-4 top-4 sm:left-5 sm:top-5" : "absolute left-5 top-5 sm:left-8 sm:top-6"}>
+              Save {value.percent !== null ? `${value.percent}%` : value.saving}
+            </SavingsTag>
+          )}
+          <div className="absolute inset-x-0 bottom-0 flex flex-col gap-4 p-5 text-white sm:p-7">
+            <div className="min-w-0">
+              <h3 id={titleId} className="font-heading text-2xl font-semibold leading-tight sm:text-3xl xl:text-4xl">
+                <Link
+                  to={"/deals/" + deal.slug}
+                  className="line-clamp-2 break-words rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+                  title={deal.name}
+                >
+                  {deal.name}
+                </Link>
+              </h3>
+            </div>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex flex-wrap items-baseline gap-3">
+                <span className="text-2xl font-semibold tracking-tight sm:text-3xl">{value.price}</span>
+                {value.original && (
+                  <span className="text-sm text-white/80">
+                    <span className="sr-only">Original value </span>
+                    <del>{value.original}</del>
+                  </span>
+                )}
+              </div>
+              <div className="shrink-0">
+                <BasketButton
+                  compact={compactAction}
+                  disabled={soldOut || !value.validPrice}
+                  onClick={addToCart}
+                  icon={quantity > 0 ? <Check aria-hidden="true" className="h-4 w-4 shrink-0" /> : undefined}
+                  className="motion-reduce:transition-none"
+                >
+                  {soldOut
+                    ? "Currently unavailable"
+                    : !value.validPrice
+                      ? "Price unavailable"
+                      : atLimit
+                        ? "View basket"
+                        : quantity > 0
+                          ? "Add another package"
+                          : "Add package to basket"}
+                </BasketButton>
+                <p aria-live="polite" className={cn("text-center text-xs text-white/90", quantity > 0 ? "mt-2" : "sr-only")}>
+                  {quantity > 0 ? `${quantity} in your basket${atLimit ? " · maximum available" : ""}` : ""}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+        {showContents && <DealContents items={deal.items} compact />}
+      </article>
+    );
+  }
+
   return (
     <article
       aria-labelledby={titleId}
-      className={cn(
-        "deal-card group h-full w-full min-w-0 overflow-hidden rounded-2xl border border-border/70 bg-card shadow-soft transition-colors hover:border-primary/40",
-        featured
-          ? "grid grid-rows-[auto_1fr] md:grid-cols-2 md:grid-rows-1"
-          : "mx-auto flex max-w-sm flex-col sm:mx-0",
-      )}
+      className="deal-card group mx-auto flex h-full w-full min-w-0 max-w-sm flex-col overflow-hidden rounded-2xl border border-border/70 bg-card shadow-soft transition-colors hover:border-primary/40 sm:mx-0"
     >
       <div
-        className={cn(
-          "relative overflow-hidden bg-secondary/60",
-          featured
-            ? "aspect-[4/3] md:aspect-auto md:min-h-[28rem]"
-            : "aspect-[4/3] shrink-0",
-        )}
+        className="relative aspect-[4/3] shrink-0 overflow-hidden bg-secondary/60"
       >
         <Link
           to={"/deals/" + deal.slug}
@@ -69,10 +141,7 @@ export default function DealCard({ deal, variant = "card" }: DealCardProps) {
         >
           <DealImage
             src={deal.imageUrl}
-            className={cn(
-              "h-full w-full object-contain",
-              featured && "p-4 sm:p-6",
-            )}
+            className="h-full w-full object-contain"
           />
         </Link>
         {value.saving && !soldOut && (
@@ -87,10 +156,7 @@ export default function DealCard({ deal, variant = "card" }: DealCardProps) {
         )}
       </div>
       <div
-        className={cn(
-          "flex min-w-0 flex-1 flex-col",
-          featured ? "p-5 sm:p-6 lg:p-8" : "p-4",
-        )}
+        className="flex min-w-0 flex-1 flex-col p-4"
       >
         <div className="mb-2 flex items-center justify-between gap-2 text-[11px] font-semibold uppercase tracking-widest text-primary">
           <span>Package deal</span>
@@ -100,19 +166,11 @@ export default function DealCard({ deal, variant = "card" }: DealCardProps) {
         </div>
         <h3
           id={titleId}
-          className={cn(
-            "font-heading font-semibold",
-            featured
-              ? "text-2xl leading-tight lg:text-3xl"
-              : "text-lg leading-6",
-          )}
+          className="font-heading text-lg font-semibold leading-6"
         >
           <Link
             to={"/deals/" + deal.slug}
-            className={cn(
-              "break-words rounded-sm hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-              !featured && "line-clamp-2 min-h-12",
-            )}
+            className="line-clamp-2 min-h-12 break-words rounded-sm hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             title={deal.name}
           >
             {deal.name}
@@ -124,21 +182,14 @@ export default function DealCard({ deal, variant = "card" }: DealCardProps) {
           included
         </p>
         <p
-          className={cn(
-            "mt-2 break-words text-sm leading-5 text-muted-foreground",
-            !featured && "line-clamp-1 min-h-5",
-          )}
+          className="mt-2 line-clamp-1 min-h-5 break-words text-sm leading-5 text-muted-foreground"
         >
           {deal.description}
         </p>
-        {featured && <DealContents items={deal.items} />}
-        <div className={cn("mt-auto", featured ? "pt-5" : "pt-3")}>
+        <div className="mt-auto pt-3">
           <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
             <span
-              className={cn(
-                "font-bold tracking-tight text-primary",
-                featured ? "text-3xl" : "text-2xl",
-              )}
+              className="text-2xl font-bold tracking-tight text-primary"
             >
               {value.price}
             </span>
@@ -165,17 +216,13 @@ export default function DealCard({ deal, variant = "card" }: DealCardProps) {
               </span>
             )}
           </div>
-          <Button
-            type="button"
+          <BasketButton
+            compact
             disabled={soldOut || !value.validPrice}
             onClick={addToCart}
-            className="h-11 w-full rounded-xl px-3 motion-reduce:transition-none"
+            icon={quantity > 0 ? <Check aria-hidden="true" className="h-4 w-4 shrink-0" /> : undefined}
+            className="w-full motion-reduce:transition-none"
           >
-            {quantity > 0 ? (
-              <Check aria-hidden="true" />
-            ) : (
-              <ShoppingBag aria-hidden="true" />
-            )}
             {soldOut
               ? "Currently unavailable"
               : !value.validPrice
@@ -185,16 +232,14 @@ export default function DealCard({ deal, variant = "card" }: DealCardProps) {
                   : quantity > 0
                     ? "Add another package"
                     : "Add package to basket"}
-          </Button>
+          </BasketButton>
           <p
             aria-live="polite"
             className="mt-2 min-h-4 text-center text-xs text-muted-foreground"
           >
             {quantity > 0
               ? `${quantity} in your basket${atLimit ? " · maximum available" : ""}`
-              : featured
-                ? "One package, all your favourites"
-                : "View package for full contents"}
+              : "View package for full contents"}
           </p>
         </div>
       </div>

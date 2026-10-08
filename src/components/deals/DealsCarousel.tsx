@@ -1,35 +1,33 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, ArrowRight, Pause, Play } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { Deal } from "@/api/deals";
 import { Button } from "@/components/ui/button";
-import {
-  Carousel,
-  CarouselContent,
-  CarouselItem,
-  type CarouselApi,
-} from "@/components/ui/carousel";
 import DealCard from "./DealCard";
+import DealContents from "./DealContents";
+import { cn } from "@/lib/utils";
 
 const ROTATION_INTERVAL = 6000;
 
-export default function DealsCarousel({ deals }: { deals: Deal[] }) {
-  const [api, setApi] = useState<CarouselApi>();
-  const rotationControl = useRef<HTMLButtonElement>(null);
+export default function DealsCarousel({
+  deals,
+  onImage = false,
+  imageAspectClassName,
+}: {
+  deals: Deal[];
+  onImage?: boolean;
+  imageAspectClassName?: string;
+}) {
   const root = useRef<HTMLDivElement>(null);
+  const touchStart = useRef<{ x: number; y: number } | null>(null);
+  const [index, setIndex] = useState(0);
   const [reducedMotion, setReducedMotion] = useState(true);
-  const options = useMemo(
-    () => ({
-      align: "start" as const,
-      loop: false,
-      duration: reducedMotion ? 0 : 25,
-    }),
-    [reducedMotion],
-  );
-  const [paused, setPaused] = useState(false);
-  const [hovered, setHovered] = useState(false);
+  const [dragging, setDragging] = useState(false);
+  const [contentFocused, setContentFocused] = useState(false);
   const [visible, setVisible] = useState(false);
   const [pageVisible, setPageVisible] = useState(true);
-  const [position, setPosition] = useState({ index: 0, count: 1 });
+  const count = deals.length;
+  const activeIndex = count ? index % count : 0;
+  const canRotate = count > 1;
 
   useEffect(() => {
     const media = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -51,54 +49,39 @@ export default function DealsCarousel({ deals }: { deals: Deal[] }) {
     };
   }, []);
 
-  useEffect(() => {
-    if (!api) return;
-    const update = () =>
-      setPosition({
-        index: api.selectedScrollSnap(),
-        count: api.scrollSnapList().length,
-      });
-    const stop = () => setPaused(true);
-    update();
-    api.on("select", update).on("reInit", update).on("pointerDown", stop);
-    return () => {
-      api.off("select", update).off("reInit", update).off("pointerDown", stop);
-    };
-  }, [api]);
-
-  const canRotate = position.count > 1;
   const rotating =
-    canRotate &&
-    !reducedMotion &&
-    !paused &&
-    !hovered &&
-    visible &&
-    pageVisible;
+    canRotate && !reducedMotion && !dragging &&
+    !contentFocused && visible && pageVisible;
+
   useEffect(() => {
-    if (!api || !rotating) return;
-    const timer = window.setTimeout(() => {
-      if (api.canScrollNext()) api.scrollNext();
-      else api.scrollTo(0);
-    }, ROTATION_INTERVAL);
+    if (!rotating) return;
+    const timer = window.setTimeout(
+      () => setIndex((current) => (current + 1) % count),
+      ROTATION_INTERVAL,
+    );
     return () => window.clearTimeout(timer);
-  }, [api, rotating, position.index]);
+  }, [rotating, activeIndex, count]);
 
   const navigate = (direction: -1 | 1) => {
-    setPaused(true);
-    api?.scrollTo(position.index + direction, reducedMotion);
+    if (canRotate) setIndex((current) => (current + direction + count) % count);
   };
 
   return (
-    <Carousel
+    <div
       ref={root}
-      setApi={setApi}
-      opts={options}
+      className="relative min-w-0"
+      role="region"
       aria-label="Featured deals"
       aria-roledescription={canRotate ? "carousel" : undefined}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
       onFocusCapture={(event) => {
-        if (!rotationControl.current?.contains(event.target)) setPaused(true);
+        setContentFocused(Boolean(event.target.closest(".deal-card")));
+      }}
+      onBlurCapture={(event) => {
+        setContentFocused(
+          event.relatedTarget instanceof Element &&
+          Boolean(event.relatedTarget.closest(".deal-card")) &&
+          event.currentTarget.contains(event.relatedTarget),
+        );
       }}
       onKeyDownCapture={(event) => {
         if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
@@ -107,69 +90,110 @@ export default function DealsCarousel({ deals }: { deals: Deal[] }) {
         }
       }}
     >
-      <CarouselContent className="-ml-5 py-1" aria-live="off">
-        {deals.map((deal, index) => (
-          <CarouselItem
+      <div
+        className="grid grid-cols-1 grid-rows-[auto_auto] touch-pan-y overflow-hidden rounded-2xl"
+        aria-live="off"
+        onTouchStart={(event) => {
+          const touch = event.touches[0];
+          if (!touch) return;
+          touchStart.current = { x: touch.clientX, y: touch.clientY };
+          setDragging(true);
+        }}
+        onTouchEnd={(event) => {
+          const touch = event.changedTouches[0];
+          const start = touchStart.current;
+          if (touch && start) {
+            const dx = touch.clientX - start.x;
+            const dy = touch.clientY - start.y;
+            if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy)) {
+              navigate(dx > 0 ? -1 : 1);
+            }
+          }
+          touchStart.current = null;
+          setDragging(false);
+        }}
+        onTouchCancel={() => {
+          touchStart.current = null;
+          setDragging(false);
+        }}
+      >
+        {deals.map((deal, slideIndex) => (
+          <div
             key={deal.id}
-            className="basis-full pl-5"
-            aria-label={`${index + 1} of ${deals.length}`}
-            aria-roledescription={canRotate ? "slide" : undefined}
-          >
-            <DealCard deal={deal} variant="featured" />
-          </CarouselItem>
-        ))}
-      </CarouselContent>
-      {canRotate && (
-        <div className="mt-5 flex items-center justify-between gap-3">
-          <p
-            aria-live={paused ? "polite" : "off"}
-            className="text-xs text-muted-foreground"
-          >
-            Deal {position.index + 1} of {position.count}
-          </p>
-          <div className="flex items-center gap-2">
-            {!reducedMotion && (
-              <Button
-                ref={rotationControl}
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="h-11 w-11 rounded-full"
-                onClick={() => setPaused((value) => !value)}
-                aria-label={
-                  paused
-                    ? "Start automatic rotation"
-                    : "Pause automatic rotation"
-                }
-              >
-                {paused ? <Play /> : <Pause />}
-              </Button>
+            className={cn(
+              "col-start-1 row-start-1 min-w-0 transition-opacity duration-700 ease-in-out motion-reduce:transition-none",
+              slideIndex === activeIndex
+                ? "z-10 opacity-100"
+                : "pointer-events-none opacity-0",
             )}
+            role="group"
+            aria-label={`${slideIndex + 1} of ${count}`}
+            aria-roledescription={canRotate ? "slide" : undefined}
+            aria-hidden={slideIndex !== activeIndex}
+            ref={(node) => {
+              if (node) node.inert = slideIndex !== activeIndex;
+            }}
+          >
+            <DealCard deal={deal} variant="featured" showContents={false} compactAction imageAspectClassName={imageAspectClassName} />
+          </div>
+        ))}
+        {/* Blur stays mounted outside every opacity layer, so only the product
+            contents crossfade without changing the backdrop filter. */}
+        <div className="col-start-1 row-start-2 grid min-w-0 grid-cols-1 text-white backdrop-blur-md">
+          {deals.map((deal, slideIndex) => (
+            <div
+              key={deal.id}
+              className={cn(
+                "col-start-1 row-start-1 min-w-0 transition-opacity duration-700 ease-in-out motion-reduce:transition-none",
+                slideIndex === activeIndex
+                  ? "z-10 opacity-100"
+                  : "pointer-events-none opacity-0",
+              )}
+              aria-hidden={slideIndex !== activeIndex}
+              ref={(node) => {
+                if (node) node.inert = slideIndex !== activeIndex;
+              }}
+            >
+              <DealContents items={deal.items} compact blurred={false} />
+            </div>
+          ))}
+        </div>
+      </div>
+      {canRotate && (
+        <>
+          <div className={cn("pointer-events-none absolute inset-x-0 top-0 z-20", imageAspectClassName ?? "aspect-[4/5] sm:aspect-[4/3]")}>
             <Button
               type="button"
               variant="outline"
               size="icon"
-              className="h-11 w-11 rounded-full"
-              disabled={position.index === 0}
+              className="pointer-events-auto absolute left-3 top-1/3 h-11 w-11 -translate-y-1/2 rounded-full border-white/30 bg-card/95 text-foreground shadow-soft hover:bg-card sm:left-5 sm:top-[40%]"
               onClick={() => navigate(-1)}
               aria-label="Previous deals"
             >
-              <ArrowLeft />
+              <ChevronLeft aria-hidden="true" className="h-5 w-5" />
             </Button>
             <Button
               type="button"
               variant="outline"
               size="icon"
-              className="h-11 w-11 rounded-full"
-              disabled={position.index === position.count - 1}
+              className="pointer-events-auto absolute right-3 top-1/3 h-11 w-11 -translate-y-1/2 rounded-full border-white/30 bg-card/95 text-foreground shadow-soft hover:bg-card sm:right-5 sm:top-[40%]"
               onClick={() => navigate(1)}
               aria-label="Next deals"
             >
-              <ArrowRight />
+              <ChevronRight aria-hidden="true" className="h-5 w-5" />
             </Button>
           </div>
-        </div>
+          <p
+            aria-live="off"
+            className={cn(
+              "mt-3 text-right text-xs tabular-nums",
+              onImage ? "text-white/65" : "text-muted-foreground",
+            )}
+          >
+            <span className="sr-only">Deal </span>{activeIndex + 1} / {count}
+          </p>
+        </>
       )}
-    </Carousel>
+    </div>
   );
 }

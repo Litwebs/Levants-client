@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Mail, Clock, Send, MessageSquare, MapPin, Phone } from "lucide-react";
 import { useBusinessInfo } from "@/context/BusinessInfoContext";
+import { Input, Select, Textarea } from "@/components/common/FormControls";
 
 const ContactPage: React.FC = () => {
   const businessInfo = useBusinessInfo();
@@ -93,30 +94,24 @@ const ContactPage: React.FC = () => {
                 >
                   <div className="grid sm:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium mb-2">
-                        Your Name *
-                      </label>
-                      <input
+                      <Input
+                        label="Your Name *"
                         type="text"
                         name="name"
                         value={formData.name}
                         onChange={handleInputChange}
                         required
-                        className="input-field"
                         placeholder="John Smith"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium mb-2">
-                        Email Address *
-                      </label>
-                      <input
+                      <Input
+                        label="Email Address *"
                         type="email"
                         name="email"
                         value={formData.email}
                         onChange={handleInputChange}
                         required
-                        className="input-field"
                         placeholder="john@example.com"
                       />
                     </div>
@@ -124,51 +119,45 @@ const ContactPage: React.FC = () => {
 
                   <div className="grid sm:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium mb-2">
-                        Phone Number
-                      </label>
-                      <input
+                      <Input
+                        label="Phone Number"
                         type="tel"
                         name="phone"
                         value={formData.phone}
                         onChange={handleInputChange}
-                        className="input-field"
                         placeholder="+44 7123 456789"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium mb-2">
-                        Subject *
-                      </label>
-                      <select
+                      <Select
+                        label="Subject *"
                         name="subject"
                         value={formData.subject}
-                        onChange={handleInputChange}
+                        onChange={(subject) =>
+                          setFormData((previous) => ({ ...previous, subject }))
+                        }
                         required
-                        className="input-field"
-                      >
-                        <option value="">Select a subject</option>
-                        <option value="order">Order Enquiry</option>
-                        <option value="delivery">Delivery Question</option>
-                        <option value="product">Product Information</option>
-                        <option value="subscription">Subscriptions</option>
-                        <option value="feedback">Feedback</option>
-                        <option value="other">Other</option>
-                      </select>
+                        placeholder="Select a subject"
+                        options={[
+                          { value: "order", label: "Order Enquiry" },
+                          { value: "delivery", label: "Delivery Question" },
+                          { value: "product", label: "Product Information" },
+                          { value: "subscription", label: "Subscriptions" },
+                          { value: "feedback", label: "Feedback" },
+                          { value: "other", label: "Other" },
+                        ]}
+                      />
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium mb-2">
-                      Your Message *
-                    </label>
-                    <textarea
+                    <Textarea
+                      label="Your Message *"
                       name="message"
                       value={formData.message}
                       onChange={handleInputChange}
                       required
                       rows={6}
-                      className="input-field resize-none"
                       placeholder="How can we help you?"
                     />
                   </div>

@@ -1,28 +1,34 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Gift, Tag } from "lucide-react";
-import DealsSkeleton from "@/components/deals/DealsSkeleton";
-import DealCard from "@/components/deals/DealCard";
-import { Button } from "@/components/ui/button";
-import { Link } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
 import { listDeals, type Deal } from "@/api/deals";
+import { resolveImageUrl } from "@/api/client";
+import { dealPresentation } from "@/components/deals/dealPresentation";
+import FeaturedPackages from "@/components/deals/FeaturedPackages";
+import { useCart } from "@/context/CartContext";
+import ShopPage, { type ShopCatalogItem } from "./ShopPage";
 
-const DealsPage: React.FC = () => {
-  const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
+const DealsPage = () => {
   const [deals, setDeals] = useState<Deal[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const loadSequence = useRef(0);
+  const { addDeal, deals: basketDeals, openCart } = useCart();
 
   const loadDeals = useCallback(async () => {
     const sequence = ++loadSequence.current;
     setLoading(true);
     setError("");
     try {
-      const res = await listDeals({ page, pageSize: 12 });
+      // Load every page so category filters and sorting cover the whole catalog.
+      const first = await listDeals({ page: 1, pageSize: 100 });
       if (sequence !== loadSequence.current) return;
-      setDeals(res.deals);
-      setTotalPages(res.meta?.totalPages ?? 1);
+      const loaded = [...first.deals];
+      for (let page = 2; page <= (first.meta?.totalPages ?? 1); page++) {
+        const result = await listDeals({ page, pageSize: 100 });
+        if (sequence !== loadSequence.current) return;
+        loaded.push(...result.deals);
+      }
+      setDeals(Array.from(new Map(loaded.map((deal) => [deal.id, deal])).values()));
     } catch {
       if (sequence !== loadSequence.current) return;
       setDeals([]);
@@ -30,99 +36,78 @@ const DealsPage: React.FC = () => {
     } finally {
       if (sequence === loadSequence.current) setLoading(false);
     }
-  }, [page]);
+  }, []);
 
   useEffect(() => {
     void loadDeals();
-    return () => {
-      loadSequence.current += 1;
-    };
+    return () => { loadSequence.current += 1; };
   }, [loadDeals]);
 
-  return (
-    <div className="bg-background">
-      <div className="border-b border-border/60 bg-secondary/30 py-8 lg:py-10">
-        <div className="container-custom">
-          <p className="mb-3 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-primary">
-            <Tag aria-hidden="true" className="h-3.5 w-3.5" /> More to enjoy,
-            less to spend
-          </p>
-          <h1 className="mb-2 font-heading text-3xl font-semibold lg:text-4xl">
-            Deals & Product Packages
-          </h1>
-          <p className="text-muted-foreground">
-            Fresh product collections at a better package price.
-          </p>
-        </div>
-      </div>
+  const items = useMemo<ShopCatalogItem[]>(() => deals.map((deal) => {
+    const value = dealPresentation(deal);
+    const inBasket = basketDeals.find((entry) => entry.deal.id === deal.id)?.quantity ?? 0;
+    const available = Number.isFinite(deal.maxPackages) ? Math.max(0, Math.min(99, deal.maxPackages)) : 0;
+    const expired = Boolean(deal.endsAt && new Date(deal.endsAt).getTime() <= Date.now());
+    const categories = Array.from(new Set(deal.items.map((item) => item.product.category).filter(Boolean)));
+    const image = resolveImageUrl(deal.imageUrl) ??
+      resolveImageUrl(deal.items[0]?.variant.thumbnailImage) ??
+      resolveImageUrl(deal.items[0]?.product.thumbnailImage);
+    return {
+      product: {
+        id: deal.id,
+        name: deal.name,
+        category: categories[0] ?? "Product packages",
+        price: deal.packagePrice,
+        shortDescription: deal.description,
+        longDescription: deal.items.map((item) => `${item.product.name} ${item.variant.name}`).join(" "),
+        images: image ? [image] : [],
+        stockStatus: available <= 0 || expired ? "out-of-stock" : "in-stock",
+        badges: value.saving ? [`Save ${value.percent !== null ? `${value.percent}%` : value.saving}`] : [],
+      },
+      categories,
+      cardProps: {
+        linkTo: `/deals/${deal.slug}`,
+        priceLabel: value.price,
+        originalPriceLabel: value.original ?? undefined,
+        maxQuantity: Math.max(1, available - inBasket),
+        actionDisabled: !value.validPrice,
+      },
+    };
+  }), [basketDeals, deals]);
 
-      <div className="container-custom py-6 lg:py-8">
-        {loading ? (
-          <DealsSkeleton />
-        ) : error ? (
-          <div className="rounded-2xl border border-border/60 bg-card px-6 py-12 text-center">
-            <p role="alert" className="mb-4 text-muted-foreground">
-              {error}
-            </p>
-            <Button
-              variant="outline"
-              type="button"
-              onClick={() => void loadDeals()}
-              className="h-11 rounded-xl"
-            >
-              Retry
-            </Button>
-          </div>
-        ) : deals.length === 0 ? (
-          <div className="rounded-2xl border border-border/60 bg-card px-6 py-12 text-center">
-            <Gift className="mx-auto mb-4 h-10 w-10 text-muted-foreground/40" />
-            <h2 className="font-heading text-xl font-semibold">
-              No deals available right now
-            </h2>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Check back soon for new product packages and seasonal offers.
-            </p>
-          </div>
-        ) : (
-          <div className="grid items-stretch gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {deals.map((deal) => (
-              <DealCard key={deal.id} deal={deal} />
-            ))}
-          </div>
-        )}
-        {!loading && !error && totalPages > 1 && (
-          <nav
-            aria-label="Deals pagination"
-            className="mt-10 flex items-center justify-center gap-4"
-          >
-            <Button
-              variant="outline"
-              disabled={page === 1}
-              onClick={() => setPage(page - 1)}
-            >
-              Previous
-            </Button>
-            <span className="text-sm">
-              Page {page} of {totalPages}
-            </span>
-            <Button
-              variant="outline"
-              disabled={page === totalPages}
-              onClick={() => setPage(page + 1)}
-            >
-              Next
-            </Button>
-          </nav>
-        )}
-        {!loading && !error && !deals.length && (
-          <div className="mt-5 text-center">
-            <Button asChild variant="outline">
-              <Link to="/shop">Browse all products</Link>
-            </Button>
-          </div>
-        )}
-      </div>
-    </div>
+  const catalog = useMemo(() => ({
+    title: "Deals & Product Packages",
+    description: "Fresh favourites at a better package price.",
+    items,
+    loading,
+    error,
+    retry: () => void loadDeals(),
+    emptyMessage: deals.length ? "No deals found matching your filters." : "No deals available right now. Check back soon for new offers.",
+  }), [deals.length, error, items, loadDeals, loading]);
+
+  return (
+    <ShopPage
+      catalog={catalog}
+      catalogId="all-deals"
+      beforeCatalog={<FeaturedPackages deals={error ? [] : deals} loading={loading} />}
+      cardActionLabel={({ product }) => {
+        const deal = deals.find((entry) => entry.id === product.id);
+        const inBasket = basketDeals.find((entry) => entry.deal.id === product.id)?.quantity ?? 0;
+        if (product.stockStatus === "out-of-stock") return "Unavailable";
+        if (deal && !dealPresentation(deal).validPrice) return "Price unavailable";
+        return deal && inBasket >= Math.min(99, deal.maxPackages) ? "View basket" : "Add to basket";
+      }}
+      onCardAction={({ product, quantity }) => {
+        const deal = deals.find((entry) => entry.id === product.id);
+        if (!deal || !dealPresentation(deal).validPrice || product.stockStatus === "out-of-stock") return;
+        const inBasket = basketDeals.find((entry) => entry.deal.id === deal.id)?.quantity ?? 0;
+        const remaining = Math.min(99, deal.maxPackages) - inBasket;
+        if (remaining <= 0) { openCart(); return; }
+        const added = Math.min(quantity, remaining);
+        addDeal(deal, added);
+        toast.success(`${deal.name} added to your basket`, { description: `Package deal × ${added}` });
+      }}
+    />
   );
 };
 

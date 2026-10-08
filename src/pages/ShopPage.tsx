@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { useProducts } from "@/context/Products/ProductsContext";
 import { resolveImageUrl } from "@/api/client";
-import ProductCard from "@/components/products/ProductCard";
+import ProductCard, { type ProductCardProps } from "@/components/products/ProductCard";
 import { Product, ProductVariant } from "@/data/products";
 import { cn } from "@/lib/utils";
 import { sortByStorefrontCategoryOrder } from "@/lib/categoryOrder";
@@ -47,7 +47,25 @@ const guessCategoryNameFromSlug = (slug: string) =>
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(" ");
 
+export interface ShopCatalogItem {
+  product: Product;
+  categories?: string[];
+  lockedVariantId?: string;
+  cardProps?: Pick<ProductCardProps, "linkTo" | "priceLabel" | "originalPriceLabel" | "maxQuantity" | "actionDisabled">;
+}
+
 interface ShopPageProps {
+  beforeCatalog?: React.ReactNode;
+  catalogId?: string;
+  catalog?: {
+    title: string;
+    description: string;
+    items: ShopCatalogItem[];
+    loading: boolean;
+    error: string;
+    retry: () => void;
+    emptyMessage: string;
+  };
   cardActionLabel?: (params: {
     product: Product;
     lockedVariantId?: string;
@@ -75,6 +93,9 @@ interface ShopPageProps {
 }
 
 const ShopPage: React.FC<ShopPageProps> = ({
+  catalog,
+  beforeCatalog,
+  catalogId,
   cardActionLabel,
   cardActionClassName,
   onCardAction,
@@ -88,7 +109,9 @@ const ShopPage: React.FC<ShopPageProps> = ({
 }) => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [isFilterOpen, setIsFilterOpen] = useState(false);
-  const { products, meta, loading, error, fetchProducts } = useProducts();
+  const { products, meta, loading: productsLoading, error: productsError, fetchProducts } = useProducts();
+  const loading = catalog?.loading ?? productsLoading;
+  const error = catalog?.error ?? productsError;
   const { addItem } = useCart();
 
   const backendCategoriesRef = useRef<string[]>([]);
@@ -153,6 +176,7 @@ const ShopPage: React.FC<ShopPageProps> = ({
   };
 
   useEffect(() => {
+    if (catalog) return;
     const backendCategories = backendCategoriesRef.current;
     const categoryBySlug = new Map(
       backendCategories.map((name) => [slugifyCategory(name), name]),
@@ -193,7 +217,7 @@ const ShopPage: React.FC<ShopPageProps> = ({
               ? "name_asc"
               : undefined,
     });
-  }, [currentPage, fetchProducts, searchQuery, selectedCategories, sortBy]);
+  }, [catalog, currentPage, fetchProducts, searchQuery, selectedCategories, sortBy]);
 
   const prevSearchQueryRef = useRef(searchQuery);
   useEffect(() => {
@@ -205,6 +229,18 @@ const ShopPage: React.FC<ShopPageProps> = ({
 
   // Categories should be stable across pages (backend provides full list)
   const categories = useMemo(() => {
+    if (catalog) {
+      const names = new Map<string, string>();
+      catalog.items.forEach(({ product, categories: itemCategories }) => {
+        (itemCategories ?? [product.category]).filter(Boolean).forEach((name) => {
+          names.set(slugifyCategory(name), name);
+        });
+      });
+      return sortByStorefrontCategoryOrder(
+        Array.from(names, ([slug, name]) => ({ slug, name })),
+        (category) => category.name,
+      );
+    }
     const backendCategories = Array.isArray(meta?.categories)
       ? meta.categories.map((c) => c.title)
       : [];
@@ -232,10 +268,27 @@ const ShopPage: React.FC<ShopPageProps> = ({
       })),
       (category) => category.name,
     );
-  }, [meta?.categories, products]);
+  }, [catalog, meta?.categories, products]);
 
-  const totalAvailable = meta?.total ?? products.length;
-  const totalPages = meta?.totalPages;
+  const catalogItems = useMemo(() => {
+    if (!catalog) return [];
+    const query = searchQuery.trim().toLowerCase();
+    const filtered = catalog.items.filter(({ product, categories: itemCategories }) => {
+      const matchesCategory = selectedCategories.length === 0 ||
+        (itemCategories ?? [product.category]).some((name) => selectedCategories.includes(slugifyCategory(name)));
+      const matchesSearch = !query || `${product.name} ${product.shortDescription} ${product.longDescription}`.toLowerCase().includes(query);
+      return matchesCategory && matchesSearch;
+    });
+    if (sortBy === "price-low") return filtered.sort((a, b) => a.product.price - b.product.price);
+    if (sortBy === "price-high") return filtered.sort((a, b) => b.product.price - a.product.price);
+    if (sortBy === "name") return filtered.sort((a, b) => a.product.name.localeCompare(b.product.name));
+    return sortByStorefrontCategoryOrder(filtered, ({ product }) => product.category);
+  }, [catalog, searchQuery, selectedCategories, sortBy]);
+
+  const totalAvailable = catalog ? catalog.items.length : meta?.total ?? products.length;
+  const totalPages = catalog
+    ? catalog.loading ? undefined : Math.max(1, Math.ceil(catalogItems.length / PAGE_SIZE))
+    : meta?.totalPages;
   const clampedPage = totalPages
     ? Math.min(currentPage, totalPages)
     : currentPage;
@@ -292,7 +345,8 @@ const ShopPage: React.FC<ShopPageProps> = ({
       : mapped;
   }, [products, sortBy]);
 
-  const productVariantCards = useMemo(() => {
+  const productVariantCards = useMemo<ShopCatalogItem[]>(() => {
+    if (catalog) return catalogItems.slice((clampedPage - 1) * PAGE_SIZE, clampedPage * PAGE_SIZE);
     return mappedProducts.flatMap((product) => {
       const variants = product.variants ?? [];
       if (variants.length === 0) {
@@ -333,7 +387,7 @@ const ShopPage: React.FC<ShopPageProps> = ({
         };
       });
     });
-  }, [mappedProducts]);
+  }, [catalog, catalogItems, clampedPage, mappedProducts]);
 
   const toggleCategory = (slug: string) => {
     if (currentPage !== 1) setPage(1);
@@ -377,19 +431,20 @@ const ShopPage: React.FC<ShopPageProps> = ({
         <div className="bg-secondary/30 py-12 lg:py-16">
           <div className="container-custom">
             <h1 className="font-heading text-3xl lg:text-4xl font-semibold mb-2">
-              Shop All Products
+              {catalog?.title ?? "Shop All Products"}
             </h1>
             <p className="text-muted-foreground">
-              Fresh dairy delivered to your door. {totalAvailable} products
-              available.
+              {catalog ? `${catalog.description} ${totalAvailable} deals available.` : `Fresh dairy delivered to your door. ${totalAvailable} products available.`}
             </p>
           </div>
         </div>
       )}
 
       <div className={embedded ? "py-0" : "container-custom py-8 lg:py-12"}>
+        {beforeCatalog}
         <div
-          className={contentGapClassName || "flex flex-col lg:flex-row gap-8"}
+          id={catalogId}
+          className={cn(contentGapClassName || "flex flex-col lg:flex-row gap-8", catalogId && "scroll-mt-28")}
         >
           {/* Desktop Sidebar */}
           <aside className="hidden lg:block w-64 flex-shrink-0">
@@ -505,7 +560,7 @@ const ShopPage: React.FC<ShopPageProps> = ({
               <div className="text-center py-16">
                 <p className="text-destructive mb-4">{error}</p>
                 <button
-                  onClick={() => fetchProducts({})}
+                  onClick={() => catalog ? catalog.retry() : fetchProducts({})}
                   className="btn-outline"
                 >
                   Retry
@@ -523,17 +578,19 @@ const ShopPage: React.FC<ShopPageProps> = ({
                   }
                 >
                   {productVariantCards.map(
-                    ({ product, lockedVariantId }, index) => (
+                    ({ product, lockedVariantId, cardProps }, index) => (
                       <div
                         key={lockedVariantId ?? product.id}
                         className="h-full opacity-0 animate-fade-in-up"
                         style={{ animationDelay: `${index * 0.05}s` }}
                       >
                         <ProductCard
+                          {...cardProps}
                           product={product}
                           lockedVariantId={lockedVariantId}
                           hideVariantSelector
                           hideQuantityStepper={hideCardQuantityStepper}
+                          compactControls={!embedded}
                           actionLabel={
                             cardActionLabel?.({
                               product,
@@ -644,7 +701,7 @@ const ShopPage: React.FC<ShopPageProps> = ({
             {!loading && !error && productVariantCards.length === 0 && (
               <div className="text-center py-16">
                 <p className="text-muted-foreground text-lg mb-4">
-                  No products found matching your filters.
+                  {catalog?.emptyMessage ?? "No products found matching your filters."}
                 </p>
                 <button onClick={clearFilters} className="btn-outline">
                   Clear Filters
