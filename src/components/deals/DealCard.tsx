@@ -44,7 +44,7 @@ export default function DealCard({ deal }: DealCardProps) {
       aria-labelledby={titleId}
       className="deal-card group mx-auto flex h-full w-full min-w-0 max-w-sm flex-col overflow-hidden rounded-2xl border border-border/70 bg-card shadow-soft transition-colors hover:border-primary/40 sm:mx-0"
     >
-      <div className="relative aspect-[2/1] shrink-0 overflow-hidden bg-secondary/60">
+      <div className="relative aspect-[5/2] shrink-0 overflow-hidden bg-secondary/60">
         <Link
           to={"/deals/" + deal.slug}
           tabIndex={-1}
@@ -58,7 +58,7 @@ export default function DealCard({ deal }: DealCardProps) {
               loading="lazy"
               decoding="async"
               width={640}
-              height={320}
+              height={256}
               onError={() => setFailedImage(deal.imageUrl)}
               className="h-full w-full object-cover motion-safe:transition-transform motion-safe:duration-500 motion-safe:group-hover:scale-[1.02]"
             />
@@ -88,11 +88,11 @@ export default function DealCard({ deal }: DealCardProps) {
         </div>
         <h3
           id={titleId}
-          className="font-heading text-xl font-semibold leading-snug"
+          className="font-heading text-lg font-semibold leading-6"
         >
           <Link
             to={"/deals/" + deal.slug}
-            className="line-clamp-2 min-h-[3.25rem] break-words rounded-sm hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="line-clamp-2 min-h-12 break-words rounded-sm hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             title={deal.name}
           >
             {deal.name}
@@ -103,10 +103,10 @@ export default function DealCard({ deal }: DealCardProps) {
           {deal.items.length} product{deal.items.length === 1 ? "" : "s"}{" "}
           included
         </p>
-        <p className="mt-2 line-clamp-2 min-h-10 break-words text-sm leading-5 text-muted-foreground">
+        <p className="mt-2 line-clamp-1 min-h-5 break-words text-sm leading-5 text-muted-foreground">
           {deal.description}
         </p>
-        <div className="mt-auto pt-4">
+        <div className="mt-auto pt-3">
           <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
             <span className="text-2xl font-bold tracking-tight text-primary">
               {value.price}

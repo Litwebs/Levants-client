@@ -31,7 +31,7 @@ export default function FeaturedDeals() {
   return (
     <section
       aria-labelledby="featured-deals-heading"
-      className="border-b border-primary/10 bg-primary/5 py-8 sm:py-10 lg:py-12"
+      className="border-b border-primary/10 bg-primary/5 py-8 sm:py-10 lg:py-10"
     >
       <div className="container-custom">
         <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">

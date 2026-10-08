@@ -149,6 +149,16 @@ for (const width of [
     await expect(collection(page).locator(".deal-card")).toHaveCount(8);
     await collection(page).scrollIntoViewIfNeeded();
     await noOverflow(page);
+    await page
+      .locator('section[aria-labelledby="featured-deals-heading"]')
+      .evaluate((section) => {
+        const headerHeight =
+          document.querySelector("header")?.getBoundingClientRect().height ?? 0;
+        window.scrollTo(
+          0,
+          section.getBoundingClientRect().top + window.scrollY - headerHeight,
+        );
+      });
     await info.attach(`home-deals-${width}`, {
       body: await page.screenshot(),
       contentType: "image/png",
