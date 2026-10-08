@@ -31,21 +31,22 @@ const offers: Deal[] = names.map((name, index) => ({
   currency: "GBP",
   isFeatured: index === 0,
   maxPackages: 5,
-  items: [
-    {
-      variantId: "milk",
-      quantity: 3,
+  items: ["Whole milk", "Farmhouse butter", "Wildflower honey"].map(
+    (product, i) => ({
+      variantId: `product-${i}`,
+      quantity: 1,
       variant: {
-        id: "milk",
-        name: "Whole milk",
-        sku: "MILK",
+        id: `product-${i}`,
+        name: i === 0 ? "1 litre" : "250 g",
+        sku: `PRODUCT-${i}`,
         price: 5,
         stockQuantity: 30,
         availableStock: 30,
+        thumbnailImage: { url: `/src/assets/${images[i === 2 ? 3 : i]}` },
       },
-      product: { id: "milk", name: "Whole milk", category: "Milk" },
-    },
-  ],
+      product: { id: `product-${i}`, name: product, category: "Dairy" },
+    }),
+  ),
 }));
 
 async function api(page: Page, deals = offers) {
@@ -149,6 +150,22 @@ for (const width of [
     await expect(collection(page).locator(".deal-card")).toHaveCount(8);
     await collection(page).scrollIntoViewIfNeeded();
     await noOverflow(page);
+    const visibleCards = await collection(page).evaluate((region) => {
+      const bounds = region.getBoundingClientRect();
+      return Array.from(region.querySelectorAll(".deal-card")).filter(
+        (card) => {
+          const rect = card.getBoundingClientRect();
+          return rect.left < bounds.right - 10 && rect.right > bounds.left + 10;
+        },
+      ).length;
+    });
+    expect(visibleCards).toBe(1);
+    await expect(
+      collection(page).locator(".deal-card").first().getByRole("list"),
+    ).toBeVisible();
+    await expect(
+      collection(page).locator(".deal-card").first().getByRole("listitem"),
+    ).toHaveCount(3);
     await page
       .locator('section[aria-labelledby="featured-deals-heading"]')
       .evaluate((section) => {
@@ -175,7 +192,7 @@ for (const count of [1, 2, 3, 8]) {
     await page.setViewportSize({ width: 1440, height: 1000 });
     await page.goto("/");
     await expect(collection(page).locator(".deal-card")).toHaveCount(count);
-    if (count <= 3)
+    if (count === 1)
       await expect(
         page.getByRole("button", { name: "Next deals" }),
       ).toHaveCount(0);
@@ -283,8 +300,14 @@ test("touch swipe changes the visible package", async ({ browser }) => {
   await api(page);
   await page.goto("/");
   await collection(page).scrollIntoViewIfNeeded();
-  const card = await collection(page)
+  await collection(page)
     .locator(".deal-card")
+    .first()
+    .locator("img")
+    .first()
+    .scrollIntoViewIfNeeded();
+  const card = await collection(page)
+    .locator(".deal-card img")
     .first()
     .boundingBox();
   if (!card) throw new Error("Missing deal card");
@@ -317,7 +340,7 @@ test("package pricing, basket persistence and navigation", async ({ page }) => {
   await expect(card.getByText("£10.00", { exact: true })).toBeVisible();
   await expect(card.locator("del")).toHaveText("£15.00");
   await expect(card.getByText("Save £5.00", { exact: true })).toBeVisible();
-  await expect(card.getByText("1 product included")).toBeVisible();
+  await expect(card.getByText("3 products included")).toBeVisible();
   await card.getByRole("button", { name: "Add package to basket" }).click();
   await expect
     .poll(() =>

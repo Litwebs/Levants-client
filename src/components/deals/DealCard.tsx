@@ -1,4 +1,4 @@
-import { useId, useState } from "react";
+import { useId } from "react";
 import { Link } from "react-router-dom";
 import { Check, Package, ShoppingBag } from "lucide-react";
 import type { Deal } from "@/api/deals";
@@ -6,15 +6,19 @@ import { useCart } from "@/context/CartContext";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { dealPresentation } from "./dealPresentation";
+import { cn } from "@/lib/utils";
+import DealImage from "./DealImage";
+import DealContents from "./DealContents";
 
 interface DealCardProps {
   deal: Deal;
+  variant?: "card" | "featured";
 }
 
-export default function DealCard({ deal }: DealCardProps) {
+export default function DealCard({ deal, variant = "card" }: DealCardProps) {
   const titleId = useId();
   const { addDeal, deals, openCart } = useCart();
-  const [failedImage, setFailedImage] = useState<string>();
+  const featured = variant === "featured";
   const value = dealPresentation(deal);
   const quantity =
     deals.find((entry) => entry.deal.id === deal.id)?.quantity ?? 0;
@@ -42,31 +46,34 @@ export default function DealCard({ deal }: DealCardProps) {
   return (
     <article
       aria-labelledby={titleId}
-      className="deal-card group mx-auto flex h-full w-full min-w-0 max-w-sm flex-col overflow-hidden rounded-2xl border border-border/70 bg-card shadow-soft transition-colors hover:border-primary/40 sm:mx-0"
+      className={cn(
+        "deal-card group h-full w-full min-w-0 overflow-hidden rounded-2xl border border-border/70 bg-card shadow-soft transition-colors hover:border-primary/40",
+        featured
+          ? "grid md:grid-cols-2"
+          : "mx-auto flex max-w-sm flex-col sm:mx-0",
+      )}
     >
-      <div className="relative aspect-[5/2] shrink-0 overflow-hidden bg-secondary/60">
+      <div
+        className={cn(
+          "relative overflow-hidden bg-secondary/60",
+          featured
+            ? "aspect-[4/3] md:aspect-auto md:min-h-[28rem]"
+            : "aspect-[4/3] shrink-0",
+        )}
+      >
         <Link
           to={"/deals/" + deal.slug}
           tabIndex={-1}
           aria-hidden="true"
           className="block h-full"
         >
-          {deal.imageUrl && failedImage !== deal.imageUrl ? (
-            <img
-              src={deal.imageUrl}
-              alt=""
-              loading="lazy"
-              decoding="async"
-              width={640}
-              height={256}
-              onError={() => setFailedImage(deal.imageUrl)}
-              className="h-full w-full object-cover motion-safe:transition-transform motion-safe:duration-500 motion-safe:group-hover:scale-[1.02]"
-            />
-          ) : (
-            <div className="flex h-full items-center justify-center text-primary/40">
-              <Package className="h-12 w-12" />
-            </div>
-          )}
+          <DealImage
+            src={deal.imageUrl}
+            className={cn(
+              "h-full w-full object-contain",
+              featured && "p-4 sm:p-6",
+            )}
+          />
         </Link>
         {value.saving && !soldOut && (
           <span className="absolute left-3 top-3 rounded-lg bg-primary px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-primary-foreground shadow-soft">
@@ -79,7 +86,12 @@ export default function DealCard({ deal }: DealCardProps) {
           </span>
         )}
       </div>
-      <div className="flex flex-1 flex-col p-4">
+      <div
+        className={cn(
+          "flex min-w-0 flex-1 flex-col",
+          featured ? "p-5 sm:p-6 lg:p-8" : "p-4",
+        )}
+      >
         <div className="mb-2 flex items-center justify-between gap-2 text-[11px] font-semibold uppercase tracking-widest text-primary">
           <span>Package deal</span>
           {deal.isFeatured && (
@@ -88,11 +100,19 @@ export default function DealCard({ deal }: DealCardProps) {
         </div>
         <h3
           id={titleId}
-          className="font-heading text-lg font-semibold leading-6"
+          className={cn(
+            "font-heading font-semibold",
+            featured
+              ? "text-2xl leading-tight lg:text-3xl"
+              : "text-lg leading-6",
+          )}
         >
           <Link
             to={"/deals/" + deal.slug}
-            className="line-clamp-2 min-h-12 break-words rounded-sm hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className={cn(
+              "break-words rounded-sm hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              !featured && "line-clamp-2 min-h-12",
+            )}
             title={deal.name}
           >
             {deal.name}
@@ -103,12 +123,23 @@ export default function DealCard({ deal }: DealCardProps) {
           {deal.items.length} product{deal.items.length === 1 ? "" : "s"}{" "}
           included
         </p>
-        <p className="mt-2 line-clamp-1 min-h-5 break-words text-sm leading-5 text-muted-foreground">
+        <p
+          className={cn(
+            "mt-2 break-words text-sm leading-5 text-muted-foreground",
+            !featured && "line-clamp-1 min-h-5",
+          )}
+        >
           {deal.description}
         </p>
-        <div className="mt-auto pt-3">
+        {featured && <DealContents items={deal.items} />}
+        <div className={cn("mt-auto", featured ? "pt-5" : "pt-3")}>
           <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-            <span className="text-2xl font-bold tracking-tight text-primary">
+            <span
+              className={cn(
+                "font-bold tracking-tight text-primary",
+                featured ? "text-3xl" : "text-2xl",
+              )}
+            >
               {value.price}
             </span>
             {value.original && (
@@ -161,7 +192,9 @@ export default function DealCard({ deal }: DealCardProps) {
           >
             {quantity > 0
               ? `${quantity} in your basket${atLimit ? " · maximum available" : ""}`
-              : "View package for full contents"}
+              : featured
+                ? "One package, all your favourites"
+                : "View package for full contents"}
           </p>
         </div>
       </div>

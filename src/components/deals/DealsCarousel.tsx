@@ -111,17 +111,22 @@ export default function DealsCarousel({ deals }: { deals: Deal[] }) {
         {deals.map((deal, index) => (
           <CarouselItem
             key={deal.id}
-            className="basis-full pl-5 sm:basis-1/2 lg:basis-1/3"
+            className="basis-full pl-5"
             aria-label={`${index + 1} of ${deals.length}`}
             aria-roledescription={canRotate ? "slide" : undefined}
           >
-            <DealCard deal={deal} />
+            <DealCard deal={deal} variant="featured" />
           </CarouselItem>
         ))}
       </CarouselContent>
       {canRotate && (
         <div className="mt-5 flex items-center justify-between gap-3">
-          <p className="text-xs text-muted-foreground">Explore more packages</p>
+          <p
+            aria-live={paused ? "polite" : "off"}
+            className="text-xs text-muted-foreground"
+          >
+            Deal {position.index + 1} of {position.count}
+          </p>
           <div className="flex items-center gap-2">
             {!reducedMotion && (
               <Button

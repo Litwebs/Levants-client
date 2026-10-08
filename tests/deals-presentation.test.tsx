@@ -106,6 +106,47 @@ describe("honest deal pricing", () => {
   });
 });
 
+describe("featured package contents", () => {
+  test("shows every product, variant, quantity and image in the featured panel", () => {
+    const items = Array.from({ length: 6 }, (_, index) => ({
+      variantId: `variant-${index}`,
+      quantity: index + 1,
+      variant: {
+        id: `variant-${index}`,
+        name: "250 g",
+        sku: `SKU-${index}`,
+        price: 1,
+        stockQuantity: 20,
+        availableStock: 20,
+        thumbnailImage: index === 0 ? { url: "variant.jpg" } : null,
+      },
+      product: {
+        id: `product-${index}`,
+        name: `Product ${index}`,
+        category: "Dairy",
+        thumbnailImage: { url: "product.jpg" },
+      },
+    }));
+    const view = mount(
+      <DealCard deal={{ ...deal, items }} variant="featured" />,
+    );
+    expect(screen.getAllByRole("listitem")).toHaveLength(6);
+    expect(screen.getByText("250 g · Qty 6")).toBeTruthy();
+    expect(view.container.querySelector("img")?.getAttribute("src")).toBe(
+      "variant.jpg",
+    );
+    expect(view.container.querySelectorAll("img")[1].getAttribute("src")).toBe(
+      "product.jpg",
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Add package to basket" }),
+    );
+    expect(
+      screen.getByText("1 in your basket · maximum available"),
+    ).toBeTruthy();
+  });
+});
+
 describe("deal collection states", () => {
   test("loading is accessible and resolves to the real response", async () => {
     let finish!: (result: { deals: Deal[] }) => void;
