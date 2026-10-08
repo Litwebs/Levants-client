@@ -13,7 +13,8 @@
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test:deals": "vitest run"
+    "test:deals": "vitest run",
+    "test:deals:browser": "playwright test"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
@@ -71,6 +72,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.32.0",
+    "@playwright/test": "^1.58.2",
     "@tailwindcss/typography": "^0.5.16",
     "@testing-library/react": "^16.1.0",
     "@testing-library/user-event": "^14.6.1",

@@ -305,6 +305,8 @@ const HomePage: React.FC = () => {
         </div>
       </section>
 
+      <FeaturedDeals />
+
       <section className="border-b border-border bg-secondary/30 py-14 lg:py-20">
         <div className="container-custom">
           <OrderTypeChoice id="order-options" />
@@ -329,8 +331,6 @@ const HomePage: React.FC = () => {
           </div>
         </div>
       </section>
-
-      <FeaturedDeals />
 
       {/* Best Sellers */}
       {bestSellerProducts.length > 0 && (

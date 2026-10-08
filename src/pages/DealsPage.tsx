@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Gift, Loader2 } from "lucide-react";
+import { Gift, Tag } from "lucide-react";
+import DealsSkeleton from "@/components/deals/DealsSkeleton";
 import DealCard from "@/components/deals/DealCard";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
@@ -22,10 +23,10 @@ const DealsPage: React.FC = () => {
       if (sequence !== loadSequence.current) return;
       setDeals(res.deals);
       setTotalPages(res.meta?.totalPages ?? 1);
-    } catch (err) {
+    } catch {
       if (sequence !== loadSequence.current) return;
       setDeals([]);
-      setError(err instanceof Error ? err.message : "Failed to load deals.");
+      setError("We couldn’t load the deals. Please try again.");
     } finally {
       if (sequence === loadSequence.current) setLoading(false);
     }
@@ -40,8 +41,12 @@ const DealsPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="bg-secondary/30 py-12 lg:py-16">
+      <div className="border-b border-border/60 bg-secondary/30 py-8 lg:py-10">
         <div className="container-custom">
+          <p className="mb-3 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-primary">
+            <Tag aria-hidden="true" className="h-3.5 w-3.5" /> More to enjoy,
+            less to spend
+          </p>
           <h1 className="mb-2 font-heading text-3xl font-semibold lg:text-4xl">
             Deals & Product Packages
           </h1>
@@ -51,24 +56,25 @@ const DealsPage: React.FC = () => {
         </div>
       </div>
 
-      <div className="container-custom py-8 lg:py-12">
+      <div className="container-custom py-6 lg:py-8">
         {loading ? (
-          <div className="flex items-center justify-center py-16">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          </div>
+          <DealsSkeleton />
         ) : error ? (
-          <div className="py-16 text-center">
-            <p className="mb-4 text-destructive">{error}</p>
-            <button
+          <div className="rounded-2xl border border-border/60 bg-card px-6 py-12 text-center">
+            <p role="alert" className="mb-4 text-muted-foreground">
+              {error}
+            </p>
+            <Button
+              variant="outline"
               type="button"
               onClick={() => void loadDeals()}
-              className="btn-outline"
+              className="h-11 rounded-xl"
             >
               Retry
-            </button>
+            </Button>
           </div>
         ) : deals.length === 0 ? (
-          <div className="py-16 text-center">
+          <div className="rounded-2xl border border-border/60 bg-card px-6 py-12 text-center">
             <Gift className="mx-auto mb-4 h-10 w-10 text-muted-foreground/40" />
             <h2 className="font-heading text-xl font-semibold">
               No deals available right now
@@ -78,7 +84,7 @@ const DealsPage: React.FC = () => {
             </p>
           </div>
         ) : (
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid items-stretch gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {deals.map((deal) => (
               <DealCard key={deal.id} deal={deal} />
             ))}
@@ -109,7 +115,7 @@ const DealsPage: React.FC = () => {
           </nav>
         )}
         {!loading && !error && !deals.length && (
-          <div className="text-center">
+          <div className="mt-5 text-center">
             <Button asChild variant="outline">
               <Link to="/shop">Browse all products</Link>
             </Button>
