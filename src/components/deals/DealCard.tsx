@@ -42,7 +42,7 @@ export default function DealCard({ deal }: DealCardProps) {
   return (
     <article
       aria-labelledby={titleId}
-      className="deal-card group flex h-full w-full min-w-0 max-w-sm flex-col overflow-hidden rounded-2xl border border-border/70 bg-card shadow-soft transition-colors hover:border-primary/40"
+      className="deal-card group mx-auto flex h-full w-full min-w-0 max-w-sm flex-col overflow-hidden rounded-2xl border border-border/70 bg-card shadow-soft transition-colors hover:border-primary/40 sm:mx-0"
     >
       <div className="relative aspect-[2/1] shrink-0 overflow-hidden bg-secondary/60">
         <Link

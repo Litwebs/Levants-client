@@ -51,6 +51,8 @@ const offers: Deal[] = names.map((name, index) => ({
 async function api(page: Page, deals = offers) {
   await page.route("**/api/**", async (route) => {
     const url = new URL(route.request().url());
+    // Vite also serves source modules under /src/api; only stub API requests.
+    if (!url.pathname.startsWith("/api/")) return route.continue();
     if (url.pathname === "/api/deals") {
       return route.fulfill({
         json: {
@@ -121,14 +123,17 @@ for (const width of [
     await page.goto("/deals");
     await expect(page.locator(".deal-card")).toHaveCount(8);
     await expect(page.locator(".deal-card img").first()).toBeVisible();
-    expect(
-      await page
-        .locator(".deal-card img")
-        .first()
-        .evaluate(
-          (image: HTMLImageElement) => image.complete && image.naturalWidth > 0,
-        ),
-    ).toBe(true);
+    await expect
+      .poll(() =>
+        page
+          .locator(".deal-card img")
+          .first()
+          .evaluate(
+            (image: HTMLImageElement) =>
+              image.complete && image.naturalWidth > 0,
+          ),
+      )
+      .toBe(true);
     await noOverflow(page);
     const sizes = await page
       .locator(".deal-card")
@@ -155,7 +160,7 @@ for (const width of [
 for (const count of [1, 2, 3, 8]) {
   test(`${count} offers adapt without duplicates or unnecessary controls`, async ({
     page,
-  }) => {
+  }, info) => {
     await api(page, offers.slice(0, count));
     await page.setViewportSize({ width: 1440, height: 1000 });
     await page.goto("/");
@@ -183,6 +188,20 @@ for (const count of [1, 2, 3, 8]) {
       ).toBeEnabled();
     }
     await noOverflow(page);
+    await page.goto("/deals");
+    await expect(page.locator(".deal-card")).toHaveCount(count);
+    await noOverflow(page);
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    expect(
+      await page
+        .locator(".deal-card")
+        .first()
+        .evaluate((card) => card.getBoundingClientRect().width),
+    ).toBeLessThan(320);
+    await info.attach(`deals-count-${count}`, {
+      body: await page.screenshot({ fullPage: true }),
+      contentType: "image/png",
+    });
   });
 }
 

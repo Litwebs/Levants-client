@@ -40,7 +40,7 @@ const DealsPage: React.FC = () => {
   }, [loadDeals]);
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="bg-background">
       <div className="border-b border-border/60 bg-secondary/30 py-8 lg:py-10">
         <div className="container-custom">
           <p className="mb-3 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-primary">
