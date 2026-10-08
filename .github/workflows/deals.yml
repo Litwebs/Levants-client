@@ -21,7 +21,7 @@ jobs:
       - run: npm run test:deals
       - run: npx tsc --noEmit -p tsconfig.app.json
       - name: Lint deal implementation
-        run: npx eslint src/api/deals.ts src/components/deals src/context/CartContext.tsx src/pages/DealsPage.tsx src/pages/DealDetailPage.tsx src/pages/HomePage.tsx tests/deals.test.tsx tests/deals-presentation.test.tsx tests/addresses.test.tsx tests/browser playwright.config.ts vitest.config.ts
+        run: npx eslint src/api/deals.ts src/components/deals src/context/CartContext.tsx src/pages/DealsPage.tsx src/pages/DealDetailPage.tsx src/pages/HomePage.tsx src/components/layout/Header.tsx tests/deals.test.tsx tests/deals-presentation.test.tsx tests/addresses.test.tsx tests/browser playwright.config.ts vitest.config.ts
       - run: npm run build
       - run: npx playwright install --with-deps chromium
       - run: npm run test:deals:browser
