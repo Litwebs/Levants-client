@@ -31,14 +31,13 @@ import {
   type PortalSubscriptionDelivery,
 } from "@/api/portalSubscriptions";
 import { toast } from "sonner";
+import {
+  formatCutoffDate,
+  isPastCutoffInstant,
+} from "@/portal/utils/subscriptionCutoff";
 
-type SelectedAddOn = {
-  variantId: string;
-  productName: string;
-  variantName: string;
-  unitPrice: number;
-  quantity: number;
-};
+import { readPendingAddOn, savePendingAddOn, clearPendingAddOn, canReplaceAddOnAttempt,
+  type SelectedAddOn } from "@/api/subscriptionAddOnRetry";
 
 const formatMoney = (amount: number) =>
   new Intl.NumberFormat("en-GB", {
@@ -56,25 +55,6 @@ const formatDate = (value?: string | null) =>
       })
     : "your next delivery";
 
-const getDeliveryCutoff = (
-  deliveryDate: string,
-  cutoff: PortalSubscriptionCutoff | null,
-) => {
-  if (!cutoff) return null;
-  const date = new Date(deliveryDate);
-  date.setDate(date.getDate() - Number(cutoff.cutoffDaysBefore || 0));
-  const [hours, minutes] = String(cutoff.cutoffTime || "22:00")
-    .split(":")
-    .map(Number);
-  date.setHours(
-    Number.isFinite(hours) ? hours : 0,
-    Number.isFinite(minutes) ? minutes : 0,
-    0,
-    0,
-  );
-  return date;
-};
-
 const SubscriptionDeliveryAddOnPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -90,6 +70,7 @@ const SubscriptionDeliveryAddOnPage: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [confirmationOpen, setConfirmationOpen] = useState(false);
   const [retryLocked, setRetryLocked] = useState(false);
+  const [originalDeliveryDate, setOriginalDeliveryDate] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [siteHeaderHeight, setSiteHeaderHeight] = useState(0);
 
@@ -141,8 +122,15 @@ const SubscriptionDeliveryAddOnPage: React.FC = () => {
             new Date(left.scheduledDate).getTime() -
             new Date(right.scheduledDate).getTime(),
         );
+        const pending = readPendingAddOn(id);
+        operationIdRef.current = pending?.operationId || null;
+        setRetryLocked(Boolean(pending));
+        setOriginalDeliveryDate(pending?.deliveryDate || null);
+        setSelected(pending ? Object.fromEntries(pending.items.map(item => [item.variantId, item])) : {});
         setSubscription(nextSubscription || null);
-        setDelivery(deliveries[0] || null);
+        setDelivery(pending
+          ? (deliveriesResponse.data?.deliveries || []).find(candidate => candidate._id === pending.deliveryId) || null
+          : deliveries[0] || null);
         setCutoff(nextCutoff);
       } catch (loadError) {
         if (cancelled) return;
@@ -178,11 +166,13 @@ const SubscriptionDeliveryAddOnPage: React.FC = () => {
       ),
     [delivery],
   );
-  const deliveryCutoff = delivery
-    ? getDeliveryCutoff(delivery.scheduledDate, cutoff)
-    : null;
+  const deliveryCutoffAt = delivery?.cutoffAt || null;
   const isPastCutoff = Boolean(
-    deliveryCutoff && Date.now() >= deliveryCutoff.getTime(),
+    delivery &&
+      isPastCutoffInstant(
+        deliveryCutoffAt,
+        delivery.isPastCutoff ?? cutoff?.isPastCutoff ?? false,
+      ),
   );
   const canPurchase = Boolean(
     subscription?.status === "active" && delivery && !isPastCutoff,
@@ -246,18 +236,28 @@ const SubscriptionDeliveryAddOnPage: React.FC = () => {
   };
 
   const submit = async () => {
-    if (!id || !canPurchase || selectedItems.length === 0) return;
+    if (!id || saving || (!canPurchase && !retryLocked) || selectedItems.length === 0) return;
     operationIdRef.current ||= crypto.randomUUID();
     try {
       setSaving(true);
       setError(null);
+      const pending = readPendingAddOn(id) || {
+        operationId: operationIdRef.current!, deliveryId: delivery!._id,
+        deliveryDate: delivery!.scheduledDate, items: selectedItems,
+      };
+      savePendingAddOn(id, pending);
+      operationIdRef.current = pending.operationId;
+      setRetryLocked(true);
       const response = await portalSubscriptionsApi.addNextDeliveryAddOn(id, {
         operationId: operationIdRef.current,
-        items: selectedItems.map((item) => ({
+        items: pending.items.map((item) => ({
           variantId: item.variantId,
           quantity: item.quantity,
         })),
       });
+      clearPendingAddOn(id);
+      setRetryLocked(false);
+      operationIdRef.current = null;
       const message = response.message || "Your one-time add-on is confirmed.";
       toast.success(message, {
         description: "Your recurring subscription has not changed.",
@@ -268,10 +268,14 @@ const SubscriptionDeliveryAddOnPage: React.FC = () => {
         submitError instanceof ApiError
           ? submitError.message
           : "Failed to add these products to the next delivery.";
-      if (!(submitError instanceof ApiError) || submitError.status >= 500) {
-        setRetryLocked(true);
+      if (submitError instanceof ApiError && canReplaceAddOnAttempt(submitError.body)) {
+        try {
+          clearPendingAddOn(id);
+          operationIdRef.current = null;
+          setRetryLocked(false);
+        } catch { setRetryLocked(true); }
       } else {
-        operationIdRef.current = null;
+        setRetryLocked(true);
       }
       setError(message);
       toast.error(message);
@@ -303,7 +307,7 @@ const SubscriptionDeliveryAddOnPage: React.FC = () => {
           Add to your next delivery
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Choose one-time products for {formatDate(delivery?.scheduledDate)}.
+          Choose one-time products for {formatDate(originalDeliveryDate || delivery?.scheduledDate)}.
           Your weekly subscription will stay exactly the same.
         </p>
       </div>
@@ -319,13 +323,16 @@ const SubscriptionDeliveryAddOnPage: React.FC = () => {
           <CalendarDays className="mt-0.5 h-5 w-5 shrink-0 text-forest" />
           <div>
             <p className="font-semibold text-foreground">
-              {delivery
-                ? formatDate(delivery.scheduledDate)
+              {originalDeliveryDate || delivery
+                ? formatDate(originalDeliveryDate || delivery?.scheduledDate)
                 : "No upcoming delivery"}
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
-              {deliveryCutoff
-                ? `${isPastCutoff ? "The cut-off passed" : "Order before"} ${formatDate(deliveryCutoff.toISOString())} at ${cutoff?.cutoffTime}.`
+              {deliveryCutoffAt
+                ? `${isPastCutoff ? "The cut-off passed" : "Order before"} ${formatCutoffDate(
+                    deliveryCutoffAt,
+                    cutoff?.timeZone,
+                  )} at ${cutoff?.cutoffTime}.`
                 : "Add-ons are available only before the delivery cut-off."}
             </p>
             {existingAddOnTotal > 0 && (
@@ -337,7 +344,7 @@ const SubscriptionDeliveryAddOnPage: React.FC = () => {
         </div>
       </div>
 
-      {!canPurchase ? (
+      {!canPurchase && !retryLocked ? (
         <Alert>
           <AlertDescription>
             {!delivery
@@ -471,8 +478,8 @@ const SubscriptionDeliveryAddOnPage: React.FC = () => {
 
               {retryLocked && (
                 <p className="mt-3 rounded-lg bg-amber-50 p-3 text-xs text-amber-900 dark:bg-amber-500/10 dark:text-amber-100">
-                  Payment confirmation was interrupted. Your selection is locked
-                  so you can safely retry without being charged twice.
+                  Payment confirmation is unresolved. Your original selection is
+                  saved and locked. Retry confirmation to check the same purchase.
                 </p>
               )}
 
@@ -526,7 +533,7 @@ const SubscriptionDeliveryAddOnPage: React.FC = () => {
                   <span>{formatMoney(newAddOnTotal)}</span>
                 </span>
                 <span className="mt-1 block text-xs text-muted-foreground">
-                  Delivered once on {formatDate(delivery?.scheduledDate)}.
+                  Delivered once on {formatDate(originalDeliveryDate || delivery?.scheduledDate)}.
                   Future subscription deliveries will not change.
                 </span>
               </span>

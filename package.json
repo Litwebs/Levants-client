@@ -12,7 +12,9 @@
     "deploy": "gh-pages -d dist",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "typecheck": "tsc --noEmit -p tsconfig.app.json && tsc --noEmit -p tsconfig.node.json",
+    "preview": "vite preview",
+    "test:subscription-retries": "node --test tests/subscription*Retry.test.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

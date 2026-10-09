@@ -144,7 +144,7 @@ export const portalAuthApi = {
       payload,
     ),
 
-  me: () => api.get<ApiEnvelope<PortalCustomer>>(`${authBase}/me`),
+  me: () => api.get<ApiEnvelope<{ customer: PortalCustomer }>>(`${authBase}/me`),
 
   updateProfile: (payload: UpdateProfilePayload) =>
     api.patch<ApiEnvelope<PortalCustomer>>(`${authBase}/me`, payload),
