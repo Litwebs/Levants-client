@@ -47,3 +47,37 @@ test("confirmed success permits a new subscription", async () => {
   const run = load(); const send = async body => body.operationId;
   assert.notEqual(await run("c", { quantity: 3 }, send), await run("c", { quantity: 3 }, send));
 });
+
+const apiSource = ts.transpileModule(readFileSync(new URL("../src/api/portalSubscriptions.ts", import.meta.url), "utf8"), {
+  compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+}).outputText;
+function loadApi(profile, send, storage = new Map()) {
+  const exports = {};
+  vm.runInNewContext(apiSource, { exports, crypto: { randomUUID }, require: name => {
+    if (name === "@/api/client") return { default: { post: send } };
+    if (name === "./portalAuth") return { portalAuthApi: { me: async () => profile } };
+    if (name === "./subscriptionCreationRetry") return { withSubscriptionCreationRetry: load(storage) };
+    if (name === "./subscriptionMutationRetry") return {};
+    throw Error(`Unexpected dependency ${name}`);
+  } });
+  return exports.portalSubscriptionsApi;
+}
+test("the API reads the server's wrapped account before sending creation", async () => {
+  const storage = new Map(); let sent = false;
+  const api = loadApi({ success: true, data: { customer: { _id: "customer-real-envelope" } } }, async (path, body) => {
+    sent = true;
+    assert.equal(path, "/portal/subscriptions");
+    assert.ok(body.operationId);
+    assert.ok(storage.has("portal:subscription-creation:customer-real-envelope"));
+    return { success: true };
+  }, storage);
+  await api.create({ frequency: "weekly", items: [] });
+  assert.equal(sent, true);
+  assert.equal(storage.size, 0);
+});
+test("a missing account in the API envelope cannot start payment", async () => {
+  let sent = false;
+  const api = loadApi({ success: true, data: {} }, async () => { sent = true; });
+  await assert.rejects(api.create({ frequency: "weekly", items: [] }), /verify your account/);
+  assert.equal(sent, false);
+});

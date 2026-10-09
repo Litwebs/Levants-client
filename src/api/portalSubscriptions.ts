@@ -222,7 +222,7 @@ export const portalSubscriptionsApi = {
 
   create: async (payload: CreateSubscriptionPayload) => {
     const account = await portalAuthApi.me();
-    return withSubscriptionCreationRetry(account.data?._id || "", payload,
+    return withSubscriptionCreationRetry(account.data?.customer?._id || "", payload,
       (body) => api.post<ApiEnvelope<SubscriptionResponse>>(base, body));
   },
 
