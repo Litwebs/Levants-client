@@ -1,5 +1,7 @@
 import api from "@/api/client";
 import { withSubscriptionMutationRetry } from "./subscriptionMutationRetry";
+import { withSubscriptionCreationRetry } from "./subscriptionCreationRetry";
+import { portalAuthApi } from "./portalAuth";
 
 type ApiEnvelope<T> = {
   success: boolean;
@@ -218,8 +220,11 @@ export const portalSubscriptionsApi = {
   get: (subscriptionId: string) =>
     api.get<ApiEnvelope<SubscriptionResponse>>(`${base}/${subscriptionId}`),
 
-  create: (payload: CreateSubscriptionPayload) =>
-    api.post<ApiEnvelope<SubscriptionResponse>>(base, ensureOperationId(payload)),
+  create: async (payload: CreateSubscriptionPayload) => {
+    const account = await portalAuthApi.me();
+    return withSubscriptionCreationRetry(account.data?._id || "", payload,
+      (body) => api.post<ApiEnvelope<SubscriptionResponse>>(base, body));
+  },
 
   update: (
     subscriptionId: string,

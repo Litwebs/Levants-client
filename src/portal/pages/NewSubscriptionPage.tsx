@@ -415,10 +415,6 @@ function readDraft() {
 
 const NewSubscriptionPage: React.FC = () => {
   const navigate = useNavigate();
-  const createOperationRef = useRef<{
-    fingerprint: string;
-    operationId: string;
-  } | null>(null);
   const [searchParams] = useSearchParams();
   const isPreparedSubscription = searchParams.get("prepared") === "1";
   // Admin-prepared links must always hydrate from the server. Reusing an
@@ -1273,22 +1269,7 @@ const NewSubscriptionPage: React.FC = () => {
 
   const completeSubscription = async () => {
     const payload = buildSubscriptionPayload();
-    const fingerprint = JSON.stringify(payload);
-    if (
-      !createOperationRef.current ||
-      createOperationRef.current.fingerprint !== fingerprint
-    ) {
-      createOperationRef.current = {
-        fingerprint,
-        operationId: globalThis.crypto.randomUUID(),
-      };
-    }
-
-    await portalSubscriptionsApi.create({
-      ...payload,
-      operationId: createOperationRef.current.operationId,
-    });
-    createOperationRef.current = null;
+    await portalSubscriptionsApi.create(payload);
     clearDraft();
     navigate("/portal/subscriptions");
   };
