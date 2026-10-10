@@ -8,8 +8,11 @@ WEBROOT=Path('/var/lib/levants-uat-acme')
 if os.geteuid()!=0:raise SystemExit('Run as root')
 if SITE.exists() or LINK.exists() or LINK.is_symlink():raise SystemExit('UAT storefront site already exists')
 if not Path('/srv/levants-uat-storefront/current/index.html').is_file():raise SystemExit('Deploy verified UAT storefront first')
-addresses={r[4][0] for r in socket.getaddrinfo(DOMAIN,443)}
-if addresses!={'87.106.76.170'}:raise SystemExit('Wait for UAT DNS to resolve only to this VPS')
+# Query the authoritative DNS directly: recursive resolvers may cache NXDOMAIN
+# from before the user created this record. ACME still performs its own check.
+addresses=set(subprocess.check_output(['dig','+short','@dns1.registrar-servers.com',DOMAIN,'A'],text=True).split())
+ipv6=subprocess.check_output(['dig','+short','@dns1.registrar-servers.com',DOMAIN,'AAAA'],text=True).strip()
+if addresses!={'87.106.76.170'} or ipv6:raise SystemExit('Authoritative UAT DNS must point only to this VPS')
 WEBROOT.mkdir(mode=0o755,exist_ok=True)
 challenge='server { listen 80; server_name '+DOMAIN+'; location /.well-known/acme-challenge/ { root '+str(WEBROOT)+'; } location / { return 403; } }\n'
 def run(*args):subprocess.run(args,check=True)
