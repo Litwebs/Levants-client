@@ -20,7 +20,7 @@ import {
   useElements,
   useStripe,
 } from "@stripe/react-stripe-js";
-import { loadStripe } from "@stripe/stripe-js";
+import { loadStorefrontStripe as loadStripe } from "@/lib/stripe";
 import { PaymentStatusBadge } from "@/portal/components/StatusBadges";
 import {
   EmptyState,

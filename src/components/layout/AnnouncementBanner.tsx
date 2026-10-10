@@ -1,10 +1,7 @@
 import { useEffect, useState } from "react";
 
-const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL ||
-  (import.meta.env.DEV
-    ? "http://localhost:5001/api"
-    : "https://api.levantsdairy.co.uk/api");
+import { getApiBaseUrl } from "@/api/client";
+const API_BASE_URL = getApiBaseUrl();
 
 type Announcement = {
   title: string;

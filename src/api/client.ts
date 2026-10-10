@@ -1,10 +1,4 @@
-function getDefaultApiBaseUrl(): string {
-  return import.meta.env.DEV
-    ? 'http://localhost:5001/api'
-    : 'https://api.levantsdairy.co.uk/api';
-}
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || getDefaultApiBaseUrl();
+import { apiBaseUrl as API_BASE_URL } from "@/lib/environment";
 
 export function getApiBaseUrl(): string {
   return API_BASE_URL;

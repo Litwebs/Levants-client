@@ -26,7 +26,7 @@ import {
   useElements,
   useStripe,
 } from "@stripe/react-stripe-js";
-import { loadStripe } from "@stripe/stripe-js";
+import { loadStorefrontStripe as loadStripe } from "@/lib/stripe";
 
 // ── API types ────────────────────────────────────────────────────────────────
 interface ApiVariant {
