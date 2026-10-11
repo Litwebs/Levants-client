@@ -911,6 +911,19 @@ const SubscriptionDetailPage: React.FC = () => {
     );
   }, [subscription]);
 
+  const previewOriginalTotal = isMultiDayWeekly
+    ? calculateDayPlanTotal(dayPlanBaseline)
+    : editableBaseline.reduce(
+        (sum, item) => sum + Number(item.unitPrice || 0) * Number(item.quantity || 0),
+        0,
+      );
+  const previewDelta = total - previewOriginalTotal;
+  const changedPreviewDays = isMultiDayWeekly
+    ? deliveryDays.filter((day) =>
+        getChangedMultiDayIndexes(dayProductDraft, dayPlanBaseline).includes(dayNameToIndex(day)),
+      )
+    : [toDayName(subscription?.preferredDeliveryDay ?? 0)];
+
   const hasScheduledProductChanges = Boolean(
     cutoff?.isPastCutoff &&
     (subscription?.pendingChanges?.items?.length ||
@@ -2023,70 +2036,62 @@ const SubscriptionDetailPage: React.FC = () => {
               <div className="mb-3 rounded-xl border border-forest/20 bg-forest/5 p-3 text-xs sm:text-sm text-foreground leading-relaxed">
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-muted-foreground">
-                    Current per delivery
+                    {isMultiDayWeekly ? "Current products per cycle" : "Current products per delivery"}
                   </span>
-                  <span>{formatMoney(originalTotal)}</span>
+                  <span>{formatMoney(previewOriginalTotal)}</span>
                 </div>
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-muted-foreground">
-                    New per delivery
+                    {isMultiDayWeekly ? "New products per cycle" : "New products per delivery"}
                   </span>
                   <span className="font-semibold">{formatMoney(total)}</span>
                 </div>
                 <div className="flex items-center justify-between gap-2 mt-1 pt-1 border-t border-forest/20">
                   <span className="text-muted-foreground">
-                    {total - originalTotal >= 0
-                      ? "Extra per delivery"
-                      : "Saving per delivery"}
+                    {previewDelta >= 0
+                      ? isMultiDayWeekly ? "Extra products per cycle" : "Extra products per delivery"
+                      : isMultiDayWeekly ? "Product saving per cycle" : "Product saving per delivery"}
                   </span>
                   <span
                     className={
-                      total - originalTotal >= 0
+                      previewDelta >= 0
                         ? "font-semibold text-forest"
                         : "font-semibold text-foreground"
                     }
                   >
-                    {total - originalTotal >= 0 ? "+" : "−"}
-                    {formatMoney(Math.abs(total - originalTotal))}
+                    {previewDelta >= 0 ? "+" : "−"}
+                    {formatMoney(Math.abs(previewDelta))}
                   </span>
                 </div>
-                <p className="mt-2 text-muted-foreground">
-                  {cutoff?.isPastCutoff
-                    ? isMultiDayWeekly
-                      ? `The cut-off for your next deliveries on ${formatDayList(
-                          deliveryDays,
-                        )} has passed, so this change applies from the delivery after that. You won't be charged now — the new amount is taken on each delivery going forward.`
-                      : displayNextDeliveryDate
-                        ? `The cut-off for your next delivery on ${formatDate(
-                            displayNextDeliveryDate,
-                          )} has passed, so this change applies from the delivery after that. You won't be charged now — the new amount is taken on each delivery going forward.`
-                        : `The cut-off for your next delivery has passed, so this change applies from the following delivery. You won't be charged now.`
-                    : total - originalTotal > 0
-                      ? isMultiDayWeekly
-                        ? `Applies to your next deliveries on ${formatDayList(
-                            deliveryDays,
-                          )}. The extra ${formatMoney(
-                            total - originalTotal,
-                          )} is charged to your card now; future deliveries are billed at the new amount.`
-                        : displayNextDeliveryDate
-                          ? `Applies to your next delivery on ${formatDate(
-                              displayNextDeliveryDate,
-                            )}. The extra ${formatMoney(
-                              total - originalTotal,
-                            )} is charged to your card now; future deliveries are billed at the new amount.`
-                          : `Applies to your next delivery. The extra ${formatMoney(
-                              total - originalTotal,
-                            )} is charged to your card now; future deliveries are billed at the new amount.`
-                      : displayNextDeliveryDate
-                        ? isMultiDayWeekly
-                          ? `Applied from your next deliveries on ${formatDayList(
-                              deliveryDays,
-                            )}. You won't be charged now — the new amount is taken on each delivery going forward.`
-                          : `Applied from your next delivery on ${formatDate(
-                              displayNextDeliveryDate,
-                            )}. You won't be charged now — the new amount is taken on each delivery going forward.`
-                        : `Applied from your next scheduled delivery. You won't be charged now — the new amount is taken on each delivery going forward.`}
-                </p>
+                <p className="mt-2 text-muted-foreground">Delivery fees are shown separately below. Save increases and decreases separately.</p>
+                <ul className="mt-2 space-y-2" aria-label="Product change preview">
+                  {changedPreviewDays.map((dayName) => {
+                    const dayIndex = dayNameToIndex(dayName);
+                    const locked = cutoff ? isDayPastOwnCutoff(dayIndex, cutoff) : null;
+                    const dayCutoff = cutoff ? getDeliveryDayCutoff(cutoff, dayIndex) : null;
+                    const effectiveDate = cutoff
+                      ? formatCutoffDate(locked ? dayCutoff?.effectiveFrom : dayCutoff?.deliveryDate, cutoff.timeZone)
+                      : null;
+                    const dayDelta = isMultiDayWeekly
+                      ? (dayProductDraft[dayName] || []).reduce((sum, item) => sum + Number(item.unitPrice || 0) * Number(item.quantity || 0), 0)
+                        - (dayPlanBaseline[dayName] || []).reduce((sum, item) => sum + Number(item.unitPrice || 0) * Number(item.quantity || 0), 0)
+                      : previewDelta;
+                    return (
+                      <li key={dayName}>
+                        <strong>{dayName}</strong>{effectiveDate ? ` — from ${effectiveDate}. ` : ": Effective delivery date will be confirmed when saved. "}
+                        {locked === null
+                          ? "Payment and cutoff eligibility will be checked when you save."
+                          : locked
+                            ? "The upcoming delivery is locked. This change is scheduled for a later delivery; no payment or refund is made now."
+                            : dayDelta > 0
+                              ? `For an eligible prepaid delivery, the extra ${formatMoney(dayDelta)} is charged when you save. Unpaid delivery changes cannot be saved until payment is confirmed.`
+                              : dayDelta < 0
+                                ? `For an eligible prepaid delivery, ${formatMoney(Math.abs(dayDelta))} is returned to your card or store credit using your settlement choice. Unpaid delivery changes cannot be saved until payment is confirmed.`
+                                : "No net product price change. Payment eligibility is checked when you save; increases and decreases may need separate saves."}
+                      </li>
+                    );
+                  })}
+                </ul>
               </div>
             )}
             <div className="flex items-center justify-between gap-2 flex-wrap">
@@ -2560,8 +2565,8 @@ const SubscriptionDetailPage: React.FC = () => {
                   <span className="text-muted-foreground">
                     {isMultiDayWeekly
                       ? hasScheduledProductChanges
-                        ? "Scheduled per-day totals"
-                        : "Per-day totals"
+                        ? "Scheduled cycle total"
+                        : "Cycle total"
                       : hasScheduledProductChanges
                         ? "Scheduled per delivery"
                         : "Per delivery"}
@@ -2648,7 +2653,7 @@ const SubscriptionDetailPage: React.FC = () => {
                 )}
                 {hasScheduledProductChanges && (
                   <div className="flex items-center justify-between text-xs text-blue-700 dark:text-sky-300">
-                    <span>Current live per delivery</span>
+                    <span>{isMultiDayWeekly ? "Current live products per cycle" : "Current live products per delivery"}</span>
                     <span>{formatMoney(originalTotal)}</span>
                   </div>
                 )}
@@ -2785,7 +2790,7 @@ const SubscriptionDetailPage: React.FC = () => {
                 <>
                   You're reducing this subscription by{" "}
                   <strong>
-                    {formatMoney(Math.max(0, originalTotal - total))}
+                    {formatMoney(Math.max(0, previewOriginalTotal - total))}
                   </strong>
                   . Choose how you'd like to receive the difference.
                 </>
