@@ -171,7 +171,7 @@ export type OrderStatus =
   | "failed-delivery"
   | "rescheduled";
 
-export type PaymentStatus = "paid" | "pending" | "failed" | "refunded";
+export type PaymentStatus = "paid" | "pending" | "failed" | "refunded" | "partially_refunded" | "refund_pending";
 
 export interface OrderItem {
   productName: string;
