@@ -76,7 +76,7 @@ const getRefundSummary = (payment: PortalPayment) => {
   const legacyPaid = Number(payment.order?.amountPaid ?? payment.amount ?? 0);
   const isFullRefund = payment.status === "refunded" && payment.order?.status !== "partially_refunded";
   const original = Number(payment.capturedAmount ?? (payment.subscription && !isFullRefund
-    ? legacyPaid + legacyRefunded : legacyPaid));
+    ? legacyPaid + legacyRefunded : Math.max(legacyPaid, legacyRefunded)));
   const refunded = Number(payment.refundedAmount ?? (legacyRefunded || (isFullRefund && payment.order?.refund?.stripeRefundId ? original : 0)));
   const credited = Number(payment.creditedAmount || 0);
   const after = Number(payment.netAmount ?? (isFullRefund ? 0 : payment.subscription ? legacyPaid : Math.max(0, original - refunded)));
