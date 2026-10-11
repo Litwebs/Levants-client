@@ -651,7 +651,7 @@ const PaymentsPage: React.FC = () => {
                       </div>
 
                       {(summary.refunded > 0 || summary.credited > 0) && (
-                        <p className="truncate whitespace-nowrap text-xs text-muted-foreground">
+                        <p className="text-xs leading-relaxed text-muted-foreground">
                           Refunded{" "}
                           {formatMoney(summary.refunded, pay.currency || "GBP")}{" "}
                           {summary.credited > 0 && <>· Store credit {formatMoney(summary.credited, pay.currency || "GBP")} </>}
@@ -660,6 +660,10 @@ const PaymentsPage: React.FC = () => {
                           · Remaining{" "}
                           {formatMoney(summary.after, pay.currency || "GBP")}
                         </p>
+                      )}
+
+                      {pay.reconciliationRequired && (
+                        <p className="text-xs text-amber-700">Historical settlement details need reconciliation.</p>
                       )}
 
                       <div className="flex items-center justify-end gap-2 border-t border-border pt-3 whitespace-nowrap">
