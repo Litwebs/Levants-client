@@ -6,11 +6,15 @@ type ApiEnvelope<T> = {
   data?: T;
 };
 
-export type PortalPaymentStatus = "pending" | "paid" | "failed" | "refunded";
+export type PortalPaymentStatus = "pending" | "paid" | "failed" | "refunded" | "partially_refunded" | "refund_pending";
 
 export type PortalPayment = {
   _id: string;
   amount: number;
+  capturedAmount?: number;
+  refundedAmount?: number;
+  creditedAmount?: number;
+  netAmount?: number;
   currency?: string;
   status: PortalPaymentStatus;
   providerReference?: string | null;

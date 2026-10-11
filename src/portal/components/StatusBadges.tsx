@@ -77,6 +77,8 @@ const paymentStatusConfig: Record<
   pending: { label: "Pending", dot: "bg-amber-400" },
   failed: { label: "Failed", dot: "bg-red-500" },
   refunded: { label: "Refunded", dot: "bg-gray-400" },
+  partially_refunded: { label: "Partially Refunded", dot: "bg-amber-500" },
+  refund_pending: { label: "Refund Pending", dot: "bg-amber-400" },
 };
 
 export const PaymentStatusBadge: React.FC<{

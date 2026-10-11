@@ -68,21 +68,11 @@ const paymentReferenceType = (payment: PortalPayment) => {
 };
 
 const getRefundSummary = (payment: PortalPayment) => {
-  const original = Number(
-    payment.order?.amountPaid ?? payment.order?.total ?? payment.amount ?? 0,
-  );
-  const refundedFromEntries = (payment.order?.refunds || []).reduce(
-    (sum, refund) => sum + Number(refund.amount ?? refund.amountMinor ?? 0),
-    0,
-  );
-  const refunded =
-    refundedFromEntries > 0
-      ? refundedFromEntries
-      : payment.order?.refund?.refundedAt
-        ? original
-        : 0;
-  const after = Math.max(original - refunded, 0);
-  return { original, refunded, after };
+  const refunded = Number(payment.refundedAmount || 0);
+  const credited = Number(payment.creditedAmount || 0);
+  const original = Number(payment.capturedAmount ?? payment.amount ?? 0);
+  const after = Number(payment.netAmount ?? payment.amount ?? 0);
+  return { original, refunded, credited, after };
 };
 
 const getPaymentAmountBreakdown = (payment: PortalPayment) => {
@@ -444,7 +434,7 @@ const PaymentsPage: React.FC = () => {
 
   const summary = useMemo(() => {
     const totalPaid = payments
-      .filter((p) => p.status === "paid")
+      .filter((p) => p.status === "paid" || p.status === "partially_refunded" || p.status === "refund_pending")
       .reduce((sum, p) => sum + Number(p.amount || 0), 0);
     const pendingCount = payments.filter((p) => p.status === "pending").length;
     const failedCount = payments.filter((p) => p.status === "failed").length;
@@ -487,7 +477,7 @@ const PaymentsPage: React.FC = () => {
       <div className="grid grid-cols-3 gap-3 mb-6">
         {[
           {
-            label: "Total Paid (Page)",
+            label: "Net Paid (Page)",
             value: formatMoney(summary.totalPaid),
             color: "text-foreground",
           },
@@ -638,11 +628,11 @@ const PaymentsPage: React.FC = () => {
                           <PaymentStatusBadge status={pay.status as any} />
                           <div className="text-right">
                             <p className="text-sm font-bold text-foreground">
-                              Total{" "}
+                              Remaining paid{" "}
                               {formatMoney(amounts.total, amounts.currency)}
                             </p>
                             <p className="text-xs text-muted-foreground">
-                              Per delivery{" "}
+                              Order total{" "}
                               {formatMoney(
                                 amounts.perDelivery,
                                 amounts.currency,
@@ -652,13 +642,14 @@ const PaymentsPage: React.FC = () => {
                         </div>
                       </div>
 
-                      {summary.refunded > 0 && (
+                      {(summary.refunded > 0 || summary.credited > 0) && (
                         <p className="truncate whitespace-nowrap text-xs text-muted-foreground">
                           Refunded{" "}
                           {formatMoney(summary.refunded, pay.currency || "GBP")}{" "}
-                          · Before{" "}
+                          {summary.credited > 0 && <>· Store credit {formatMoney(summary.credited, pay.currency || "GBP")} </>}
+                          · Collected{" "}
                           {formatMoney(summary.original, pay.currency || "GBP")}{" "}
-                          · After{" "}
+                          · Remaining{" "}
                           {formatMoney(summary.after, pay.currency || "GBP")}
                         </p>
                       )}
