@@ -68,16 +68,24 @@ const paymentReferenceType = (payment: PortalPayment) => {
 };
 
 const getRefundSummary = (payment: PortalPayment) => {
-  const refunded = Number(payment.refundedAmount || 0);
+  // Older API releases expose subscription amountPaid after settlements.
+  // Preserve correct totals while the backend/frontend deploy separately.
+  const legacyRefunded = (payment.order?.refunds || [])
+    .filter((refund) => refund.status === "succeeded")
+    .reduce((sum, refund) => sum + Number(refund.amount ?? Number(refund.amountMinor || 0) / 100), 0);
+  const legacyPaid = Number(payment.order?.amountPaid ?? payment.amount ?? 0);
+  const isFullRefund = payment.status === "refunded" && payment.order?.status !== "partially_refunded";
+  const original = Number(payment.capturedAmount ?? (payment.subscription && !isFullRefund
+    ? legacyPaid + legacyRefunded : legacyPaid));
+  const refunded = Number(payment.refundedAmount ?? (legacyRefunded || (isFullRefund && payment.order?.refund?.stripeRefundId ? original : 0)));
   const credited = Number(payment.creditedAmount || 0);
-  const original = Number(payment.capturedAmount ?? payment.amount ?? 0);
-  const after = Number(payment.netAmount ?? payment.amount ?? 0);
+  const after = Number(payment.netAmount ?? (isFullRefund ? 0 : payment.subscription ? legacyPaid : Math.max(0, original - refunded)));
   return { original, refunded, credited, after };
 };
 
 const getPaymentAmountBreakdown = (payment: PortalPayment) => {
   const currency = payment.currency || "GBP";
-  const total = Number(payment.amount || 0);
+  const total = getRefundSummary(payment).after;
   const perDelivery = Number(
     payment.order?.total ?? payment.order?.amountPaid ?? payment.amount ?? 0,
   );
@@ -434,8 +442,8 @@ const PaymentsPage: React.FC = () => {
 
   const summary = useMemo(() => {
     const totalPaid = payments
-      .filter((p) => p.status === "paid" || p.status === "partially_refunded" || p.status === "refund_pending")
-      .reduce((sum, p) => sum + Number(p.amount || 0), 0);
+      .filter((p) => p.status === "paid" || p.status === "partially_refunded" || p.status === "refund_pending" || p.order?.status === "partially_refunded")
+      .reduce((sum, p) => sum + getRefundSummary(p).after, 0);
     const pendingCount = payments.filter((p) => p.status === "pending").length;
     const failedCount = payments.filter((p) => p.status === "failed").length;
     return { totalPaid, pendingCount, failedCount };
@@ -625,7 +633,7 @@ const PaymentsPage: React.FC = () => {
                           </p>
                         </div>
                         <div className="flex shrink-0 items-center gap-3 whitespace-nowrap">
-                          <PaymentStatusBadge status={pay.status as any} />
+                          <PaymentStatusBadge status={pay.order?.status === "partially_refunded" ? "partially_refunded" : pay.status} />
                           <div className="text-right">
                             <p className="text-sm font-bold text-foreground">
                               Remaining paid{" "}
