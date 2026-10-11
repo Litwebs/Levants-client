@@ -15,6 +15,7 @@ export type PortalPayment = {
   refundedAmount?: number;
   creditedAmount?: number;
   netAmount?: number;
+  reconciliationRequired?: boolean;
   currency?: string;
   status: PortalPaymentStatus;
   providerReference?: string | null;
