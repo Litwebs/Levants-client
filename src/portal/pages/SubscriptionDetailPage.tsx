@@ -1833,6 +1833,8 @@ const SubscriptionDetailPage: React.FC = () => {
                                       ? "border-forest/60 bg-forest/10 text-foreground"
                                       : "border-border text-muted-foreground hover:border-forest/40",
                                   )}
+                                  aria-label={`Include ${item.name} in ${dayName} delivery`}
+                                  aria-pressed={isIncluded}
                                   onClick={() =>
                                     toggleDayItemIncluded(dayName, item.localId)
                                   }
@@ -1846,6 +1848,8 @@ const SubscriptionDetailPage: React.FC = () => {
 
                               <div className="mt-2 flex items-center justify-end gap-2 border-t border-border/70 pt-2">
                                 <button
+                                  type="button"
+                                  aria-label={`Decrease ${item.name} quantity for ${dayName}`}
                                   onClick={() =>
                                     updateDayQty(
                                       dayName,
@@ -1866,6 +1870,8 @@ const SubscriptionDetailPage: React.FC = () => {
                                   {Number(item.quantity || 0)}
                                 </span>
                                 <button
+                                  type="button"
+                                  aria-label={`Increase ${item.name} quantity for ${dayName}`}
                                   onClick={() =>
                                     updateDayQty(
                                       dayName,
@@ -2678,16 +2684,21 @@ const SubscriptionDetailPage: React.FC = () => {
             <DialogTitle>Pause Subscription?</DialogTitle>
             <DialogDescription>
               Choose when this subscription should resume. Pauses can last up to
-              28 days. Any already-billed upcoming delivery remains scheduled,
-              and no changes can be made while the subscription is paused.
+              28 days. Deliveries before your resume date are skipped if their
+              cut-off has not passed. Eligible prepaid amounts are returned to
+              your payment card or store credit using your settlement choice.
+              Deliveries past cut-off remain scheduled. Deliveries on or after
+              your resume date are not skipped by this pause. You cannot edit
+              the subscription while it is paused.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3 pt-2">
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-foreground">
+              <label htmlFor="pause-resume-date" className="text-sm font-medium text-foreground">
                 Resume on
               </label>
               <Input
+                id="pause-resume-date"
                 type="date"
                 min={pauseMinDate}
                 max={pauseMaxDate}
