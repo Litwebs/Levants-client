@@ -1,0 +1,44 @@
+name: Production storefront preparation
+on:
+  push:
+    branches: [uat]
+    paths:
+      - .github/workflows/production-preparation.yml
+      - scripts/prepare-production.mjs
+  workflow_dispatch:
+permissions:
+  contents: read
+  pages: read
+jobs:
+  prepare:
+    if: github.ref == 'refs/heads/uat'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run test:subscription-retries
+      - name: Build production candidate without publishing
+        env:
+          VITE_API_BASE_URL: https://api.levantsdairy.co.uk/api
+        run: npm run build
+      - name: Verify production artifact and existing Pages publishing source
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPOSITORY: ${{ github.repository }}
+          RELEASE_SHA: ${{ github.sha }}
+        run: node scripts/prepare-production.mjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: production-storefront-${{ github.sha }}
+          path: |
+            dist
+            production-preparation.json
+          if-no-files-found: error
+          retention-days: 14
