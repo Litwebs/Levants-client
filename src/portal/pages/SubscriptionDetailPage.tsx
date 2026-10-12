@@ -14,6 +14,7 @@ import {
   ShoppingBag,
   ChevronDown,
 } from "lucide-react";
+import { canModifySubscription } from "@/portal/utils/subscriptionEditingPolicy";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -388,6 +389,7 @@ const SubscriptionDetailPage: React.FC = () => {
   const [deliveries, setDeliveries] = useState<PortalSubscriptionDelivery[]>(
     [],
   );
+  const canModify = canModifySubscription(subscription);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -997,7 +999,7 @@ const SubscriptionDetailPage: React.FC = () => {
   }, [cutoff, isMultiDayWeekly, pendingItemsByKey, subscription]);
 
   const handleSaveDeliveryDetails = async () => {
-    if (!id || !selectedAddressId) return;
+    if (!id || !selectedAddressId || !canModify) return;
 
     const buildDeliveryDayPlansPayload = () => {
       const wasMultiDayWeekly = subscription?.frequency === "weekly" &&
@@ -1235,6 +1237,7 @@ const SubscriptionDetailPage: React.FC = () => {
   };
 
   const handleSaveProductChanges = async () => {
+    if (!canModify) return;
     if (!id || !subscription || !hasUnsavedProductChanges) return;
 
     if (isMultiDayWeekly) {
@@ -1508,7 +1511,7 @@ const SubscriptionDetailPage: React.FC = () => {
   const canSaveDeliveryDetails =
     !saving &&
     !addressesLoading &&
-    subscription.status === "active" &&
+    canModify &&
     Boolean(selectedAddressId) &&
     (!isSelectedAddressCurrent || !isDeliveryDayCurrent);
 
@@ -1620,7 +1623,7 @@ const SubscriptionDetailPage: React.FC = () => {
         </div>
       )}
 
-      {cutoff && subscription.status === "active" && (
+      {cutoff && canModify && (
         <div
           className={`mb-4 rounded-xl border p-3 text-xs sm:text-sm leading-relaxed ${
             cutoff.isPastCutoff
@@ -1746,7 +1749,7 @@ const SubscriptionDetailPage: React.FC = () => {
               <h3 className="font-semibold text-foreground text-base sm:text-lg">
                 Products in Subscription
               </h3>
-              {subscription.status === "active" && (
+              {canModify && (
                 <Button variant="outline" size="sm" className="h-8" asChild>
                   <Link to={`/portal/subscriptions/${id}/add-products`}>
                     <Plus className="h-3.5 w-3.5" />
@@ -1842,7 +1845,7 @@ const SubscriptionDetailPage: React.FC = () => {
                                     toggleDayItemIncluded(dayName, item.localId)
                                   }
                                   disabled={
-                                    saving || subscription.status !== "active"
+                                    saving || !canModify
                                   }
                                 >
                                   {isIncluded ? "Included" : "Excluded"}
@@ -1863,7 +1866,7 @@ const SubscriptionDetailPage: React.FC = () => {
                                   disabled={
                                     !isIncluded ||
                                     saving ||
-                                    subscription.status !== "active"
+                                    !canModify
                                   }
                                   className="w-7 h-7 rounded-md border border-border flex items-center justify-center hover:bg-muted transition-colors"
                                 >
@@ -1885,7 +1888,7 @@ const SubscriptionDetailPage: React.FC = () => {
                                   disabled={
                                     !isIncluded ||
                                     saving ||
-                                    subscription.status !== "active"
+                                    !canModify
                                   }
                                   className="w-7 h-7 rounded-md border border-border flex items-center justify-center hover:bg-muted transition-colors"
                                 >
@@ -1980,7 +1983,7 @@ const SubscriptionDetailPage: React.FC = () => {
                               }
                               aria-label={`Decrease ${item.name} quantity`}
                               disabled={
-                                saving || subscription.status !== "active"
+                                saving || !canModify
                               }
                               className="w-7 h-7 rounded-md border border-border flex items-center justify-center hover:bg-muted transition-colors"
                             >
@@ -1995,7 +1998,7 @@ const SubscriptionDetailPage: React.FC = () => {
                               }
                               aria-label={`Increase ${item.name} quantity`}
                               disabled={
-                                saving || subscription.status !== "active"
+                                saving || !canModify
                               }
                               className="w-7 h-7 rounded-md border border-border flex items-center justify-center hover:bg-muted transition-colors"
                             >
@@ -2005,7 +2008,7 @@ const SubscriptionDetailPage: React.FC = () => {
                               className="text-muted-foreground hover:text-destructive transition-colors"
                               onClick={() => setRemoveProductId(item.localId)}
                               disabled={
-                                saving || subscription.status !== "active"
+                                saving || !canModify
                               }
                               aria-label={`Remove ${item.name}`}
                             >
@@ -2161,7 +2164,7 @@ const SubscriptionDetailPage: React.FC = () => {
                   disabled={
                     !hasUnsavedProductChanges ||
                     saving ||
-                    subscription.status !== "active"
+                    !canModify
                   }
                 >
                   Discard
@@ -2172,7 +2175,7 @@ const SubscriptionDetailPage: React.FC = () => {
                   disabled={
                     !hasUnsavedProductChanges ||
                     saving ||
-                    subscription.status !== "active"
+                    !canModify
                   }
                 >
                   {saving ? "Saving..." : "Save product changes"}
@@ -2197,7 +2200,7 @@ const SubscriptionDetailPage: React.FC = () => {
                       <Select
                         value={selectedAddressId}
                         onValueChange={setSelectedAddressId}
-                        disabled={subscription.status !== "active"}
+                        disabled={!canModify}
                       >
                         <SelectTrigger>
                           <SelectValue placeholder="Select an address" />
@@ -2232,18 +2235,26 @@ const SubscriptionDetailPage: React.FC = () => {
                           "No delivery address configured."}
                       </p>
                     </div>
-                    <Button variant="outline" size="sm" asChild>
+                    {canModify ? (
+                      <Button variant="outline" size="sm" asChild>
                       <Link to="/portal/addresses">Manage addresses</Link>
                     </Button>
+                    ) : (
+                      <Button variant="outline" size="sm" disabled>Manage addresses</Button>
+                    )}
                   </div>
                 ) : (
                   <div className="space-y-3">
                     <p className="text-sm text-foreground leading-relaxed">
                       {fullAddress || "No delivery address configured."}
                     </p>
-                    <Button variant="outline" size="sm" asChild>
+                    {canModify ? (
+                      <Button variant="outline" size="sm" asChild>
                       <Link to="/portal/addresses">Add address</Link>
                     </Button>
+                    ) : (
+                      <Button variant="outline" size="sm" disabled>Add address</Button>
+                    )}
                   </div>
                 )}
               </div>
@@ -2275,7 +2286,7 @@ const SubscriptionDetailPage: React.FC = () => {
                         <button
                           key={day}
                           type="button"
-                          disabled={subscription.status !== "active"}
+                          disabled={!canModify}
                           onClick={() => {
                             if (frequency === "weekly") {
                               setDeliveryDays((prev) => {
@@ -2296,7 +2307,7 @@ const SubscriptionDetailPage: React.FC = () => {
                             deliveryDays.includes(day)
                               ? "border-forest bg-forest text-primary-foreground"
                               : "border-border hover:border-forest/40",
-                            subscription.status !== "active" &&
+                            !canModify &&
                               "opacity-60 cursor-not-allowed",
                           )}
                         >
@@ -2331,7 +2342,7 @@ const SubscriptionDetailPage: React.FC = () => {
                   the subscription.
                 </p>
               </div>
-              {subscription.status === "active" && deliveries.length > 0 && (
+              {canModify && deliveries.length > 0 && (
                 <Button asChild size="sm" className="shrink-0">
                   <Link
                     to={`/portal/subscriptions/${id}/next-delivery/add-ons`}
@@ -2520,7 +2531,7 @@ const SubscriptionDetailPage: React.FC = () => {
                     size="sm"
                     className="w-full"
                     onClick={() => setPauseOpen(true)}
-                    disabled={saving}
+                    disabled={saving || !canModify}
                   >
                     <Pause className="h-3.5 w-3.5" />
                     Pause Subscription
@@ -2530,7 +2541,7 @@ const SubscriptionDetailPage: React.FC = () => {
                     size="sm"
                     className="w-full"
                     onClick={() => setResumeOpen(true)}
-                    disabled={saving}
+                    disabled={saving || subscription.isCancellationScheduled}
                   >
                     <Play className="h-3.5 w-3.5" />
                     Resume Subscription
@@ -2542,7 +2553,7 @@ const SubscriptionDetailPage: React.FC = () => {
                     size="sm"
                     className="w-full text-destructive hover:bg-destructive/10"
                     onClick={() => setCancelOpen(true)}
-                    disabled={saving}
+                    disabled={saving || subscription.isCancellationScheduled}
                   >
                     <X className="h-3.5 w-3.5" />
                     Cancel Subscription

@@ -21,6 +21,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { canModifySubscription } from "@/portal/utils/subscriptionEditingPolicy";
 import { Button } from "@/components/ui/button";
 import ShopPage from "@/pages/ShopPage";
 import { ApiError } from "@/api/client";
@@ -174,8 +175,9 @@ const SubscriptionDeliveryAddOnPage: React.FC = () => {
         delivery.isPastCutoff ?? cutoff?.isPastCutoff ?? false,
       ),
   );
+  const canModify = canModifySubscription(subscription);
   const canPurchase = Boolean(
-    subscription?.status === "active" && delivery && !isPastCutoff,
+    canModify && delivery && !isPastCutoff,
   );
 
   const resetOperationForEdit = () => {
@@ -188,7 +190,7 @@ const SubscriptionDeliveryAddOnPage: React.FC = () => {
     variantName: string,
     unitPrice: number,
   ) => {
-    if (retryLocked) return;
+    if (retryLocked || !canModify) return;
     resetOperationForEdit();
     setSelected((current) => {
       if (current[variantId]) {
@@ -210,7 +212,7 @@ const SubscriptionDeliveryAddOnPage: React.FC = () => {
   };
 
   const updateQuantity = (variantId: string, delta: number) => {
-    if (retryLocked) return;
+    if (retryLocked || !canModify) return;
     resetOperationForEdit();
     setSelected((current) => {
       const item = current[variantId];
@@ -226,7 +228,7 @@ const SubscriptionDeliveryAddOnPage: React.FC = () => {
   };
 
   const removeItem = (variantId: string) => {
-    if (retryLocked) return;
+    if (retryLocked || !canModify) return;
     resetOperationForEdit();
     setSelected((current) => {
       const next = { ...current };
@@ -236,7 +238,7 @@ const SubscriptionDeliveryAddOnPage: React.FC = () => {
   };
 
   const submit = async () => {
-    if (!id || saving || (!canPurchase && !retryLocked) || selectedItems.length === 0) return;
+    if (!id || saving || !canModify || (!canPurchase && !retryLocked) || selectedItems.length === 0) return;
     operationIdRef.current ||= crypto.randomUUID();
     try {
       setSaving(true);
@@ -344,10 +346,12 @@ const SubscriptionDeliveryAddOnPage: React.FC = () => {
         </div>
       </div>
 
-      {!canPurchase && !retryLocked ? (
+      {!canModify || (!canPurchase && !retryLocked) ? (
         <Alert>
           <AlertDescription>
-            {!delivery
+            {!canModify
+              ? "One-time add-ons are unavailable while this subscription is paused, cancelled or scheduled for cancellation."
+              : !delivery
               ? "There is no upcoming delivery available for an add-on."
               : isPastCutoff
                 ? "The cut-off for this delivery has passed, so it can no longer accept add-ons."

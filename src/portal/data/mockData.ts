@@ -169,7 +169,8 @@ export type OrderStatus =
   | "delivered"
   | "cancelled"
   | "failed-delivery"
-  | "rescheduled";
+  | "rescheduled"
+  | "cancelled";
 
 export type PaymentStatus = "paid" | "pending" | "failed" | "refunded" | "partially_refunded" | "refund_pending";
 

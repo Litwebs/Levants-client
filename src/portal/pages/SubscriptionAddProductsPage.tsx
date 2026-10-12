@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Loader2, Minus, Plus, Trash2 } from "lucide-react";
+import { canModifySubscription } from "@/portal/utils/subscriptionEditingPolicy";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import ShopPage from "@/pages/ShopPage";
@@ -384,7 +385,7 @@ const SubscriptionAddProductsPage: React.FC = () => {
   };
 
   const handleSaveSelectedProducts = async () => {
-    if (!id || selectedList.length === 0) return;
+    if (!id || selectedList.length === 0 || !canModifySubscription(subscriptionSnapshot)) return;
 
     try {
       setSaving(true);
@@ -537,6 +538,17 @@ const SubscriptionAddProductsPage: React.FC = () => {
       <div className="max-w-7xl mx-auto bg-card border border-border rounded-2xl p-8 text-sm text-muted-foreground flex items-center gap-2">
         <Loader2 className="h-4 w-4 animate-spin" />
         Loading products...
+      </div>
+    );
+  }
+
+  if (!canModifySubscription(subscriptionSnapshot)) {
+    return (
+      <div className="max-w-7xl mx-auto space-y-4">
+        <Button asChild variant="ghost" size="sm">
+          <Link to={`/portal/subscriptions/${id}`}>Back to subscription</Link>
+        </Button>
+        <p role="status">Products cannot be changed while this subscription is paused, cancelled or scheduled for cancellation.</p>
       </div>
     );
   }

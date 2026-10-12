@@ -131,6 +131,7 @@ const deliveryStatusConfig: Record<
 > = {
   scheduled: { label: "Scheduled", dot: "bg-blue-500" },
   generated: { label: "Generated", dot: "bg-emerald-500" },
+  cancelled: { label: "Cancelled", dot: "bg-gray-400" },
   preparing: { label: "Preparing", dot: "bg-amber-400" },
   "out-for-delivery": { label: "Out for Delivery", dot: "bg-orange-500" },
   delivered: { label: "Delivered", dot: "bg-emerald-500" },

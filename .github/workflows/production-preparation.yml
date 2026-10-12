@@ -5,6 +5,12 @@ on:
     paths:
       - .github/workflows/production-preparation.yml
       - scripts/prepare-production.mjs
+      - src/**
+      - tests/**
+      - public/**
+      - package.json
+      - package-lock.json
+      - vite.config.ts
   workflow_dispatch:
 permissions:
   contents: read

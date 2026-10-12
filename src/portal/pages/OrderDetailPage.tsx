@@ -126,7 +126,8 @@ type DeliveryFlowStatus =
   | "dispatched"
   | "in_transit"
   | "delivered"
-  | "returned";
+  | "returned"
+  | "cancelled";
 
 const DELIVERY_FLOW: Array<{ key: DeliveryFlowStatus; label: string }> = [
   { key: "ordered", label: "Ordered" },
@@ -138,7 +139,7 @@ const DELIVERY_FLOW: Array<{ key: DeliveryFlowStatus; label: string }> = [
 const getDeliveryStatus = (order: PortalOrder): DeliveryFlowStatus => {
   const status = (order.deliveryStatus || "ordered") as DeliveryFlowStatus;
   if (
-    ["ordered", "dispatched", "in_transit", "delivered", "returned"].includes(
+    ["ordered", "dispatched", "in_transit", "delivered", "returned", "cancelled"].includes(
       status,
     )
   ) {
@@ -308,7 +309,9 @@ const OrderDetailPage: React.FC = () => {
       order.refund?.stripeRefundId,
     );
   const isReturned = deliveryStatus === "returned";
-  const flowSteps = isReturned
+  const flowSteps = deliveryStatus === "cancelled"
+    ? [{ key: "cancelled" as const, label: "Cancelled" }]
+    : isReturned
     ? [
         ...DELIVERY_FLOW.slice(0, 3),
         { key: "returned" as const, label: "Returned" },
@@ -415,7 +418,7 @@ const OrderDetailPage: React.FC = () => {
                 i < currentStepIndex ||
                 (deliveryStatus === "delivered" && step.key === "delivered");
               const active = i === currentStepIndex;
-              const returnedStep = step.key === "returned";
+              const returnedStep = step.key === "returned" || step.key === "cancelled";
 
               return (
                 <React.Fragment key={step.key}>
