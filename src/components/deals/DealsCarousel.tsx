@@ -25,6 +25,8 @@ export default function DealsCarousel({
   const [contentFocused, setContentFocused] = useState(false);
   const [visible, setVisible] = useState(false);
   const [pageVisible, setPageVisible] = useState(true);
+  const [paused, setPaused] = useState(false);
+  const [hovered, setHovered] = useState(false);
   const count = deals.length;
   const activeIndex = count ? index % count : 0;
   const canRotate = count > 1;
@@ -51,7 +53,7 @@ export default function DealsCarousel({
 
   const rotating =
     canRotate && !reducedMotion && !dragging &&
-    !contentFocused && visible && pageVisible;
+    !contentFocused && !paused && !hovered && visible && pageVisible;
 
   useEffect(() => {
     if (!rotating) return;
@@ -73,6 +75,8 @@ export default function DealsCarousel({
       role="region"
       aria-label="Featured deals"
       aria-roledescription={canRotate ? "carousel" : undefined}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
       onFocusCapture={(event) => {
         setContentFocused(Boolean(event.target.closest(".deal-card")));
       }}
@@ -86,6 +90,7 @@ export default function DealsCarousel({
       onKeyDownCapture={(event) => {
         if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
           event.preventDefault();
+          setPaused(true);
           navigate(event.key === "ArrowLeft" ? -1 : 1);
         }
       }}
@@ -183,15 +188,27 @@ export default function DealsCarousel({
               <ChevronRight aria-hidden="true" className="h-5 w-5" />
             </Button>
           </div>
+          <div className="mt-3 flex items-center justify-end gap-3">
+          {!reducedMotion && (
+            <button
+              type="button"
+              className="min-h-11 rounded-md px-2 text-xs underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              aria-label={paused ? "Start automatic rotation" : "Pause automatic rotation"}
+              onClick={() => setPaused((current) => !current)}
+            >
+              {paused ? "Start rotation" : "Pause rotation"}
+            </button>
+          )}
           <p
             aria-live="off"
             className={cn(
-              "mt-3 text-right text-xs tabular-nums",
+              "text-right text-xs tabular-nums",
               onImage ? "text-white/65" : "text-muted-foreground",
             )}
           >
             <span className="sr-only">Deal </span>{activeIndex + 1} / {count}
           </p>
+          </div>
         </>
       )}
     </div>

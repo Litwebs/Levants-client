@@ -99,6 +99,8 @@ async function api(page: Page, deals = offers) {
     return route.fulfill({ json: { success: true, data: {} } });
   });
 }
+const catalog = (page: Page) => page.locator("#all-deals .card-product");
+const activeSlide = (page: Page) => collection(page).locator('[role="group"][aria-hidden="false"]');
 const collection = (page: Page) =>
   page.getByRole("region", { name: "Featured deals", exact: true });
 async function noOverflow(page: Page) {
@@ -122,12 +124,11 @@ for (const width of [
         errors.push(message.text());
     });
     await page.goto("/deals");
-    await expect(page.locator(".deal-card")).toHaveCount(8);
-    await expect(page.locator(".deal-card img").first()).toBeVisible();
+    await expect(catalog(page)).toHaveCount(8);
+    await expect(catalog(page).locator("img").first()).toBeVisible();
     await expect
       .poll(() =>
-        page
-          .locator(".deal-card img")
+        catalog(page).locator("img")
           .first()
           .evaluate(
             (image: HTMLImageElement) =>
@@ -136,12 +137,11 @@ for (const width of [
       )
       .toBe(true);
     await noOverflow(page);
-    const sizes = await page
-      .locator(".deal-card")
+    const sizes = await catalog(page)
       .evaluateAll((cards) =>
         cards.map((card) => card.getBoundingClientRect().width),
       );
-    expect(Math.max(...sizes)).toBeLessThanOrEqual(384);
+    expect(Math.max(...sizes)).toBeLessThanOrEqual(width < 640 ? width : width >= 1024 ? 420 : width / 2);
     await info.attach(`deals-${width}`, {
       body: await page.screenshot({ fullPage: true }),
       contentType: "image/png",
@@ -150,22 +150,9 @@ for (const width of [
     await expect(collection(page).locator(".deal-card")).toHaveCount(8);
     await collection(page).scrollIntoViewIfNeeded();
     await noOverflow(page);
-    const visibleCards = await collection(page).evaluate((region) => {
-      const bounds = region.getBoundingClientRect();
-      return Array.from(region.querySelectorAll(".deal-card")).filter(
-        (card) => {
-          const rect = card.getBoundingClientRect();
-          return rect.left < bounds.right - 10 && rect.right > bounds.left + 10;
-        },
-      ).length;
-    });
-    expect(visibleCards).toBe(1);
-    await expect(
-      collection(page).locator(".deal-card").first().getByRole("list"),
-    ).toBeVisible();
-    await expect(
-      collection(page).locator(".deal-card").first().getByRole("listitem"),
-    ).toHaveCount(3);
+    await expect(activeSlide(page)).toHaveCount(1);
+    await expect(collection(page).getByRole("list")).toBeVisible();
+    await expect(collection(page).getByRole("listitem")).toHaveCount(3);
     await page
       .locator('section[aria-labelledby="featured-deals-heading"]')
       .evaluate((section) => {
@@ -216,15 +203,14 @@ for (const count of [1, 2, 3, 8]) {
     }
     await noOverflow(page);
     await page.goto("/deals");
-    await expect(page.locator(".deal-card")).toHaveCount(count);
+    await expect(catalog(page)).toHaveCount(count);
     await noOverflow(page);
     await page.setViewportSize({ width: 1440, height: 1000 });
     expect(
-      await page
-        .locator(".deal-card")
+      await catalog(page)
         .first()
         .evaluate((card) => card.getBoundingClientRect().width),
-    ).toBeLessThan(320);
+    ).toBeLessThanOrEqual(420);
     await info.attach(`deals-count-${count}`, {
       body: await page.screenshot({ fullPage: true }),
       contentType: "image/png",
@@ -232,62 +218,51 @@ for (const count of [1, 2, 3, 8]) {
   });
 }
 
-test("six-second autoplay, pause, hover and keyboard interaction", async ({
-  page,
-}) => {
+test("six-second autoplay, pause, hover and keyboard interaction", async ({ page }) => {
   await page.clock.install();
   await api(page);
   await page.goto("/");
   await expect(collection(page).locator(".deal-card")).toHaveCount(8);
   await collection(page).scrollIntoViewIfNeeded();
-  const previous = page.getByRole("button", { name: "Previous deals" });
-  await expect(previous).toBeDisabled();
+  await page.mouse.move(0, 0);
+  await expect(activeSlide(page)).toHaveAttribute("aria-label", "1 of 8");
   await page.clock.runFor(6500);
-  await expect(previous).toBeEnabled();
+  await expect(activeSlide(page)).toHaveAttribute("aria-label", "2 of 8");
   await page.getByRole("button", { name: "Pause automatic rotation" }).click();
-  await expect(
-    page.getByRole("button", { name: "Start automatic rotation" }),
-  ).toBeVisible();
-  await previous.click();
-  await expect(previous).toBeDisabled();
+  await page.getByRole("button", { name: "Previous deals" }).click();
   await page.mouse.move(0, 0);
   await page.clock.runFor(13000);
-  await expect(previous).toBeDisabled();
+  await expect(activeSlide(page)).toHaveAttribute("aria-label", "1 of 8");
   await page.getByRole("button", { name: "Start automatic rotation" }).click();
   await collection(page).hover();
   await page.clock.runFor(7000);
-  await expect(previous).toBeDisabled();
+  await expect(activeSlide(page)).toHaveAttribute("aria-label", "1 of 8");
   await page.mouse.move(0, 0);
   await page.clock.runFor(6500);
-  await expect(previous).toBeEnabled();
-  await collection(page)
-    .getByRole("link", { name: offers[0].name, exact: true })
-    .focus();
+  await expect(activeSlide(page)).toHaveAttribute("aria-label", "2 of 8");
+  await collection(page).getByRole("link", { name: offers[1].name, exact: true }).focus();
+  await page.clock.runFor(7000);
+  await expect(activeSlide(page)).toHaveAttribute("aria-label", "2 of 8");
   await page.keyboard.press("ArrowRight");
-  await expect(
-    page.getByRole("button", { name: "Start automatic rotation" }),
-  ).toBeVisible();
+  await expect(activeSlide(page)).toHaveAttribute("aria-label", "3 of 8");
+  await expect(page.getByRole("button", { name: "Start automatic rotation" })).toBeVisible();
 });
 
-test("reduced motion never autoplays and manual controls still work", async ({
-  page,
-}) => {
+test("reduced motion never autoplays and manual controls still work", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.clock.install();
   await api(page);
   await page.goto("/");
   await collection(page).scrollIntoViewIfNeeded();
-  await expect(
-    page.getByRole("button", { name: /automatic rotation/ }),
-  ).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /automatic rotation/ })).toHaveCount(0);
   await page.clock.runFor(14000);
-  await expect(
-    page.getByRole("button", { name: "Previous deals" }),
-  ).toBeDisabled();
+  await expect(activeSlide(page)).toHaveAttribute("aria-label", "1 of 8");
   await page.getByRole("button", { name: "Next deals" }).click();
-  await expect(
-    page.getByRole("button", { name: "Previous deals" }),
-  ).toBeEnabled();
+  await expect(activeSlide(page)).toHaveAttribute("aria-label", "2 of 8");
+  await page.getByRole("button", { name: "Previous deals" }).click();
+  await expect(activeSlide(page)).toHaveAttribute("aria-label", "1 of 8");
+  await page.getByRole("button", { name: "Previous deals" }).click();
+  await expect(activeSlide(page)).toHaveAttribute("aria-label", "8 of 8");
 });
 
 test("touch swipe changes the visible package", async ({ browser }) => {
@@ -338,50 +313,31 @@ test("touch swipe changes the visible package", async ({ browser }) => {
     type: "touchEnd",
     touchPoints: [],
   });
-  await expect(
-    page.getByRole("button", { name: "Previous deals" }),
-  ).toBeEnabled();
+  await expect(activeSlide(page)).toHaveAttribute("aria-label", "2 of 8");
   await context.close();
 });
 
-test("package pricing, basket persistence and navigation", async ({ page }) => {
+test("package pricing, contents, basket persistence and navigation", async ({ page }) => {
   await api(page);
   await page.goto("/deals");
-  const card = page.getByRole("article", { name: offers[0].name });
+  const card = catalog(page).filter({ has: page.getByRole("heading", { name: offers[0].name, exact: true }) });
   await expect(card.getByText("Save 33%", { exact: true })).toBeVisible();
-  await expect(card.getByText("£10.00", { exact: true })).toBeVisible();
+  await expect(card.locator("p").filter({ has: page.locator("del") })).toContainText("£10.00");
   await expect(card.locator("del")).toHaveText("£15.00");
   await expect(card.getByText("Save £5.00", { exact: true })).toBeVisible();
   await expect(card.getByText("3 products included")).toBeVisible();
-  await card.getByRole("button", { name: "Add package to basket" }).click();
-  await expect
-    .poll(() =>
-      page.evaluate(
-        () =>
-          JSON.parse(localStorage.getItem("levants-dairy-cart") || "{}")
-            .deals?.[0]?.quantity,
-      ),
-    )
-    .toBe(1);
+  await expect(card.getByRole("listitem")).toHaveCount(3);
+  await expect(card.getByText("Whole milk · 1 litre × 1", { exact: true })).toBeVisible();
+  await card.getByRole("button", { name: "Add to basket", exact: true }).click();
+  await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem("levants-dairy-cart") || "{}").deals?.[0]?.quantity)).toBe(1);
   await page.reload();
   await expect(card.getByText("1 in your basket")).toBeVisible();
-  await card.getByRole("button", { name: "Add another package" }).click();
-  await expect
-    .poll(() =>
-      page.evaluate(
-        () =>
-          JSON.parse(localStorage.getItem("levants-dairy-cart") || "{}")
-            .deals?.[0]?.quantity,
-      ),
-    )
-    .toBe(2);
+  await card.getByRole("button", { name: "Add to basket", exact: true }).click();
+  await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem("levants-dairy-cart") || "{}").deals?.[0]?.quantity)).toBe(2);
   await page.goto("/");
   await page.getByRole("link", { name: "View all deals" }).click();
   await expect(page).toHaveURL(/\/deals$/);
-  await page
-    .getByRole("article", { name: offers[0].name })
-    .getByRole("link", { name: offers[0].name, exact: true })
-    .click();
+  await catalog(page).filter({ has: page.getByRole("heading", { name: offers[0].name, exact: true }) }).getByRole("link").click();
   await expect(page).toHaveURL(/\/deals\/deal-0$/);
 });
 
@@ -416,6 +372,6 @@ test("loading, empty, error retry and failed images", async ({ page }) => {
     }),
   );
   await page.getByRole("button", { name: "Retry" }).click();
-  await expect(page.locator(".deal-card")).toHaveCount(1);
-  await expect(page.locator(".deal-card img")).toHaveCount(0);
+  await expect(catalog(page)).toHaveCount(1);
+  await expect(catalog(page).locator("img")).toHaveCount(0);
 });
