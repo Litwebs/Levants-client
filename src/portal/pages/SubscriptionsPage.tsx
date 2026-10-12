@@ -25,6 +25,7 @@ import {
   portalSubscriptionsApi,
   type PortalSubscription,
 } from "@/api/portalSubscriptions";
+import { getNextSubscriptionDeliveryDate } from "@/portal/utils/nextSubscriptionDelivery";
 
 const dayName = (day: number) => {
   const days = [
@@ -58,9 +59,6 @@ const formatDate = (value?: string | null) => {
   });
 };
 
-const getDisplayNextDeliveryDate = (subscription: PortalSubscription) =>
-  subscription.upcomingDeliveryDate ?? subscription.nextDeliveryDate;
-
 const statusAccent: Record<string, string> = {
   active: "border-l-forest",
   paused: "border-l-amber-400",
@@ -74,6 +72,14 @@ const SubscriptionCard: React.FC<{
 }> = ({ subscription: sub, onResume, actionLoadingId }) => {
   const [resumeOpen, setResumeOpen] = useState(false);
   const [expanded, setExpanded] = useState(true);
+  const isMultiDay =
+    sub.frequency === "weekly" &&
+    Math.max(
+      sub.preferredDeliveryDays?.length || 0,
+      sub.deliveryDayPlans?.length || 0,
+    ) > 1;
+  const productsLabel = isMultiDay ? "Products per cycle" : "Products per delivery";
+  const nextDeliveryDate = getNextSubscriptionDeliveryDate(sub);
 
   const total = sub.items.reduce(
     (sum, item) =>
@@ -146,14 +152,16 @@ const SubscriptionCard: React.FC<{
               >
                 {sub.status === "paused"
                   ? "Paused"
-                  : formatDate(getDisplayNextDeliveryDate(sub))}
+                  : nextDeliveryDate
+                    ? formatDate(nextDeliveryDate)
+                    : "None scheduled"}
               </p>
             </div>
           </div>
           <div className="flex items-center gap-2.5 rounded-xl bg-muted/40 px-3 py-2.5">
             <div>
               <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                Per delivery
+                {productsLabel}
               </p>
               <p className="text-sm font-semibold text-foreground">
                 {formatCurrency(total)}
@@ -223,10 +231,13 @@ const SubscriptionCard: React.FC<{
               ))}
               <div className="flex justify-between text-xs font-semibold pt-1 border-t border-border/60">
                 <span className="text-muted-foreground">
-                  Total per delivery
+                  {productsLabel}
                 </span>
                 <span className="text-foreground">{formatCurrency(total)}</span>
               </div>
+              <p className="text-xs text-muted-foreground">
+                Products only. Delivery fees are added per delivery.
+              </p>
             </div>
             {address && (
               <div className="flex items-start gap-2 text-xs text-muted-foreground">
