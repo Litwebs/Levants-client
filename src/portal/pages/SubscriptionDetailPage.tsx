@@ -54,6 +54,10 @@ import {
   getDeliveryDayCutoff,
   isPastCutoffInstant,
 } from "@/portal/utils/subscriptionCutoff";
+import {
+  getNextSubscriptionDelivery,
+  getNextSubscriptionDeliveryDate,
+} from "@/portal/utils/nextSubscriptionDelivery";
 
 type EditableSubscriptionItem = {
   localId: string;
@@ -340,9 +344,6 @@ const getDayScheduledFromLabel = (
   const effectiveFrom = getDeliveryDayCutoff(cutoff, dayIndex)?.effectiveFrom;
   return formatCutoffDate(effectiveFrom, cutoff.timeZone) || "-";
 };
-
-const getDisplayNextDeliveryDate = (subscription: PortalSubscription) =>
-  subscription.upcomingDeliveryDate ?? subscription.nextDeliveryDate;
 
 const getAddressId = (address?: { _id?: string; id?: string } | null) =>
   address?._id || address?.id || "";
@@ -734,7 +735,7 @@ const SubscriptionDetailPage: React.FC = () => {
     [total, deliveryFeeTotal],
   );
 
-  const nextDelivery = deliveries[0] || null;
+  const nextDelivery = getNextSubscriptionDelivery(subscription, deliveries);
   const nextDeliveryAddOnTotal = nextDelivery
     ? getDeliveryAddOnTotal(nextDelivery)
     : 0;
@@ -1478,7 +1479,7 @@ const SubscriptionDetailPage: React.FC = () => {
     .filter(Boolean)
     .join(", ");
 
-  const displayNextDeliveryDate = getDisplayNextDeliveryDate(subscription);
+  const displayNextDeliveryDate = getNextSubscriptionDeliveryDate(subscription);
   const selectedSavedAddress =
     addresses.find((address) => getAddressId(address) === selectedAddressId) ||
     null;
@@ -1688,7 +1689,9 @@ const SubscriptionDetailPage: React.FC = () => {
               Next delivery
             </p>
             <p className="text-sm sm:text-base font-semibold text-foreground mt-1">
-              {formatDate(displayNextDeliveryDate)}
+              {displayNextDeliveryDate
+                ? formatDate(displayNextDeliveryDate)
+                : "None scheduled"}
             </p>
           </div>
           <div className="rounded-xl border border-border/70 bg-background/70 px-3 py-2.5">

@@ -14,7 +14,7 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit -p tsconfig.app.json && tsc --noEmit -p tsconfig.node.json",
     "preview": "vite preview",
-    "test:subscription-retries": "node --test tests/subscription*Retry.test.mjs",
+    "test:subscription-retries": "node --test tests/subscription*Retry.test.mjs tests/nextSubscriptionDelivery.test.mjs",
     "build:uat": "node scripts/check-uat-config.mjs && vite build --mode uat && node scripts/check-uat-build.mjs",
     "test:uat": "node --test scripts/uat-config.test.mjs"
   },
