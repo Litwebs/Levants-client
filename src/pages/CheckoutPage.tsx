@@ -9,6 +9,7 @@ import { portalAuthApi } from "@/api/portalAuth";
 import { portalOrdersApi } from "@/api/portalOrders";
 import { isPortalLoggedIn } from "@/lib/portalAuth";
 import { useBusinessInfo } from "@/context/BusinessInfoContext";
+import { Input, Textarea } from "@/components/common/FormControls";
 
 type CheckoutStep = 1 | 2 | 3;
 
@@ -24,10 +25,21 @@ type SavedAddress = {
   isDefault?: boolean;
 };
 
+type CheckoutProfile = {
+  _id?: string;
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  phone?: string;
+  addresses?: Array<Partial<SavedAddress> & { _id?: string }>;
+  storeCreditBalanceMinor?: number;
+  creditBalance?: number;
+};
+
 const CheckoutPage: React.FC = () => {
   const navigate = useNavigate();
   const businessInfo = useBusinessInfo();
-  const { items, subtotal } = useCart();
+  const { items, deals, subtotal, refreshDeals } = useCart();
   const {
     customer,
     createGuestCustomer,
@@ -57,6 +69,13 @@ const CheckoutPage: React.FC = () => {
     discountAmount: number;
     eligibleSubtotal: number;
   } | null>(null);
+
+  useEffect(() => {
+    if (deals.length) {
+      setDiscountCode("");
+      setValidatedDiscount(null);
+    }
+  }, [deals.length]);
 
   const [formData, setFormData] = useState({
     firstName: "",
@@ -101,11 +120,11 @@ const CheckoutPage: React.FC = () => {
     (async () => {
       try {
         const res = await portalAuthApi.me();
-        const profile = (res?.data as { customer?: any } | undefined)?.customer;
+        const profile = (res?.data as { customer?: CheckoutProfile } | undefined)?.customer;
         if (!active || !profile) return;
 
         const addresses: SavedAddress[] = Array.isArray(profile.addresses)
-          ? profile.addresses.map((a: any, idx: number) => ({
+          ? profile.addresses.map((a, idx: number) => ({
               id: String(a?._id || a?.id || `addr-${idx}`),
               label: a?.label,
               line1: String(a?.line1 || ""),
@@ -217,7 +236,41 @@ const CheckoutPage: React.FC = () => {
     return true;
   };
 
+  const buildOrderItems = () => {
+    const quantities = new Map<string, number>();
+
+    for (const item of items) {
+      const variantId = item.variant?.id || item.product.id;
+      quantities.set(
+        variantId,
+        (quantities.get(variantId) || 0) + Number(item.quantity || 0),
+      );
+    }
+
+    for (const packageLine of deals) {
+      for (const component of packageLine.deal.items) {
+        const quantity =
+          Number(component.quantity || 0) * Number(packageLine.quantity || 0);
+        quantities.set(
+          component.variantId,
+          (quantities.get(component.variantId) || 0) + quantity,
+        );
+      }
+    }
+
+    return Array.from(quantities.entries()).map(([variantId, quantity]) => ({
+      variantId,
+      quantity,
+    }));
+  };
+
   const ensureDiscountValidatedIfNeeded = async (customerId: string) => {
+    if (deals.length > 0) {
+      setDiscountCode("");
+      setValidatedDiscount(null);
+      return true;
+    }
+
     const code = discountCode.trim();
     if (!code) {
       setValidatedDiscount(null);
@@ -231,10 +284,7 @@ const CheckoutPage: React.FC = () => {
       return true;
     }
 
-    const orderItems = items.map((item) => ({
-      variantId: item.variant?.id || item.product.id,
-      quantity: item.quantity,
-    }));
+    const orderItems = buildOrderItems();
 
     const res = await validateDiscount({
       customerId,
@@ -397,14 +447,23 @@ const CheckoutPage: React.FC = () => {
         }
       }
 
-      // 2. Create order → get Stripe checkout URL
-      const orderItems = items.map((item) => ({
-        variantId: item.variant?.id || item.product.id,
-        quantity: item.quantity,
-      }));
+      // 2. Create order → get Stripe checkout URL.
+      // Package lines are expanded to their component variants for stock and
+      // fulfilment, while the deal claims are sent separately for server-side
+      // price validation.
+      const orderItems = buildOrderItems();
 
       const checkoutPayload = {
         items: orderItems,
+        deals:
+          deals.length > 0
+            ? deals.map((entry) => ({
+                dealId: entry.deal.id,
+                quantity: entry.quantity,
+                expectedPackagePrice: entry.deal.packagePrice,
+                expectedContents: entry.deal.items.map(({variantId,quantity}) => ({variantId,quantity})),
+              }))
+            : undefined,
         deliveryAddress: {
           line1: formData.address1,
           line2: formData.address2 || undefined,
@@ -413,9 +472,10 @@ const CheckoutPage: React.FC = () => {
           country: "UK",
         },
         customerInstructions: formData.customerInstructions || undefined,
-        discountCode: usingCredit
-          ? undefined
-          : validatedDiscount?.code || discountCode.trim() || undefined,
+        discountCode:
+          usingCredit || deals.length > 0
+            ? undefined
+            : validatedDiscount?.code || discountCode.trim() || undefined,
         creditToApplyMinor: usingCredit ? creditAppliedMinor : undefined,
       };
 
@@ -481,7 +541,7 @@ const CheckoutPage: React.FC = () => {
   const creditApplied = creditAppliedMinor / 100;
   const amountDueTotal = Math.max(0, displayTotal - creditApplied);
 
-  if (items.length === 0) {
+  if (items.length === 0 && deals.length === 0) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
@@ -576,54 +636,42 @@ const CheckoutPage: React.FC = () => {
                 </h2>
                 <div className="grid sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium mb-2">
-                      First Name
-                    </label>
-                    <input
+                    <Input
+                      label="First Name"
                       type="text"
                       name="firstName"
                       value={formData.firstName}
                       onChange={handleInputChange}
-                      className="input-field"
                       placeholder="John"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium mb-2">
-                      Last Name
-                    </label>
-                    <input
+                    <Input
+                      label="Last Name"
                       type="text"
                       name="lastName"
                       value={formData.lastName}
                       onChange={handleInputChange}
-                      className="input-field"
                       placeholder="Smith"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium mb-2">
-                      Email
-                    </label>
-                    <input
+                    <Input
+                      label="Email"
                       type="email"
                       name="email"
                       value={formData.email}
                       onChange={handleInputChange}
-                      className="input-field"
                       placeholder="john@example.com"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium mb-2">
-                      Phone
-                    </label>
-                    <input
+                    <Input
+                      label="Phone"
                       type="tel"
                       name="phone"
                       value={formData.phone}
                       onChange={handleInputChange}
-                      className="input-field"
                       placeholder="+44 7123 456789"
                     />
                   </div>
@@ -639,68 +687,53 @@ const CheckoutPage: React.FC = () => {
                 </h2>
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium mb-2">
-                      Address Line 1
-                    </label>
-                    <input
+                    <Input
+                      label="Address Line 1"
                       type="text"
                       name="address1"
                       value={formData.address1}
                       onChange={handleInputChange}
-                      className="input-field"
                       placeholder="123 Farm Lane"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium mb-2">
-                      Address Line 2 (Optional)
-                    </label>
-                    <input
+                    <Input
+                      label="Address Line 2 (Optional)"
                       type="text"
                       name="address2"
                       value={formData.address2}
                       onChange={handleInputChange}
-                      className="input-field"
                       placeholder="Apartment, suite, etc."
                     />
                   </div>
                   <div className="grid sm:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium mb-2">
-                        City
-                      </label>
-                      <input
+                      <Input
+                        label="City"
                         type="text"
                         name="city"
                         value={formData.city}
                         onChange={handleInputChange}
-                        className="input-field"
                         placeholder="Cambridge"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium mb-2">
-                        Postcode
-                      </label>
-                      <input
+                      <Input
+                        label="Postcode"
                         type="text"
                         name="postcode"
                         value={formData.postcode}
                         onChange={handleInputChange}
-                        className="input-field"
                         placeholder="CB1 2AB"
                       />
                     </div>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium mb-2">
-                      Delivery Instructions (Optional)
-                    </label>
-                    <textarea
+                    <Textarea
+                      label="Delivery Instructions (Optional)"
                       name="customerInstructions"
                       value={formData.customerInstructions}
                       onChange={handleInputChange}
-                      className="input-field min-h-[100px]"
                       placeholder="Leave at door, ring bell, etc."
                     />
                   </div>
@@ -758,6 +791,7 @@ const CheckoutPage: React.FC = () => {
                       Delivery Address Bookmarks
                     </h3>
                     <select
+                      aria-label="Saved delivery address"
                       value={selectedSavedAddressId || ""}
                       onChange={(e) => {
                         const id = e.target.value;
@@ -767,7 +801,7 @@ const CheckoutPage: React.FC = () => {
                         );
                         if (selected) applySavedAddress(selected);
                       }}
-                      className="w-full rounded-md border border-input bg-background pl-3 pr-10 py-2 text-sm"
+                      className="form-control"
                     >
                       {savedAddresses.map((addr) => (
                         <option key={addr.id} value={addr.id}>
@@ -786,7 +820,38 @@ const CheckoutPage: React.FC = () => {
                 <div className="mb-4 p-4 rounded-xl border border-border">
                   <h3 className="font-medium mb-3">Order Summary</h3>
 
-                  <div className="space-y-3 mb-4 max-h-64 overflow-y-auto">
+                  <div className="space-y-3 mb-4 max-h-72 overflow-y-auto">
+                    {deals.map((entry) => (
+                      <div
+                        key={"deal-" + entry.deal.id}
+                        className="flex gap-3 rounded-lg bg-primary/5 p-2"
+                      >
+                        <div className="w-12 h-12 rounded-lg overflow-hidden bg-muted flex-shrink-0">
+                          {entry.deal.imageUrl ? (
+                            <img
+                              src={entry.deal.imageUrl}
+                              alt={entry.deal.name}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : null}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-semibold uppercase tracking-wide text-primary">
+                            Package deal
+                          </p>
+                          <p className="text-sm font-medium truncate">
+                            {entry.deal.name}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {entry.deal.items.length} product{entry.deal.items.length === 1 ? "" : "s"} × {entry.quantity}
+                          </p>
+                        </div>
+                        <p className="text-sm font-medium">
+                          £{(entry.deal.packagePrice * entry.quantity).toFixed(2)}
+                        </p>
+                      </div>
+                    ))}
+
                     {items.map((item) => {
                       const price = item.variant?.price ?? item.product.price;
                       return (
@@ -821,13 +886,25 @@ const CheckoutPage: React.FC = () => {
                     })}
                   </div>
 
-                  {!applyCredit && (
+                  {deals.length > 0 && <button type="button" className="btn-outline w-full mb-4" onClick={() => void refreshDeals().then(() => toast.success("Offers refreshed. Review your basket before paying.")).catch(() => toast.error("Could not refresh offers. Please try again."))}>Refresh offers</button>}
+                  {deals.length > 0 ? (
+                    <div className="mb-4 rounded-xl border border-primary/20 bg-primary/5 p-4 text-sm">
+                      <p className="font-medium text-primary">
+                        Package savings applied
+                      </p>
+                      <p className="mt-1 text-muted-foreground">
+                        Deal packages already include their advertised saving,
+                        so discount codes cannot be combined with them.
+                      </p>
+                    </div>
+                  ) : !applyCredit ? (
                     <div className="mb-4">
-                      <label className="block text-sm font-medium mb-2">
+                      <label htmlFor="discount-code" className="block text-sm font-medium mb-2">
                         Discount Code
                       </label>
                       <div className="flex gap-2">
                         <input
+                          id="discount-code"
                           type="text"
                           placeholder="Enter code"
                           className="flex-1 input-field py-2.5"
@@ -863,7 +940,7 @@ const CheckoutPage: React.FC = () => {
                         </button>
                       </div>
                     </div>
-                  )}
+                  ) : null}
 
                   {canUseCredit && (
                     <div className="mb-4 p-4 rounded-xl border border-border bg-secondary/20">
