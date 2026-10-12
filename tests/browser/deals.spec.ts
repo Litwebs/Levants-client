@@ -50,6 +50,18 @@ const offers: Deal[] = names.map((name, index) => ({
 }));
 
 async function api(page: Page, deals = offers) {
+  // API images are provider URLs. Serve deterministic fixture assets from the
+  // Vite origin instead of pretending the API hosts its /src directory.
+  const assetUrl = (url?: string) => url?.startsWith("/src/assets/")
+    ? new URL(url, "http://127.0.0.1:8080").href : url;
+  deals = deals.map((deal) => ({
+    ...deal, imageUrl: assetUrl(deal.imageUrl),
+    items: deal.items.map((item) => ({
+      ...item,
+      variant: { ...item.variant, thumbnailImage: item.variant.thumbnailImage ? { url: assetUrl(item.variant.thumbnailImage.url) } : null },
+      product: { ...item.product, thumbnailImage: item.product.thumbnailImage ? { url: assetUrl(item.product.thumbnailImage.url) } : null },
+    })),
+  }));
   await page.route("**/api/**", async (route) => {
     const url = new URL(route.request().url());
     // Vite also serves source modules under /src/api; only stub API requests.
