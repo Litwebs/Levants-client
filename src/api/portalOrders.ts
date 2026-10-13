@@ -116,12 +116,6 @@ export type UpdateOrderDeliveryPayload = {
 
 export type PortalCheckoutPayload = {
   items: Array<{ variantId: string; quantity: number }>;
-  deals?: Array<{
-    dealId: string;
-    quantity: number;
-    expectedPackagePrice: number;
-    expectedContents?: Array<{variantId:string;quantity:number}>;
-  }>;
   deliveryAddress: {
     line1: string;
     line2?: string;

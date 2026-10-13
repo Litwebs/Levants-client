@@ -187,7 +187,6 @@ const Header: React.FC<HeaderProps> = ({
   const navLinks = [
     { name: "Home", path: "/" },
     { name: "Shop", path: "/shop" },
-    { name: "Deals", path: "/deals" },
     { name: "Reviews", path: "/reviews" },
     { name: "About", path: "/about" },
     { name: "Delivery & FAQs", path: "/delivery" },
@@ -262,7 +261,7 @@ const Header: React.FC<HeaderProps> = ({
               </Link>
             </div>
 
-            <nav className="hidden lg:flex items-center gap-4 xl:gap-8">
+            <nav className="hidden lg:flex items-center gap-8">
               {navLinks.map((link) => (
                 <Link
                   key={link.path}

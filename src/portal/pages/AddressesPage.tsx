@@ -454,7 +454,6 @@ const AddressesPage: React.FC = () => {
                     variant="ghost"
                     size="icon"
                     className="h-8 w-8"
-                    aria-label="Edit address"
                     onClick={() => requestEdit(addr)}
                     disabled={formLoading}
                   >
@@ -464,7 +463,6 @@ const AddressesPage: React.FC = () => {
                     variant="ghost"
                     size="icon"
                     className="h-8 w-8 text-destructive hover:bg-destructive/10"
-                    aria-label="Delete address"
                     onClick={() => requestDelete(addr)}
                     disabled={addr.isDefault || formLoading || deleteLoading}
                   >

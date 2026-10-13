@@ -1,13 +1,12 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Package } from "lucide-react";
+import { ShoppingBag } from "lucide-react";
 import { Product, ProductVariant } from "@/data/products";
 import QuantityStepper from "@/components/ui/QuantityStepper";
 import { resolveImageUrl } from "@/api/client";
 import { isPortalLoggedIn } from "@/lib/portalAuth";
-import { BasketButton, SavingsTag } from "./CatalogCardControls";
 
-export interface ProductCardProps {
+interface ProductCardProps {
   product: Product;
   lockedVariantId?: string;
   hideVariantSelector?: boolean;
@@ -19,12 +18,6 @@ export interface ProductCardProps {
   }) => void;
   hideQuantityStepper?: boolean;
   actionClassName?: string;
-  linkTo?: string;
-  priceLabel?: string;
-  originalPriceLabel?: string;
-  maxQuantity?: number;
-  actionDisabled?: boolean;
-  compactControls?: boolean;
   afterActionContent?: (params: {
     product: Product;
     variant: ProductVariant | undefined;
@@ -41,17 +34,9 @@ const ProductCard: React.FC<ProductCardProps> = ({
   hideQuantityStepper,
   actionClassName,
   afterActionContent,
-  linkTo,
-  priceLabel,
-  originalPriceLabel,
-  maxQuantity = 99,
-  actionDisabled = false,
-  compactControls = false,
 }) => {
   const navigate = useNavigate();
   const [quantity, setQuantity] = useState(1);
-  const [failedImage, setFailedImage] = useState<string>();
-  const safeQuantity = Math.min(quantity, Math.max(1, maxQuantity));
 
   const initialVariant = useMemo<ProductVariant | undefined>(() => {
     if (!product.variants?.length) return undefined;
@@ -78,7 +63,6 @@ const ProductCard: React.FC<ProductCardProps> = ({
   );
 
   const productLink = useMemo(() => {
-    if (linkTo) return linkTo;
     if (isVariantCard && selectedVariant?.id) {
       return {
         pathname: `/product/${product.id}`,
@@ -86,7 +70,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
       };
     }
     return `/product/${product.id}`;
-  }, [isVariantCard, linkTo, product.id, selectedVariant?.id]);
+  }, [isVariantCard, product.id, selectedVariant?.id]);
 
   const displayTitle = useMemo(() => {
     if ((hideVariantSelector || lockedVariantId) && selectedVariant) {
@@ -125,7 +109,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
     e.stopPropagation();
 
     if (onAction) {
-      onAction({ product, variant: selectedVariant, quantity: safeQuantity });
+      onAction({ product, variant: selectedVariant, quantity });
       return;
     }
 
@@ -158,25 +142,18 @@ const ProductCard: React.FC<ProductCardProps> = ({
       <Link to={productLink} className="block">
         {/* Image Container */}
         <div className="relative aspect-square overflow-hidden bg-muted">
-          {displayImage && failedImage !== displayImage ? (
-            <img
-              src={displayImage}
-              alt={displayTitle}
-              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-              onError={() => setFailedImage(displayImage)}
-            />
-          ) : (
-            <div role="img" aria-label={displayTitle} className="flex h-full items-center justify-center text-primary/40">
-              <Package className="h-10 w-10" aria-hidden="true" />
-            </div>
-          )}
+          <img
+            src={displayImage}
+            alt={displayTitle}
+            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+          />
           {/* Badges */}
           {product.badges.length > 0 && (
             <div className="absolute top-3 left-3 flex flex-wrap gap-1.5">
               {product.badges.slice(0, 2).map((badge) => (
-                badge.toLowerCase().startsWith("save ")
-                  ? <SavingsTag key={badge}>{badge}</SavingsTag>
-                  : <span key={badge} className={getBadgeClass(badge)}>{badge}</span>
+                <span key={badge} className={getBadgeClass(badge)}>
+                  {badge}
+                </span>
               ))}
             </div>
           )}
@@ -211,13 +188,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
 
           {/* Price */}
           <p className="mt-3 text-lg font-semibold text-primary">
-            {priceLabel ?? `£${currentPrice.toFixed(2)}`}
-            {originalPriceLabel && (
-              <>
-                <span className="sr-only"> Original value </span>
-                <del className="ml-2 text-sm font-normal text-muted-foreground">{originalPriceLabel}</del>
-              </>
-            )}
+            £{currentPrice.toFixed(2)}
           </p>
         </div>
       </Link>
@@ -251,23 +222,26 @@ const ProductCard: React.FC<ProductCardProps> = ({
         {/* Quantity and action button */}
         <div className="flex items-center gap-3">
           {!hideQuantityStepper && (
-            <div className={compactControls ? "shrink-0 [&>div]:h-9" : "shrink-0 [&>div]:h-10"}>
+            <div className="shrink-0 [&>div]:h-10">
               <QuantityStepper
-                quantity={safeQuantity}
+                quantity={quantity}
                 onQuantityChange={setQuantity}
-                max={Math.max(1, maxQuantity)}
                 size="sm"
               />
             </div>
           )}
-          <BasketButton
+          <button
             onClick={handleAction}
-            disabled={actionDisabled || currentStockStatus === "out-of-stock"}
-            compact={compactControls}
-            className={`flex-1 ${actionClassName || ""}`}
+            disabled={currentStockStatus === "out-of-stock"}
+            className={`h-10 min-w-0 flex-1 btn-primary flex items-center justify-center gap-2 overflow-hidden px-3 py-0 disabled:opacity-50 disabled:cursor-not-allowed ${
+              actionClassName || ""
+            }`}
           >
-            {actionLabel || "Subscribe"}
-          </BasketButton>
+            <ShoppingBag className="h-4 w-4 shrink-0" />
+            <span className="text-sm truncate">
+              {actionLabel || "Subscribe"}
+            </span>
+          </button>
         </div>
 
         {afterActionContent && (
@@ -275,7 +249,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
             {afterActionContent({
               product,
               variant: selectedVariant,
-              quantity: safeQuantity,
+              quantity,
             })}
           </div>
         )}
