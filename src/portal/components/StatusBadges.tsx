@@ -26,7 +26,19 @@ const StatusDot: React.FC<{
 );
 
 // ─── Order Status Badge ───────────────────────────────────────────────────────
-const orderStatusConfig: Record<OrderStatus, { label: string; dot: string }> = {
+type DisplayOrderStatus =
+  | OrderStatus
+  | "paid"
+  | "partially_paid"
+  | "refund_pending"
+  | "partially_refunded"
+  | "refunded"
+  | "refund_failed";
+
+const orderStatusConfig: Record<
+  DisplayOrderStatus,
+  { label: string; dot: string }
+> = {
   placed: { label: "Placed", dot: "bg-blue-500" },
   confirmed: { label: "Confirmed", dot: "bg-indigo-500" },
   preparing: { label: "Preparing", dot: "bg-amber-400" },
@@ -44,7 +56,7 @@ const orderStatusConfig: Record<OrderStatus, { label: string; dot: string }> = {
 };
 
 export const OrderStatusBadge: React.FC<{
-  status: OrderStatus;
+  status: DisplayOrderStatus;
   className?: string;
 }> = ({ status, className }) => {
   const cfg = orderStatusConfig[status] ?? {
@@ -65,6 +77,8 @@ const paymentStatusConfig: Record<
   pending: { label: "Pending", dot: "bg-amber-400" },
   failed: { label: "Failed", dot: "bg-red-500" },
   refunded: { label: "Refunded", dot: "bg-gray-400" },
+  partially_refunded: { label: "Partially Refunded", dot: "bg-amber-500" },
+  refund_pending: { label: "Refund Pending", dot: "bg-amber-400" },
 };
 
 export const PaymentStatusBadge: React.FC<{
@@ -117,6 +131,7 @@ const deliveryStatusConfig: Record<
 > = {
   scheduled: { label: "Scheduled", dot: "bg-blue-500" },
   generated: { label: "Generated", dot: "bg-emerald-500" },
+  cancelled: { label: "Cancelled", dot: "bg-gray-400" },
   preparing: { label: "Preparing", dot: "bg-amber-400" },
   "out-for-delivery": { label: "Out for Delivery", dot: "bg-orange-500" },
   delivered: { label: "Delivered", dot: "bg-emerald-500" },

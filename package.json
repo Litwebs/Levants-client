@@ -12,7 +12,11 @@
     "deploy": "gh-pages -d dist",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "typecheck": "tsc --noEmit -p tsconfig.app.json && tsc --noEmit -p tsconfig.node.json",
+    "preview": "vite preview",
+    "test:subscription-retries": "node --test tests/subscription*.test.mjs tests/nextSubscriptionDelivery.test.mjs",
+    "build:uat": "node scripts/check-uat-config.mjs && vite build --mode uat && node scripts/check-uat-build.mjs",
+    "test:uat": "node --test scripts/uat-config.test.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

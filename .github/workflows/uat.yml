@@ -1,0 +1,67 @@
+name: Build and deploy UAT storefront
+on:
+  push:
+    branches: [uat]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: levants-uat-storefront
+  cancel-in-progress: false
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run test:uat
+      - name: Build and verify isolated storefront
+        env:
+          VITE_API_BASE_URL: https://uat-api.levantsdairy.co.uk/api
+        run: npm run build:uat
+      - run: python3 deployment/uat/package.py /tmp/storefront.tar.gz
+      - uses: actions/upload-artifact@v4
+        with:
+          name: storefront-${{ github.sha }}
+          path: /tmp/storefront.tar.gz
+          if-no-files-found: error
+          retention-days: 14
+  deploy:
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: uat
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: storefront-${{ github.sha }}
+          path: release
+      - name: Configure dedicated storefront deployment key
+        env:
+          DEPLOY_KEY: ${{ secrets.UAT_STOREFRONT_SSH_KEY }}
+          KNOWN_HOSTS: ${{ vars.UAT_KNOWN_HOSTS }}
+        run: |
+          test -n "$DEPLOY_KEY"
+          test -n "$KNOWN_HOSTS"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_KEY" > ~/.ssh/uat
+          chmod 600 ~/.ssh/uat
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+      - name: Deploy storefront only
+        env:
+          UAT_HOST: ${{ vars.UAT_HOST }}
+          UAT_PORT: ${{ vars.UAT_PORT }}
+          RELEASE_SHA: ${{ github.sha }}
+        run: |
+          test -n "$UAT_HOST"
+          test -n "$UAT_PORT"
+          ssh -i ~/.ssh/uat -o BatchMode=yes -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=yes -o ConnectTimeout=15 \
+            -p "$UAT_PORT" "levants-uat-storefront-deploy@$UAT_HOST" \
+            "deploy $RELEASE_SHA" < release/storefront.tar.gz
+          curl --fail --retry 3 https://uat.levantsdairy.co.uk/release.json > /tmp/deployed.json
+          python3 -c 'import json,os; assert json.load(open("/tmp/deployed.json"))["sha"] == os.environ["RELEASE_SHA"]'

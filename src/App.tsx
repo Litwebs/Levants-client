@@ -97,7 +97,7 @@ const App = () => {
   }, []);
 
   useEffect(() => {
-    if (import.meta.env.DEV) {
+    if (import.meta.env.DEV || import.meta.env.MODE === "uat") {
       setChecking(false);
       return;
     }
@@ -172,6 +172,11 @@ const App = () => {
               <Toaster />
               <Sonner />
               <BrowserRouter>
+                {import.meta.env.MODE === "uat" && (
+                  <div role="status" className="bg-amber-200 px-4 py-2 text-center text-sm font-semibold text-black">
+                    UAT · Test environment · Payments use Stripe sandbox
+                  </div>
+                )}
                 <ScrollToTop />
                 <ScrollToTopButton />
                 <Routes>

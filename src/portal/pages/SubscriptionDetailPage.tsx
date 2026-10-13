@@ -14,6 +14,7 @@ import {
   ShoppingBag,
   ChevronDown,
 } from "lucide-react";
+import { canModifySubscription } from "@/portal/utils/subscriptionEditingPolicy";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -49,6 +50,15 @@ import {
   type PortalSubscriptionCutoff,
   type SubscriptionRefundMethod,
 } from "@/api/portalSubscriptions";
+import {
+  formatCutoffDate,
+  getDeliveryDayCutoff,
+  isPastCutoffInstant,
+} from "@/portal/utils/subscriptionCutoff";
+import {
+  getNextSubscriptionDelivery,
+  getNextSubscriptionDeliveryDate,
+} from "@/portal/utils/nextSubscriptionDelivery";
 
 type EditableSubscriptionItem = {
   localId: string;
@@ -88,11 +98,12 @@ const toEditablePendingItem = (
   const liveMatch = liveItems.find(
     (liveItem) => getItemMatchKey(liveItem) === matchKey,
   );
+  const pendingItemId = item._id || liveMatch?._id;
 
   return {
-    localId: liveMatch?._id || `pending:${matchKey}:${index}`,
-    existingItemId: liveMatch?._id,
-    variantId: liveMatch?.variant || matchKey,
+    localId: pendingItemId || `pending:${matchKey}:${index}`,
+    existingItemId: pendingItemId,
+    variantId: item.variant || liveMatch?.variant || matchKey,
     name: item.name,
     sku: item.sku || liveMatch?.sku || "",
     quantity: Number(item.quantity || 1),
@@ -294,83 +305,46 @@ const formatDayList = (days: string[]) => {
   return `${days.slice(0, -1).join(", ")}, and ${days[days.length - 1]}`;
 };
 
-const formatDateOnly = (value: Date) =>
-  new Intl.DateTimeFormat("en-GB", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  }).format(value);
-
-const getNextWeekdayDate = (dayIndex: number, referenceDate = new Date()) => {
-  const date = new Date(referenceDate);
-  date.setHours(0, 0, 0, 0);
-  const currentDay = date.getDay();
-  let daysUntil = (dayIndex - currentDay + 7) % 7;
-  if (daysUntil === 0) daysUntil = 7;
-  date.setDate(date.getDate() + daysUntil);
-  return date;
-};
-
 const getDayCutoffLabel = (
-  dayName: string,
   dayIndex: number,
   cutoff: PortalSubscriptionCutoff,
 ) => {
-  const deliveryDate = getNextWeekdayDate(dayIndex);
-  const cutoffDate = new Date(deliveryDate);
-  cutoffDate.setDate(
-    cutoffDate.getDate() - (Number(cutoff.cutoffDaysBefore) || 0),
+  const dayCutoff = getDeliveryDayCutoff(cutoff, dayIndex);
+  const cutoffLabel = formatCutoffDate(
+    dayCutoff?.cutoffAt,
+    cutoff.timeZone,
+  );
+  if (!cutoffLabel) return "Cut-off unavailable";
+
+  const isPastCutoff = isPastCutoffInstant(
+    dayCutoff?.cutoffAt,
+    dayCutoff?.isPastCutoff ?? cutoff.isPastCutoff,
   );
 
-  const [hours, minutes] = String(cutoff.cutoffTime || "00:00")
-    .split(":")
-    .map((part) => Number(part));
-  cutoffDate.setHours(
-    Number.isFinite(hours) ? hours : 0,
-    Number.isFinite(minutes) ? minutes : 0,
-    0,
-    0,
-  );
-
-  const isPastCutoff = Date.now() >= cutoffDate.getTime();
-
-  return `${dayName}: ${isPastCutoff ? "Locked after" : "Editable until"} ${formatDateOnly(cutoffDate)} at ${cutoff.cutoffTime}`;
+  return `${isPastCutoff ? "Locked after" : "Editable until"} ${cutoffLabel} at ${cutoff.cutoffTime}`;
 };
 
 const isDayPastOwnCutoff = (
   dayIndex: number,
   cutoff: PortalSubscriptionCutoff,
 ) => {
-  const deliveryDate = getNextWeekdayDate(dayIndex);
-  const cutoffDate = new Date(deliveryDate);
-  cutoffDate.setDate(
-    cutoffDate.getDate() - (Number(cutoff.cutoffDaysBefore) || 0),
+  const dayCutoff = getDeliveryDayCutoff(cutoff, dayIndex);
+  return isPastCutoffInstant(
+    dayCutoff?.cutoffAt,
+    dayCutoff?.isPastCutoff ?? cutoff.isPastCutoff,
   );
-
-  const [hours, minutes] = String(cutoff.cutoffTime || "00:00")
-    .split(":")
-    .map((part) => Number(part));
-  cutoffDate.setHours(
-    Number.isFinite(hours) ? hours : 0,
-    Number.isFinite(minutes) ? minutes : 0,
-    0,
-    0,
-  );
-
-  return Date.now() >= cutoffDate.getTime();
 };
 
-// When a delivery day is already past its own cut-off, staged changes for that
-// day apply from the delivery AFTER the currently upcoming one for that weekday.
-const getDayScheduledFromDate = (dayIndex: number) => {
-  const upcoming = getNextWeekdayDate(dayIndex);
-  const scheduledFrom = new Date(upcoming);
-  scheduledFrom.setDate(scheduledFrom.getDate() + 7);
-  return scheduledFrom;
+// The server provides the authoritative effective date in the business timezone.
+// Never reconstruct it from the browser's local calendar.
+const getDayScheduledFromLabel = (
+  dayIndex: number,
+  cutoff?: PortalSubscriptionCutoff | null,
+) => {
+  if (!cutoff) return "-";
+  const effectiveFrom = getDeliveryDayCutoff(cutoff, dayIndex)?.effectiveFrom;
+  return formatCutoffDate(effectiveFrom, cutoff.timeZone) || "-";
 };
-
-const getDisplayNextDeliveryDate = (subscription: PortalSubscription) =>
-  subscription.upcomingDeliveryDate ?? subscription.nextDeliveryDate;
 
 const getAddressId = (address?: { _id?: string; id?: string } | null) =>
   address?._id || address?.id || "";
@@ -415,11 +389,14 @@ const SubscriptionDetailPage: React.FC = () => {
   const [deliveries, setDeliveries] = useState<PortalSubscriptionDelivery[]>(
     [],
   );
+  const canModify = canModifySubscription(subscription);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [pauseResumeOn, setPauseResumeOn] = useState("");
+  const [pauseRefundMethod, setPauseRefundMethod] =
+    useState<SubscriptionRefundMethod>("refund");
   const [pauseError, setPauseError] = useState<string | null>(null);
   const [expandedDeliveryId, setExpandedDeliveryId] = useState<string | null>(
     null,
@@ -760,7 +737,7 @@ const SubscriptionDetailPage: React.FC = () => {
     [total, deliveryFeeTotal],
   );
 
-  const nextDelivery = deliveries[0] || null;
+  const nextDelivery = getNextSubscriptionDelivery(subscription, deliveries);
   const nextDeliveryAddOnTotal = nextDelivery
     ? getDeliveryAddOnTotal(nextDelivery)
     : 0;
@@ -845,9 +822,7 @@ const SubscriptionDetailPage: React.FC = () => {
     // Open days (before their own cut-off) apply immediately — no staged text.
     if (!isDayPastOwnCutoff(dayIndex, cutoff)) return null;
 
-    const scheduledFromLabel = formatDate(
-      getDayScheduledFromDate(dayIndex).toISOString(),
-    );
+    const scheduledFromLabel = getDayScheduledFromLabel(dayIndex, cutoff);
 
     const liveItem = (liveDayPlanBaseline[dayName] || []).find(
       (candidate) => getDayPlanItemKey(candidate) === getDayPlanItemKey(item),
@@ -939,6 +914,19 @@ const SubscriptionDetailPage: React.FC = () => {
     );
   }, [subscription]);
 
+  const previewOriginalTotal = isMultiDayWeekly
+    ? calculateDayPlanTotal(dayPlanBaseline)
+    : editableBaseline.reduce(
+        (sum, item) => sum + Number(item.unitPrice || 0) * Number(item.quantity || 0),
+        0,
+      );
+  const previewDelta = total - previewOriginalTotal;
+  const changedPreviewDays = isMultiDayWeekly
+    ? deliveryDays.filter((day) =>
+        getChangedMultiDayIndexes(dayProductDraft, dayPlanBaseline).includes(dayNameToIndex(day)),
+      )
+    : [toDayName(subscription?.preferredDeliveryDay ?? 0)];
+
   const hasScheduledProductChanges = Boolean(
     cutoff?.isPastCutoff &&
     (subscription?.pendingChanges?.items?.length ||
@@ -1011,10 +999,12 @@ const SubscriptionDetailPage: React.FC = () => {
   }, [cutoff, isMultiDayWeekly, pendingItemsByKey, subscription]);
 
   const handleSaveDeliveryDetails = async () => {
-    if (!id || !selectedAddressId) return;
+    if (!id || !selectedAddressId || !canModify) return;
 
     const buildDeliveryDayPlansPayload = () => {
-      if (!isMultiDayWeekly) return undefined;
+      const wasMultiDayWeekly = subscription?.frequency === "weekly" &&
+        (subscription.preferredDeliveryDays?.length || 0) > 1;
+      if (!isMultiDayWeekly && !wasMultiDayWeekly) return undefined;
 
       return deliveryDays.map((dayName) => {
         const dayItems = (dayProductDraft[dayName] || [])
@@ -1085,6 +1075,7 @@ const SubscriptionDetailPage: React.FC = () => {
       await portalSubscriptionsApi.update(id, {
         ...payload,
         ...(refundMethod ? { refundMethod } : {}),
+        expectedVersion: subscription.customerVersion,
       });
       await load();
       setNotice("Delivery details updated.");
@@ -1117,6 +1108,7 @@ const SubscriptionDetailPage: React.FC = () => {
       await portalSubscriptionsApi.update(id, {
         ...pendingDeliveryDetailsSave,
         refundMethod,
+        expectedVersion: subscription.customerVersion,
       });
       await load();
       setNotice("Delivery details updated.");
@@ -1145,7 +1137,12 @@ const SubscriptionDetailPage: React.FC = () => {
       setError(null);
       setNotice(null);
       setPauseError(null);
-      const res = await portalSubscriptionsApi.pause(id, pauseResumeOn);
+      const res = await portalSubscriptionsApi.pause(
+        id,
+        pauseResumeOn,
+        subscription.customerVersion,
+        pauseRefundMethod,
+      );
       await load();
       setPauseOpen(false);
       const message = (res as any)?.message || "Subscription paused.";
@@ -1164,11 +1161,23 @@ const SubscriptionDetailPage: React.FC = () => {
   const handleResume = async () => {
     if (!id) return;
     setSaving(true);
+    setError(null);
     try {
-      await portalSubscriptionsApi.resume(id);
+      const res = await portalSubscriptionsApi.resume(
+        id,
+        subscription.customerVersion,
+      );
       await load();
-      setNotice("Subscription resumed.");
-      toast.success("Subscription resumed.");
+      const message = (res as any)?.message || "Subscription resumed.";
+      setNotice(message);
+      toast.success(message);
+    } catch (err) {
+      const message =
+        err instanceof ApiError
+          ? err.message
+          : "Failed to resume subscription. Please try again.";
+      setError(message);
+      toast.error(message);
     } finally {
       setSaving(false);
     }
@@ -1178,7 +1187,10 @@ const SubscriptionDetailPage: React.FC = () => {
     if (!id) return;
     setSaving(true);
     try {
-      const res = await portalSubscriptionsApi.cancel(id, { refundMethod });
+      const res = await portalSubscriptionsApi.cancel(id, {
+        refundMethod,
+        expectedVersion: subscription.customerVersion,
+      });
       await load();
       setCancelOpen(false);
       setCancelRefundChoiceOpen(false);
@@ -1225,6 +1237,7 @@ const SubscriptionDetailPage: React.FC = () => {
   };
 
   const handleSaveProductChanges = async () => {
+    if (!canModify) return;
     if (!id || !subscription || !hasUnsavedProductChanges) return;
 
     if (isMultiDayWeekly) {
@@ -1320,6 +1333,7 @@ const SubscriptionDetailPage: React.FC = () => {
             deliveryDays.map(dayNameToIndex),
           ),
           refundMethod,
+          expectedVersion: subscription.customerVersion,
         });
 
         await load();
@@ -1346,61 +1360,51 @@ const SubscriptionDetailPage: React.FC = () => {
       return;
     }
 
-    const originalById = new Map(
-      subscription.items.map((item) => [item._id, item]),
-    );
-    const draftExistingIds = new Set(
-      productDraft
-        .filter((item) => Boolean(item.existingItemId))
-        .map((item) => item.existingItemId as string),
-    );
-
-    const itemsToRemove = subscription.items
-      .filter((item) => !draftExistingIds.has(item._id))
-      .map((item) => item._id);
-
-    const itemsToUpdate = productDraft.filter((item) => {
-      if (!item.existingItemId) return false;
-      const original = originalById.get(item.existingItemId);
-      if (!original) return false;
-      return Number(original.quantity || 0) !== Number(item.quantity || 0);
-    });
-
     try {
       setSaving(true);
       setError(null);
       setNotice(null);
 
-      let lastMessage: string | null = null;
-      for (const itemId of itemsToRemove) {
-        const res = await portalSubscriptionsApi.removeItem(id, itemId, {
-          refundMethod,
-        });
-        lastMessage = (res as any)?.message || lastMessage;
-      }
-      for (const item of itemsToUpdate) {
-        const res = await portalSubscriptionsApi.updateItem(
-          id,
-          item.existingItemId as string,
-          {
-            quantity: item.quantity,
-            refundMethod,
-          },
+      const replacementItems = productDraft.map((item) => {
+        if (!item.existingItemId) {
+          throw new Error(
+            "Subscription products changed while you were editing. Please reload and try again.",
+          );
+        }
+        return {
+          itemId: item.existingItemId,
+          quantity: Number(item.quantity || 0),
+        };
+      });
+
+      if (replacementItems.length === 0) {
+        throw new Error(
+          "Please keep at least one product in your subscription.",
         );
-        lastMessage = (res as any)?.message || lastMessage;
       }
+
+      const res = await portalSubscriptionsApi.replaceItems(id, {
+        items: replacementItems,
+        refundMethod,
+        expectedVersion: subscription.customerVersion,
+      });
 
       await load();
       await refreshCustomer().catch(() => {});
-      if (lastMessage) {
-        setNotice(lastMessage);
-        toast.success(lastMessage);
-      }
+      const message =
+        (res as any)?.message ||
+        (cutoff?.isPastCutoff
+          ? "Product changes were scheduled for deliveries after the upcoming one."
+          : "Product changes saved.");
+      setNotice(message);
+      toast.success(message);
     } catch (err) {
       const message =
         err instanceof ApiError
           ? err.message
-          : "Failed to save product changes.";
+          : err instanceof Error
+            ? err.message
+            : "Failed to save product changes.";
       setError(message);
       toast.error(message);
     } finally {
@@ -1412,12 +1416,6 @@ const SubscriptionDetailPage: React.FC = () => {
     if (!cutoff || !Array.isArray(deliveries) || deliveries.length === 0) {
       return false;
     }
-
-    const [hours, minutes] = String(cutoff.cutoffTime || "00:00")
-      .split(":")
-      .map((part) => Number(part));
-    const cutoffHours = Number.isFinite(hours) ? hours : 0;
-    const cutoffMinutes = Number.isFinite(minutes) ? minutes : 0;
 
     return deliveries
       .filter(
@@ -1432,13 +1430,10 @@ const SubscriptionDetailPage: React.FC = () => {
         const deliveryDate = new Date(delivery.scheduledDate);
         if (Number.isNaN(deliveryDate.getTime())) return false;
 
-        const cutoffDate = new Date(deliveryDate);
-        cutoffDate.setDate(
-          cutoffDate.getDate() - (Number(cutoff.cutoffDaysBefore) || 0),
+        return !isPastCutoffInstant(
+          delivery.cutoffAt,
+          delivery.isPastCutoff ?? true,
         );
-        cutoffDate.setHours(cutoffHours, cutoffMinutes, 0, 0);
-
-        return Date.now() < cutoffDate.getTime();
       });
   }, [cutoff, deliveries]);
 
@@ -1487,7 +1482,7 @@ const SubscriptionDetailPage: React.FC = () => {
     .filter(Boolean)
     .join(", ");
 
-  const displayNextDeliveryDate = getDisplayNextDeliveryDate(subscription);
+  const displayNextDeliveryDate = getNextSubscriptionDeliveryDate(subscription);
   const selectedSavedAddress =
     addresses.find((address) => getAddressId(address) === selectedAddressId) ||
     null;
@@ -1516,7 +1511,7 @@ const SubscriptionDetailPage: React.FC = () => {
   const canSaveDeliveryDetails =
     !saving &&
     !addressesLoading &&
-    subscription.status === "active" &&
+    canModify &&
     Boolean(selectedAddressId) &&
     (!isSelectedAddressCurrent || !isDeliveryDayCurrent);
 
@@ -1535,21 +1530,16 @@ const SubscriptionDetailPage: React.FC = () => {
   const cancellationEffectiveAt = subscription.cancellationEffectiveAfter
     ? new Date(subscription.cancellationEffectiveAfter)
     : null;
-  const cancellationStartsAt = cancellationEffectiveAt
-    ? new Date(cancellationEffectiveAt)
-    : null;
-  if (cancellationStartsAt) {
-    cancellationStartsAt.setHours(0, 0, 0, 0);
-  }
   const hasValidCancellationDate = Boolean(
     cancellationEffectiveAt &&
-    !Number.isNaN(cancellationEffectiveAt.getTime()) &&
-    cancellationStartsAt,
+    !Number.isNaN(cancellationEffectiveAt.getTime()),
   );
-  const showScheduledCancellationAlert =
-    Boolean(subscription.isCancellationScheduled) &&
-    (!hasValidCancellationDate ||
-      Date.now() < (cancellationStartsAt as Date).getTime());
+  // The backend keeps a deferred cancellation scheduled for the full protected
+  // delivery day and finalizes it only afterwards. Keep the customer-facing
+  // notice visible for as long as the server says cancellation is scheduled.
+  const showScheduledCancellationAlert = Boolean(
+    subscription.isCancellationScheduled,
+  );
 
   return (
     <div className="max-w-6xl mx-auto">
@@ -1589,13 +1579,14 @@ const SubscriptionDetailPage: React.FC = () => {
           {showScheduledCancellationAlert && (
             <div className="rounded-xl border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900 shadow-sm backdrop-blur-sm dark:border-sky-500/30 dark:bg-sky-500/10 dark:text-sky-100">
               <div>
-                Subscription scheduled for cancellation. Your next delivery
+                Subscription scheduled for cancellation. Your protected delivery
                 remains scheduled; future deliveries are stopped.
               </div>
               {hasValidCancellationDate && (
                 <div className="mt-1 text-xs text-blue-700 dark:text-sky-200">
-                  Scheduled cancellation date:{" "}
-                  {formatDate(cancellationEffectiveAt?.toISOString())}
+                  Final protected delivery date:{" "}
+                  {formatDate(cancellationEffectiveAt?.toISOString())}. The
+                  cancellation completes after this day.
                 </div>
               )}
             </div>
@@ -1632,7 +1623,7 @@ const SubscriptionDetailPage: React.FC = () => {
         </div>
       )}
 
-      {cutoff && subscription.status === "active" && (
+      {cutoff && canModify && (
         <div
           className={`mb-4 rounded-xl border p-3 text-xs sm:text-sm leading-relaxed ${
             cutoff.isPastCutoff
@@ -1651,7 +1642,6 @@ const SubscriptionDetailPage: React.FC = () => {
                     <span className="font-semibold shrink-0">{dayName}</span>
                     <span className="text-muted-foreground">
                       {getDayCutoffLabel(
-                        dayName,
                         dayNameToIndex(dayName),
                         cutoff,
                       )}
@@ -1676,7 +1666,9 @@ const SubscriptionDetailPage: React.FC = () => {
             <>
               You can edit this subscription until{" "}
               <span className="font-semibold">
-                {cutoff.cutoffAt ? formatDate(cutoff.cutoffAt) : "the cut-off"}
+                {cutoff.cutoffAt
+                  ? formatCutoffDate(cutoff.cutoffAt, cutoff.timeZone)
+                  : "the cut-off"}
               </span>
               {cutoff.cutoffTime ? ` at ${cutoff.cutoffTime}` : ""}. Changes
               apply to your next delivery; adding items charges the difference
@@ -1700,7 +1692,9 @@ const SubscriptionDetailPage: React.FC = () => {
               Next delivery
             </p>
             <p className="text-sm sm:text-base font-semibold text-foreground mt-1">
-              {formatDate(displayNextDeliveryDate)}
+              {displayNextDeliveryDate
+                ? formatDate(displayNextDeliveryDate)
+                : "None scheduled"}
             </p>
           </div>
           <div className="rounded-xl border border-border/70 bg-background/70 px-3 py-2.5">
@@ -1755,7 +1749,7 @@ const SubscriptionDetailPage: React.FC = () => {
               <h3 className="font-semibold text-foreground text-base sm:text-lg">
                 Products in Subscription
               </h3>
-              {subscription.status === "active" && (
+              {canModify && (
                 <Button variant="outline" size="sm" className="h-8" asChild>
                   <Link to={`/portal/subscriptions/${id}/add-products`}>
                     <Plus className="h-3.5 w-3.5" />
@@ -1845,11 +1839,13 @@ const SubscriptionDetailPage: React.FC = () => {
                                       ? "border-forest/60 bg-forest/10 text-foreground"
                                       : "border-border text-muted-foreground hover:border-forest/40",
                                   )}
+                                  aria-label={`Include ${item.name} in ${dayName} delivery`}
+                                  aria-pressed={isIncluded}
                                   onClick={() =>
                                     toggleDayItemIncluded(dayName, item.localId)
                                   }
                                   disabled={
-                                    saving || subscription.status !== "active"
+                                    saving || !canModify
                                   }
                                 >
                                   {isIncluded ? "Included" : "Excluded"}
@@ -1858,6 +1854,8 @@ const SubscriptionDetailPage: React.FC = () => {
 
                               <div className="mt-2 flex items-center justify-end gap-2 border-t border-border/70 pt-2">
                                 <button
+                                  type="button"
+                                  aria-label={`Decrease ${item.name} quantity for ${dayName}`}
                                   onClick={() =>
                                     updateDayQty(
                                       dayName,
@@ -1868,7 +1866,7 @@ const SubscriptionDetailPage: React.FC = () => {
                                   disabled={
                                     !isIncluded ||
                                     saving ||
-                                    subscription.status !== "active"
+                                    !canModify
                                   }
                                   className="w-7 h-7 rounded-md border border-border flex items-center justify-center hover:bg-muted transition-colors"
                                 >
@@ -1878,6 +1876,8 @@ const SubscriptionDetailPage: React.FC = () => {
                                   {Number(item.quantity || 0)}
                                 </span>
                                 <button
+                                  type="button"
+                                  aria-label={`Increase ${item.name} quantity for ${dayName}`}
                                   onClick={() =>
                                     updateDayQty(
                                       dayName,
@@ -1888,7 +1888,7 @@ const SubscriptionDetailPage: React.FC = () => {
                                   disabled={
                                     !isIncluded ||
                                     saving ||
-                                    subscription.status !== "active"
+                                    !canModify
                                   }
                                   className="w-7 h-7 rounded-md border border-border flex items-center justify-center hover:bg-muted transition-colors"
                                 >
@@ -1909,10 +1909,9 @@ const SubscriptionDetailPage: React.FC = () => {
                               </p>
                               <p className="text-xs text-blue-700 dark:text-sky-300">
                                 {item.sku} · scheduled for removal from{" "}
-                                {formatDate(
-                                  getDayScheduledFromDate(
-                                    dayNameToIndex(dayName),
-                                  ).toISOString(),
+                                {getDayScheduledFromLabel(
+                                  dayNameToIndex(dayName),
+                                  cutoff,
                                 )}
                               </p>
                             </div>
@@ -1982,8 +1981,9 @@ const SubscriptionDetailPage: React.FC = () => {
                               onClick={() =>
                                 updateQty(item.localId, item.quantity - 1)
                               }
+                              aria-label={`Decrease ${item.name} quantity`}
                               disabled={
-                                saving || subscription.status !== "active"
+                                saving || !canModify
                               }
                               className="w-7 h-7 rounded-md border border-border flex items-center justify-center hover:bg-muted transition-colors"
                             >
@@ -1996,8 +1996,9 @@ const SubscriptionDetailPage: React.FC = () => {
                               onClick={() =>
                                 updateQty(item.localId, item.quantity + 1)
                               }
+                              aria-label={`Increase ${item.name} quantity`}
                               disabled={
-                                saving || subscription.status !== "active"
+                                saving || !canModify
                               }
                               className="w-7 h-7 rounded-md border border-border flex items-center justify-center hover:bg-muted transition-colors"
                             >
@@ -2007,7 +2008,7 @@ const SubscriptionDetailPage: React.FC = () => {
                               className="text-muted-foreground hover:text-destructive transition-colors"
                               onClick={() => setRemoveProductId(item.localId)}
                               disabled={
-                                saving || subscription.status !== "active"
+                                saving || !canModify
                               }
                               aria-label={`Remove ${item.name}`}
                             >
@@ -2047,70 +2048,62 @@ const SubscriptionDetailPage: React.FC = () => {
               <div className="mb-3 rounded-xl border border-forest/20 bg-forest/5 p-3 text-xs sm:text-sm text-foreground leading-relaxed">
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-muted-foreground">
-                    Current per delivery
+                    {isMultiDayWeekly ? "Current products per cycle" : "Current products per delivery"}
                   </span>
-                  <span>{formatMoney(originalTotal)}</span>
+                  <span>{formatMoney(previewOriginalTotal)}</span>
                 </div>
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-muted-foreground">
-                    New per delivery
+                    {isMultiDayWeekly ? "New products per cycle" : "New products per delivery"}
                   </span>
                   <span className="font-semibold">{formatMoney(total)}</span>
                 </div>
                 <div className="flex items-center justify-between gap-2 mt-1 pt-1 border-t border-forest/20">
                   <span className="text-muted-foreground">
-                    {total - originalTotal >= 0
-                      ? "Extra per delivery"
-                      : "Saving per delivery"}
+                    {previewDelta >= 0
+                      ? isMultiDayWeekly ? "Extra products per cycle" : "Extra products per delivery"
+                      : isMultiDayWeekly ? "Product saving per cycle" : "Product saving per delivery"}
                   </span>
                   <span
                     className={
-                      total - originalTotal >= 0
+                      previewDelta >= 0
                         ? "font-semibold text-forest"
                         : "font-semibold text-foreground"
                     }
                   >
-                    {total - originalTotal >= 0 ? "+" : "−"}
-                    {formatMoney(Math.abs(total - originalTotal))}
+                    {previewDelta >= 0 ? "+" : "−"}
+                    {formatMoney(Math.abs(previewDelta))}
                   </span>
                 </div>
-                <p className="mt-2 text-muted-foreground">
-                  {cutoff?.isPastCutoff
-                    ? isMultiDayWeekly
-                      ? `The cut-off for your next deliveries on ${formatDayList(
-                          deliveryDays,
-                        )} has passed, so this change applies from the delivery after that. You won't be charged now — the new amount is taken on each delivery going forward.`
-                      : displayNextDeliveryDate
-                        ? `The cut-off for your next delivery on ${formatDate(
-                            displayNextDeliveryDate,
-                          )} has passed, so this change applies from the delivery after that. You won't be charged now — the new amount is taken on each delivery going forward.`
-                        : `The cut-off for your next delivery has passed, so this change applies from the following delivery. You won't be charged now.`
-                    : total - originalTotal > 0
-                      ? isMultiDayWeekly
-                        ? `Applies to your next deliveries on ${formatDayList(
-                            deliveryDays,
-                          )}. The extra ${formatMoney(
-                            total - originalTotal,
-                          )} is charged to your card now; future deliveries are billed at the new amount.`
-                        : displayNextDeliveryDate
-                          ? `Applies to your next delivery on ${formatDate(
-                              displayNextDeliveryDate,
-                            )}. The extra ${formatMoney(
-                              total - originalTotal,
-                            )} is charged to your card now; future deliveries are billed at the new amount.`
-                          : `Applies to your next delivery. The extra ${formatMoney(
-                              total - originalTotal,
-                            )} is charged to your card now; future deliveries are billed at the new amount.`
-                      : displayNextDeliveryDate
-                        ? isMultiDayWeekly
-                          ? `Applied from your next deliveries on ${formatDayList(
-                              deliveryDays,
-                            )}. You won't be charged now — the new amount is taken on each delivery going forward.`
-                          : `Applied from your next delivery on ${formatDate(
-                              displayNextDeliveryDate,
-                            )}. You won't be charged now — the new amount is taken on each delivery going forward.`
-                        : `Applied from your next scheduled delivery. You won't be charged now — the new amount is taken on each delivery going forward.`}
-                </p>
+                <p className="mt-2 text-muted-foreground">Delivery fees are shown separately below. Save increases and decreases separately.</p>
+                <ul className="mt-2 space-y-2" aria-label="Product change preview">
+                  {changedPreviewDays.map((dayName) => {
+                    const dayIndex = dayNameToIndex(dayName);
+                    const locked = cutoff ? isDayPastOwnCutoff(dayIndex, cutoff) : null;
+                    const dayCutoff = cutoff ? getDeliveryDayCutoff(cutoff, dayIndex) : null;
+                    const effectiveDate = cutoff
+                      ? formatCutoffDate(locked ? dayCutoff?.effectiveFrom : dayCutoff?.deliveryDate, cutoff.timeZone)
+                      : null;
+                    const dayDelta = isMultiDayWeekly
+                      ? (dayProductDraft[dayName] || []).reduce((sum, item) => sum + Number(item.unitPrice || 0) * Number(item.quantity || 0), 0)
+                        - (dayPlanBaseline[dayName] || []).reduce((sum, item) => sum + Number(item.unitPrice || 0) * Number(item.quantity || 0), 0)
+                      : previewDelta;
+                    return (
+                      <li key={dayName}>
+                        <strong>{dayName}</strong>{effectiveDate ? ` — from ${effectiveDate}. ` : ": Effective delivery date will be confirmed when saved. "}
+                        {locked === null
+                          ? "Payment and cutoff eligibility will be checked when you save."
+                          : locked
+                            ? "The upcoming delivery is locked. This change is scheduled for a later delivery; no payment or refund is made now."
+                            : dayDelta > 0
+                              ? `For an eligible prepaid delivery, the extra ${formatMoney(dayDelta)} is charged when you save. Unpaid delivery changes cannot be saved until payment is confirmed.`
+                              : dayDelta < 0
+                                ? `For an eligible prepaid delivery, ${formatMoney(Math.abs(dayDelta))} is returned to your card or store credit using your settlement choice. Unpaid delivery changes cannot be saved until payment is confirmed.`
+                                : "No net product price change. Payment eligibility is checked when you save; increases and decreases may need separate saves."}
+                      </li>
+                    );
+                  })}
+                </ul>
               </div>
             )}
             <div className="flex items-center justify-between gap-2 flex-wrap">
@@ -2171,7 +2164,7 @@ const SubscriptionDetailPage: React.FC = () => {
                   disabled={
                     !hasUnsavedProductChanges ||
                     saving ||
-                    subscription.status !== "active"
+                    !canModify
                   }
                 >
                   Discard
@@ -2182,7 +2175,7 @@ const SubscriptionDetailPage: React.FC = () => {
                   disabled={
                     !hasUnsavedProductChanges ||
                     saving ||
-                    subscription.status !== "active"
+                    !canModify
                   }
                 >
                   {saving ? "Saving..." : "Save product changes"}
@@ -2207,7 +2200,7 @@ const SubscriptionDetailPage: React.FC = () => {
                       <Select
                         value={selectedAddressId}
                         onValueChange={setSelectedAddressId}
-                        disabled={subscription.status !== "active"}
+                        disabled={!canModify}
                       >
                         <SelectTrigger>
                           <SelectValue placeholder="Select an address" />
@@ -2242,18 +2235,26 @@ const SubscriptionDetailPage: React.FC = () => {
                           "No delivery address configured."}
                       </p>
                     </div>
-                    <Button variant="outline" size="sm" asChild>
+                    {canModify ? (
+                      <Button variant="outline" size="sm" asChild>
                       <Link to="/portal/addresses">Manage addresses</Link>
                     </Button>
+                    ) : (
+                      <Button variant="outline" size="sm" disabled>Manage addresses</Button>
+                    )}
                   </div>
                 ) : (
                   <div className="space-y-3">
                     <p className="text-sm text-foreground leading-relaxed">
                       {fullAddress || "No delivery address configured."}
                     </p>
-                    <Button variant="outline" size="sm" asChild>
+                    {canModify ? (
+                      <Button variant="outline" size="sm" asChild>
                       <Link to="/portal/addresses">Add address</Link>
                     </Button>
+                    ) : (
+                      <Button variant="outline" size="sm" disabled>Add address</Button>
+                    )}
                   </div>
                 )}
               </div>
@@ -2285,7 +2286,7 @@ const SubscriptionDetailPage: React.FC = () => {
                         <button
                           key={day}
                           type="button"
-                          disabled={subscription.status !== "active"}
+                          disabled={!canModify}
                           onClick={() => {
                             if (frequency === "weekly") {
                               setDeliveryDays((prev) => {
@@ -2306,7 +2307,7 @@ const SubscriptionDetailPage: React.FC = () => {
                             deliveryDays.includes(day)
                               ? "border-forest bg-forest text-primary-foreground"
                               : "border-border hover:border-forest/40",
-                            subscription.status !== "active" &&
+                            !canModify &&
                               "opacity-60 cursor-not-allowed",
                           )}
                         >
@@ -2341,7 +2342,7 @@ const SubscriptionDetailPage: React.FC = () => {
                   the subscription.
                 </p>
               </div>
-              {subscription.status === "active" && deliveries.length > 0 && (
+              {canModify && deliveries.length > 0 && (
                 <Button asChild size="sm" className="shrink-0">
                   <Link
                     to={`/portal/subscriptions/${id}/next-delivery/add-ons`}
@@ -2530,7 +2531,7 @@ const SubscriptionDetailPage: React.FC = () => {
                     size="sm"
                     className="w-full"
                     onClick={() => setPauseOpen(true)}
-                    disabled={saving}
+                    disabled={saving || !canModify}
                   >
                     <Pause className="h-3.5 w-3.5" />
                     Pause Subscription
@@ -2540,7 +2541,7 @@ const SubscriptionDetailPage: React.FC = () => {
                     size="sm"
                     className="w-full"
                     onClick={() => setResumeOpen(true)}
-                    disabled={saving}
+                    disabled={saving || subscription.isCancellationScheduled}
                   >
                     <Play className="h-3.5 w-3.5" />
                     Resume Subscription
@@ -2552,7 +2553,7 @@ const SubscriptionDetailPage: React.FC = () => {
                     size="sm"
                     className="w-full text-destructive hover:bg-destructive/10"
                     onClick={() => setCancelOpen(true)}
-                    disabled={saving}
+                    disabled={saving || subscription.isCancellationScheduled}
                   >
                     <X className="h-3.5 w-3.5" />
                     Cancel Subscription
@@ -2584,8 +2585,8 @@ const SubscriptionDetailPage: React.FC = () => {
                   <span className="text-muted-foreground">
                     {isMultiDayWeekly
                       ? hasScheduledProductChanges
-                        ? "Scheduled per-day totals"
-                        : "Per-day totals"
+                        ? "Scheduled cycle total"
+                        : "Cycle total"
                       : hasScheduledProductChanges
                         ? "Scheduled per delivery"
                         : "Per delivery"}
@@ -2672,7 +2673,7 @@ const SubscriptionDetailPage: React.FC = () => {
                 )}
                 {hasScheduledProductChanges && (
                   <div className="flex items-center justify-between text-xs text-blue-700 dark:text-sky-300">
-                    <span>Current live per delivery</span>
+                    <span>{isMultiDayWeekly ? "Current live products per cycle" : "Current live products per delivery"}</span>
                     <span>{formatMoney(originalTotal)}</span>
                   </div>
                 )}
@@ -2688,6 +2689,7 @@ const SubscriptionDetailPage: React.FC = () => {
           setPauseOpen(open);
           if (!open) {
             setPauseError(null);
+            setPauseRefundMethod("refund");
           }
         }}
       >
@@ -2696,16 +2698,21 @@ const SubscriptionDetailPage: React.FC = () => {
             <DialogTitle>Pause Subscription?</DialogTitle>
             <DialogDescription>
               Choose when this subscription should resume. Pauses can last up to
-              28 days. Any already-billed upcoming delivery remains scheduled,
-              and no changes can be made while the subscription is paused.
+              28 days. Deliveries before your resume date are skipped if their
+              cut-off has not passed. Eligible prepaid amounts are returned to
+              your payment card or store credit using your settlement choice.
+              Deliveries past cut-off remain scheduled. Deliveries on or after
+              your resume date are not skipped by this pause. You cannot edit
+              the subscription while it is paused.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3 pt-2">
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-foreground">
+              <label htmlFor="pause-resume-date" className="text-sm font-medium text-foreground">
                 Resume on
               </label>
               <Input
+                id="pause-resume-date"
                 type="date"
                 min={pauseMinDate}
                 max={pauseMaxDate}
@@ -2717,6 +2724,29 @@ const SubscriptionDetailPage: React.FC = () => {
                 Choose a date between {formatDate(pauseMinDate)} and{" "}
                 {formatDate(pauseMaxDate)}.
               </p>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-foreground">
+                  Settlement method
+                </label>
+                <Select
+                  value={pauseRefundMethod}
+                  onValueChange={(value) =>
+                    setPauseRefundMethod(value as SubscriptionRefundMethod)
+                  }
+                >
+                  <SelectTrigger aria-label="Settlement method">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="refund">Refund to payment card</SelectItem>
+                    <SelectItem value="credit">Store credit</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  If a prepaid delivery is eligible to be settled, choose whether
+                  the amount should return to your card or be added as store credit.
+                </p>
+              </div>
               {pauseError && (
                 <p className="text-xs text-destructive">{pauseError}</p>
               )}
@@ -2785,7 +2815,7 @@ const SubscriptionDetailPage: React.FC = () => {
                 <>
                   You're reducing this subscription by{" "}
                   <strong>
-                    {formatMoney(Math.max(0, originalTotal - total))}
+                    {formatMoney(Math.max(0, previewOriginalTotal - total))}
                   </strong>
                   . Choose how you'd like to receive the difference.
                 </>
