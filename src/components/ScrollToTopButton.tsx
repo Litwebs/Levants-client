@@ -1,7 +1,11 @@
 import { ArrowUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useLocation } from "react-router-dom";
 
 export const ScrollToTopButton = () => {
+  const { pathname } = useLocation();
+  if (pathname === "/component-catalog") return null;
+
   return (
     <div className="fixed left-1/2 -translate-x-1/2 bottom-4 sm:bottom-6 z-50">
       <Button
