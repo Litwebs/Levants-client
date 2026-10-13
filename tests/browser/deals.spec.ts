@@ -29,7 +29,7 @@ const offers: Deal[] = names.map((name, index) => ({
   savings: 5,
   savingsPercent: 33,
   currency: "GBP",
-  isFeatured: index === 0,
+  isFeatured: true,
   maxPackages: 5,
   items: ["Whole milk", "Farmhouse butter", "Wildflower honey"].map(
     (product, i) => ({
@@ -53,7 +53,7 @@ async function api(page: Page, deals = offers) {
   // API images are provider URLs. Serve deterministic fixture assets from the
   // Vite origin instead of pretending the API hosts its /src directory.
   const assetUrl = (url?: string) => url?.startsWith("/src/assets/")
-    ? new URL(url, "http://127.0.0.1:8080").href : url;
+    ? new URL(url, "http://127.0.0.1:4183").href : url;
   deals = deals.map((deal) => ({
     ...deal, imageUrl: assetUrl(deal.imageUrl),
     items: deal.items.map((item) => ({
@@ -279,6 +279,7 @@ test("reduced motion never autoplays and manual controls still work", async ({ p
 
 test("touch swipe changes the visible package", async ({ browser }) => {
   const context = await browser.newContext({
+    baseURL: "http://127.0.0.1:4183",
     viewport: { width: 390, height: 850 },
     hasTouch: true,
     isMobile: true,

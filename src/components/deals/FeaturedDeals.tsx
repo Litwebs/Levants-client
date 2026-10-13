@@ -28,7 +28,7 @@ function waitForFirstImage(src?: string): Promise<void> {
   });
 }
 
-export default function FeaturedDeals({ fallbackImage, onImage = false }: { fallbackImage?: string; onImage?: boolean }) {
+export default function FeaturedDeals({ onImage = false, onAvailabilityChange }: { onImage?: boolean; onAvailabilityChange?: (available: boolean) => void }) {
   const [deals, setDeals] = useState<Deal[]>([]);
   const [loading, setLoading] = useState(true);
   const [revealed, setRevealed] = useState(false);
@@ -40,10 +40,10 @@ export default function FeaturedDeals({ fallbackImage, onImage = false }: { fall
     const load = async () => {
       let nextDeals: Deal[] = [];
       try {
-        const response = await listDeals({ page: 1, pageSize: 12 });
-        nextDeals = response.deals;
+        const response = await listDeals({ page: 1, pageSize: 12, featured: true });
+        nextDeals = response.deals.filter(deal => deal.isFeatured);
       } catch {
-        // The existing fallback image is shown when deals cannot be loaded.
+        // Hide the collection when offers cannot be loaded.
       }
 
       await Promise.all([
@@ -54,6 +54,7 @@ export default function FeaturedDeals({ fallbackImage, onImage = false }: { fall
       ]);
 
       if (!active) return;
+      onAvailabilityChange?.(nextDeals.length > 0);
       setDeals(nextDeals);
       setLoading(false);
     };
@@ -61,7 +62,7 @@ export default function FeaturedDeals({ fallbackImage, onImage = false }: { fall
     return () => {
       active = false;
     };
-  }, []);
+  }, [onAvailabilityChange]);
 
   useEffect(() => {
     if (loading || deals.length === 0) return;
@@ -74,8 +75,11 @@ export default function FeaturedDeals({ fallbackImage, onImage = false }: { fall
   }, [loading, deals.length]);
 
   if (!loading && deals.length === 0) {
-    return fallbackImage ? (
-      <img src={fallbackImage} alt="Countryside farm with grazing cows" className="aspect-[4/5] w-full rounded-2xl object-cover sm:aspect-[4/3]" />
+    return onImage ? (
+      <div aria-hidden="true" className="invisible min-w-0 pointer-events-none">
+        <div className="mb-3 h-11" />
+        <DealsSkeleton home />
+      </div>
     ) : null;
   }
 

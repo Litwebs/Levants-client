@@ -19,6 +19,7 @@
     "test:uat": "node --test scripts/uat-config.test.mjs",
     "test:deals": "vitest run",
     "test:deals:browser": "playwright test",
+    "test:deals:full": "npm run typecheck && npm run test:deals && npm run test:deals:browser",
     "test:deals:baskets": "node scripts/test-basket-scenarios.mjs"
   },
   "dependencies": {

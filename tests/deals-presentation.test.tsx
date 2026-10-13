@@ -167,11 +167,11 @@ describe("deal collection states", () => {
     expect(screen.queryByRole("status")).toBeNull();
   });
   test("errors are customer-safe and retry recovers", async () => {
-    listDeals.mockRejectedValueOnce(new Error("private database failure"));
-    listDeals.mockResolvedValueOnce({ deals: [deal] });
+    listDeals.mockRejectedValue(new Error("private database failure"));
     mount(<DealsPage />);
     await screen.findByRole("alert");
     expect(screen.queryByText(/private database/)).toBeNull();
+    listDeals.mockResolvedValue({ deals: [deal] });
     fireEvent.click(screen.getByRole("button", { name: "Retry" }));
     await screen.findByRole("heading", { name: deal.name });
   });
@@ -195,10 +195,10 @@ describe("deal collection states", () => {
     },
   );
   test("Home fetches enough offers to rotate and links to Deals", async () => {
-    listDeals.mockResolvedValue({ deals: [deal] });
+    listDeals.mockResolvedValue({ deals: [{ ...deal, isFeatured: true }] });
     mount(<FeaturedDeals />);
     await screen.findByText("Deal collection");
-    expect(listDeals).toHaveBeenCalledWith({ page: 1, pageSize: 12 });
+    expect(listDeals).toHaveBeenCalledWith({ page: 1, pageSize: 12, featured: true });
     expect(
       screen.getByRole("link", { name: "View all deals" }).getAttribute("href"),
     ).toBe("/deals");
