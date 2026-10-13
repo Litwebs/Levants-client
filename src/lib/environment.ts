@@ -7,6 +7,8 @@ if (isUat && configuredApi !== uatApi) {
 if (window.location.hostname === "uat.levantsdairy.co.uk" && !isUat) {
   throw new Error("This hostname requires a UAT storefront build");
 }
-export const apiBaseUrl = isUat ? uatApi : configuredApi || (
+export const apiBaseUrl = isUat
+  ? import.meta.env.DEV ? "/api" : uatApi
+  : configuredApi || (
   import.meta.env.DEV ? "http://localhost:5001/api" : "https://api.levantsdairy.co.uk/api"
 );

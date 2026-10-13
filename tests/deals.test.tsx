@@ -9,12 +9,13 @@ import DealCard from "@/components/deals/DealCard";
 import type { Deal } from "@/api/deals";
 import { ApiError } from "@/api/client";
 
-const { getDeal, confirmCheckout } = vi.hoisted(() => ({
+const { getDeal, listDeals, confirmCheckout } = vi.hoisted(() => ({
   getDeal: vi.fn(),
+  listDeals: vi.fn(),
   confirmCheckout: vi.fn(),
 }));
 vi.mock("@/api/orders", () => ({ ordersApi: { confirmCheckout } }));
-vi.mock("@/api/deals", () => ({ getDeal }));
+vi.mock("@/api/deals", () => ({ getDeal, listDeals }));
 vi.mock("sonner", () => ({ toast: { success: vi.fn() } }));
 
 const offer: Deal = {
@@ -65,6 +66,8 @@ function mount(deal = offer) {
 beforeEach(() => {
   localStorage.clear();
   vi.clearAllMocks();
+  getDeal.mockResolvedValue(offer);
+  listDeals.mockResolvedValue({ deals: [], meta: { totalPages: 1 } });
 });
 afterEach(cleanup);
 

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Check, ChevronLeft, Lock, Truck, Loader2 } from "lucide-react";
 import { useCart } from "@/context/CartContext";
@@ -10,6 +10,8 @@ import { portalOrdersApi } from "@/api/portalOrders";
 import { isPortalLoggedIn } from "@/lib/portalAuth";
 import { useBusinessInfo } from "@/context/BusinessInfoContext";
 import { Input, Textarea } from "@/components/common/FormControls";
+import AutomaticDealSavings from "@/components/cart/AutomaticDealSavings";
+import { buildBasketOrderItems } from "@/lib/basketDeals";
 
 type CheckoutStep = 1 | 2 | 3;
 
@@ -39,7 +41,9 @@ type CheckoutProfile = {
 const CheckoutPage: React.FC = () => {
   const navigate = useNavigate();
   const businessInfo = useBusinessInfo();
-  const { items, deals, subtotal, refreshDeals } = useCart();
+  const { items, deals, automaticDeals, checkoutDeals, subtotal, checkOffers } = useCart();
+  const [checkingOffers, setCheckingOffers] = useState(false);
+  const placingOrder = useRef(false);
   const {
     customer,
     createGuestCustomer,
@@ -71,11 +75,11 @@ const CheckoutPage: React.FC = () => {
   } | null>(null);
 
   useEffect(() => {
-    if (deals.length) {
+    if (checkoutDeals.length) {
       setDiscountCode("");
       setValidatedDiscount(null);
     }
-  }, [deals.length]);
+  }, [checkoutDeals.length]);
 
   const [formData, setFormData] = useState({
     firstName: "",
@@ -236,36 +240,10 @@ const CheckoutPage: React.FC = () => {
     return true;
   };
 
-  const buildOrderItems = () => {
-    const quantities = new Map<string, number>();
-
-    for (const item of items) {
-      const variantId = item.variant?.id || item.product.id;
-      quantities.set(
-        variantId,
-        (quantities.get(variantId) || 0) + Number(item.quantity || 0),
-      );
-    }
-
-    for (const packageLine of deals) {
-      for (const component of packageLine.deal.items) {
-        const quantity =
-          Number(component.quantity || 0) * Number(packageLine.quantity || 0);
-        quantities.set(
-          component.variantId,
-          (quantities.get(component.variantId) || 0) + quantity,
-        );
-      }
-    }
-
-    return Array.from(quantities.entries()).map(([variantId, quantity]) => ({
-      variantId,
-      quantity,
-    }));
-  };
+  const buildOrderItems = () => buildBasketOrderItems(items, deals);
 
   const ensureDiscountValidatedIfNeeded = async (customerId: string) => {
-    if (deals.length > 0) {
+    if (checkoutDeals.length > 0) {
       setDiscountCode("");
       setValidatedDiscount(null);
       return true;
@@ -385,7 +363,22 @@ const CheckoutPage: React.FC = () => {
   };
 
   const handlePlaceOrder = async () => {
+    if (placingOrder.current) return;
+    placingOrder.current = true;
+    setCheckingOffers(true);
     try {
+      try {
+        const changed = await checkOffers();
+        if (changed) {
+          toast.info("Your offers have been updated. Review your basket total, then place your order.");
+          return;
+        }
+      } catch {
+        toast.error("Could not check current offers. Please try again.");
+        return;
+      } finally {
+        setCheckingOffers(false);
+      }
       if (
         isBlank(formData.address1) ||
         isBlank(formData.city) ||
@@ -456,8 +449,8 @@ const CheckoutPage: React.FC = () => {
       const checkoutPayload = {
         items: orderItems,
         deals:
-          deals.length > 0
-            ? deals.map((entry) => ({
+          checkoutDeals.length > 0
+            ? checkoutDeals.map((entry) => ({
                 dealId: entry.deal.id,
                 quantity: entry.quantity,
                 expectedPackagePrice: entry.deal.packagePrice,
@@ -473,7 +466,7 @@ const CheckoutPage: React.FC = () => {
         },
         customerInstructions: formData.customerInstructions || undefined,
         discountCode:
-          usingCredit || deals.length > 0
+          usingCredit || checkoutDeals.length > 0
             ? undefined
             : validatedDiscount?.code || discountCode.trim() || undefined,
         creditToApplyMinor: usingCredit ? creditAppliedMinor : undefined,
@@ -515,6 +508,9 @@ const CheckoutPage: React.FC = () => {
       }
     } catch {
       toast.error("Something went wrong. Please try again.");
+    } finally {
+      placingOrder.current = false;
+      setCheckingOffers(false);
     }
   };
 
@@ -886,14 +882,14 @@ const CheckoutPage: React.FC = () => {
                     })}
                   </div>
 
-                  {deals.length > 0 && <button type="button" className="btn-outline w-full mb-4" onClick={() => void refreshDeals().then(() => toast.success("Offers refreshed. Review your basket before paying.")).catch(() => toast.error("Could not refresh offers. Please try again."))}>Refresh offers</button>}
-                  {deals.length > 0 ? (
-                    <div className="mb-4 rounded-xl border border-primary/20 bg-primary/5 p-4 text-sm">
+                  <AutomaticDealSavings showDiscountNote />
+                  {checkoutDeals.length > 0 ? (
+                    automaticDeals.length === 0 && <div className="mb-4 rounded-xl border border-primary/20 bg-primary/5 p-4 text-sm">
                       <p className="font-medium text-primary">
                         Package savings applied
                       </p>
                       <p className="mt-1 text-muted-foreground">
-                        Deal packages already include their advertised saving,
+                        Eligible deal savings are already included,
                         so discount codes cannot be combined with them.
                       </p>
                     </div>
@@ -1049,7 +1045,7 @@ const CheckoutPage: React.FC = () => {
                 <button
                   onClick={handleBack}
                   className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
-                  disabled={loading || portalCheckoutLoading || checkingPostcode}
+                  disabled={loading || portalCheckoutLoading || checkingPostcode || checkingOffers}
                 >
                   <ChevronLeft className="w-4 h-4" />
                   Back
@@ -1062,7 +1058,7 @@ const CheckoutPage: React.FC = () => {
                 <button
                   onClick={handleNext}
                   className="btn-primary"
-                  disabled={loading || portalCheckoutLoading || checkingPostcode}
+                  disabled={loading || portalCheckoutLoading || checkingPostcode || checkingOffers}
                 >
                   {checkingPostcode ? (
                     <span className="inline-flex items-center gap-2">
@@ -1077,12 +1073,12 @@ const CheckoutPage: React.FC = () => {
                 <button
                   onClick={handlePlaceOrder}
                   className="btn-primary flex items-center gap-2"
-                  disabled={loading || portalCheckoutLoading || checkingPostcode}
+                  disabled={loading || portalCheckoutLoading || checkingPostcode || checkingOffers}
                 >
-                  {loading || portalCheckoutLoading ? (
+                  {loading || portalCheckoutLoading || checkingOffers ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin" />
-                      Processing...
+                      {checkingOffers ? "Checking offers…" : "Processing…"}
                     </>
                   ) : (
                     `Place Order - £${amountDueTotal.toFixed(2)}`

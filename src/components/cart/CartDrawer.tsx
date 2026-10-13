@@ -2,6 +2,7 @@ import React from "react";
 import { Link } from "react-router-dom";
 import { X, Plus, Minus, ShoppingBag, Trash2 } from "lucide-react";
 import { useCart } from "@/context/CartContext";
+import AutomaticDealSavings from "./AutomaticDealSavings";
 
 const CartDrawer: React.FC = () => {
   const {
@@ -239,6 +240,7 @@ const CartDrawer: React.FC = () => {
             {/* Free Delivery Notice */}
 
             {/* Order Summary */}
+            <AutomaticDealSavings />
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Subtotal</span>

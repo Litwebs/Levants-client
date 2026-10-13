@@ -4,11 +4,15 @@ import React, {
   useCallback,
   useReducer,
   useEffect,
+  useMemo,
+  useRef,
+  useState,
   ReactNode,
 } from "react";
 import { Product, ProductVariant } from "@/data/products";
 import { resolveImageUrl } from "@/api/client";
-import { getDeal, type Deal } from "@/api/deals";
+import { getDeal, listDeals, type Deal } from "@/api/deals";
+import { basketOfferSignature, matchBasketDeals } from "@/lib/basketDeals";
 import { ApiError } from "@/api/client";
 
 export interface CartItem {
@@ -64,6 +68,10 @@ interface CartContextType extends CartState {
   addDeal: (deal: Deal, quantity?: number) => void;
   removeDeal: (dealId: string) => void;
   refreshDeals: () => Promise<void>;
+  checkOffers: () => Promise<boolean>;
+  automaticDeals: DealCartItem[];
+  checkoutDeals: DealCartItem[];
+  automaticSavings: number;
   updateDealQuantity: (dealId: string, quantity: number) => void;
   removeItem: (productId: string, variantId?: string) => void;
   updateQuantity: (
@@ -261,7 +269,7 @@ const cartReducer = (state: CartState, action: CartAction): CartState => {
             (value) => value.id === entry.deal.id,
           );
           if (!result) return [entry];
-          if (!result.deal) return [];
+          if (!result.deal || result.deal.maxPackages <= 0) return [];
           return [
             {
               deal: result.deal,
@@ -303,6 +311,11 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({
     deals: [],
     isOpen: false,
   });
+  const [availableDeals, setAvailableDeals] = useState<Deal[]>([]);
+  const availableDealsRef = useRef<Deal[]>([]);
+  const latestCart = useRef(state);
+  latestCart.current = state;
+  const refreshing = useRef<Promise<boolean> | null>(null);
 
   // Load cart from localStorage on mount
   useEffect(() => {
@@ -425,9 +438,23 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({
     });
   };
 
-  const refreshDeals = async () => {
-    const refreshed = await Promise.all(
-      state.deals.map(async (entry) => {
+  const checkOffers = useCallback((): Promise<boolean> => {
+    if (refreshing.current) return refreshing.current;
+    const initial = latestCart.current;
+    const before = basketOfferSignature(initial.items, initial.deals, availableDealsRef.current);
+    const request = (async () => {
+      const catalogue: Deal[] = [];
+      let page = 1;
+      let totalPages = 1;
+      do {
+        const result = await listDeals({ page, pageSize: 100 });
+        catalogue.push(...result.deals);
+        totalPages = result.meta?.totalPages || 1;
+        page++;
+      } while (page <= totalPages);
+      const offers = [...new Map(catalogue.map((deal) => [deal.id, deal])).values()];
+      const refreshed = await Promise.all(
+      latestCart.current.deals.map(async (entry) => {
         try {
           return { id: entry.deal.id, deal: await getDeal(entry.deal.slug) };
         } catch (err) {
@@ -437,8 +464,37 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({
         }
       }),
     );
-    dispatch({ type: "REFRESH_DEALS", payload: refreshed });
-  };
+      const current = latestCart.current;
+      const nextDeals = current.deals.flatMap((entry) => {
+        const result = refreshed.find((value) => value.id === entry.deal.id);
+        if (!result) return [entry];
+        if (!result.deal || result.deal.maxPackages <= 0) return [];
+        return [{ deal: result.deal, quantity: Math.min(99, result.deal.maxPackages, entry.quantity) }];
+      });
+      const after = basketOfferSignature(current.items, nextDeals, offers);
+      availableDealsRef.current = offers;
+      setAvailableDeals(offers);
+      dispatch({ type: "REFRESH_DEALS", payload: refreshed });
+      return before !== after;
+    })();
+    refreshing.current = request;
+    void request.finally(() => { refreshing.current = null; }).catch(() => {});
+    return request;
+  }, []);
+
+  const refreshDeals = useCallback(async () => { await checkOffers(); }, [checkOffers]);
+
+  useEffect(() => {
+    void checkOffers().catch(() => {});
+    const refresh = () => { if (document.visibilityState === "visible") void checkOffers().catch(() => {}); };
+    window.addEventListener("focus", refresh);
+    const interval = window.setInterval(refresh, 60_000);
+    return () => { window.removeEventListener("focus", refresh); window.clearInterval(interval); };
+  }, [checkOffers]);
+
+  useEffect(() => {
+    if (state.isOpen) void checkOffers().catch(() => {});
+  }, [state.isOpen, checkOffers]);
 
   const removeDeal = (dealId: string) => {
     dispatch({ type: "REMOVE_DEAL", payload: { dealId } });
@@ -505,7 +561,8 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({
       total + Number(item.deal.packagePrice || 0) * item.quantity,
     0,
   );
-  const subtotal = productSubtotal + dealSubtotal;
+  const offerPricing = useMemo(() => matchBasketDeals(state.items, availableDeals, state.deals), [state.items, availableDeals, state.deals]);
+  const subtotal = Math.round((productSubtotal + dealSubtotal - offerPricing.automaticSavings) * 100) / 100;
 
   const deliveryFee = 1;
   const total = subtotal + deliveryFee;
@@ -518,6 +575,8 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({
         addDeal,
         removeDeal,
         refreshDeals,
+        checkOffers,
+        ...offerPricing,
         updateDealQuantity,
         removeItem,
         updateQuantity,

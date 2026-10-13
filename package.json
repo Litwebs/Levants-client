@@ -18,7 +18,8 @@
     "build:uat": "node scripts/check-uat-config.mjs && vite build --mode uat && node scripts/check-uat-build.mjs",
     "test:uat": "node --test scripts/uat-config.test.mjs",
     "test:deals": "vitest run",
-    "test:deals:browser": "playwright test"
+    "test:deals:browser": "playwright test",
+    "test:deals:baskets": "node scripts/test-basket-scenarios.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

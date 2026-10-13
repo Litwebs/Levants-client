@@ -10,7 +10,9 @@ export default defineConfig(({ mode }) => ({
     port: 8080,
     proxy: {
       "/api": {
-        target: "https://api.levantsdairy.co.uk",
+        target: mode === "uat"
+          ? "https://uat-api.levantsdairy.co.uk"
+          : "https://api.levantsdairy.co.uk",
         changeOrigin: true,
         secure: false,
       },

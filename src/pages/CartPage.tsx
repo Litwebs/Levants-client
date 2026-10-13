@@ -3,10 +3,16 @@ import { Link } from "react-router-dom";
 import { Trash2, ArrowRight, ShoppingBag, Tag } from "lucide-react";
 import { useCart } from "@/context/CartContext";
 import QuantityStepper from "@/components/ui/QuantityStepper";
+import AutomaticDealSavings from "@/components/cart/AutomaticDealSavings";
 
 const CartPage: React.FC = () => {
   const {
     items,
+    deals,
+    removeDeal,
+    updateDealQuantity,
+    checkoutDeals,
+    itemCount,
     removeItem,
     updateQuantity,
     subtotal,
@@ -15,7 +21,7 @@ const CartPage: React.FC = () => {
     clearCart,
   } = useCart();
 
-  if (items.length === 0) {
+  if (items.length === 0 && deals.length === 0) {
     return (
       <div className="min-h-screen bg-background">
         <div className="container-custom py-16 lg:py-24">
@@ -50,7 +56,7 @@ const CartPage: React.FC = () => {
             Your Cart
           </h1>
           <p className="text-muted-foreground">
-            {items.length} {items.length === 1 ? "item" : "items"} in your cart
+            {itemCount} {itemCount === 1 ? "item" : "items"} in your cart
           </p>
         </div>
       </div>
@@ -59,6 +65,21 @@ const CartPage: React.FC = () => {
         <div className="grid lg:grid-cols-3 gap-8 lg:gap-12">
           {/* Cart Items */}
           <div className="lg:col-span-2 space-y-4">
+            {deals.map(({ deal, quantity }) => (
+              <div key={deal.id} className="flex gap-4 p-4 lg:p-6 bg-card rounded-2xl border border-border">
+                {deal.imageUrl ? <img src={deal.imageUrl} alt="" className="w-24 h-24 rounded-xl object-cover flex-shrink-0" /> : null}
+                <div className="flex-1 min-w-0">
+                  <div className="flex justify-between gap-4">
+                    <div><p className="text-xs font-medium text-primary uppercase">Package deal</p><Link to={`/deals/${deal.slug}`} className="font-heading text-lg font-medium">{deal.name}</Link></div>
+                    <span className="font-semibold whitespace-nowrap">£{(deal.packagePrice * quantity).toFixed(2)}</span>
+                  </div>
+                  <div className="flex items-center justify-between mt-4">
+                    <QuantityStepper quantity={quantity} onQuantityChange={(value) => updateDealQuantity(deal.id, value)} max={Math.min(99, deal.maxPackages)} size="sm" />
+                    <button onClick={() => removeDeal(deal.id)} aria-label={`Remove ${deal.name}`} className="p-2 text-muted-foreground hover:text-destructive"><Trash2 className="w-5 h-5" /></button>
+                  </div>
+                </div>
+              </div>
+            ))}
             {items.map((item) => {
               const itemKey = item.variant
                 ? `${item.product.id}-${item.variant.id}`
@@ -152,7 +173,7 @@ const CartPage: React.FC = () => {
               </h2>
 
               {/* Promo Code */}
-              <div className="mb-6">
+              {checkoutDeals.length === 0 ? <div className="mb-6">
                 <label className="block text-sm font-medium mb-2">
                   Promo Code
                 </label>
@@ -166,9 +187,10 @@ const CartPage: React.FC = () => {
                     <Tag className="w-4 h-4" />
                   </button>
                 </div>
-              </div>
+              </div> : null}
 
               {/* Totals */}
+              <AutomaticDealSavings />
               <div className="space-y-3 mb-6">
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Subtotal</span>
