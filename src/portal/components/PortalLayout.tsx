@@ -51,6 +51,7 @@ const navItems = [
 const siteItems = [
   { label: "Home", href: "/", icon: Home },
   { label: "Shop", href: "/shop", icon: ShoppingBag },
+  { label: "Deals", href: "/deals", icon: ShoppingBag },
   { label: "Reviews", href: "/reviews", icon: Star },
   { label: "About", href: "/about", icon: Info },
   { label: "Delivery & FAQs", href: "/delivery", icon: MapPin },
