@@ -393,12 +393,16 @@ const ProductPage: React.FC = () => {
             </div>
 
             <div className="mb-6">
-              <OrderTypeChoice
-                selected={orderType}
-                onChange={setOrderType}
-                compact
-                showHeading={false}
-              />
+              {product.isSubscriptionEligible === false ? (
+                <p className="text-sm text-muted-foreground">Available for one-time purchases only.</p>
+              ) : (
+                <OrderTypeChoice
+                  selected={orderType}
+                  onChange={setOrderType}
+                  compact
+                  showHeading={false}
+                />
+              )}
             </div>
 
             {/* Variants */}
@@ -432,7 +436,7 @@ const ProductPage: React.FC = () => {
               </div>
             )}
 
-            {orderType === "one-time" ? (
+            {orderType === "one-time" || product.isSubscriptionEligible === false ? (
               <div className="mb-6 flex items-center gap-3">
                 <div className="shrink-0 [&>div]:h-10">
                   <QuantityStepper
