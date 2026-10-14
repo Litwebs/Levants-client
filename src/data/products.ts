@@ -7,7 +7,6 @@ import productCheddar from '@/assets/product-cheddar.jpg';
 import productRedLeicester from '@/assets/product-red-leicester.jpg';
 
 export interface Product {
-  isSubscriptionEligible?: boolean;
   id: string;
   name: string;
   category: string;
@@ -26,6 +25,7 @@ export interface Product {
 }
 
 export interface ProductVariant {
+  isSubscriptionEligible?: boolean;
   id: string;
   name: string;
   description?: string | null;

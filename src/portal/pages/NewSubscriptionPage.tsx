@@ -30,6 +30,7 @@ import { loadStorefrontStripe as loadStripe } from "@/lib/stripe";
 
 // ── API types ────────────────────────────────────────────────────────────────
 interface ApiVariant {
+  isSubscriptionEligible?: boolean;
   id: string;
   name: string;
   price: number;
@@ -40,7 +41,6 @@ interface ApiVariant {
 }
 
 interface ApiProduct {
-  isSubscriptionEligible?: boolean;
   id: string;
   name: string;
   category: string;
@@ -480,7 +480,9 @@ const NewSubscriptionPage: React.FC = () => {
         "/products",
         { page: 1, pageSize: 50, sort: "category_order", subscriptionEligible: true },
       );
-      setProducts((json?.data?.items ?? []).filter(product => product.isSubscriptionEligible !== false));
+      setProducts((json?.data?.items ?? []).map(product => ({
+        ...product, variants: product.variants.filter(variant => variant.isSubscriptionEligible !== false),
+      })).filter(product => product.variants.length > 0));
     } catch {
       setProductError("Could not load products. Please try again.");
     } finally {
@@ -1666,8 +1668,8 @@ const NewSubscriptionPage: React.FC = () => {
                   ? "!bg-destructive/10 !text-destructive hover:!bg-destructive/20"
                   : undefined
               }
-              onCardAction={({ product, variant, quantity, lockedVariantId }) => {
-                if (product.isSubscriptionEligible === false) return;
+              onCardAction={({ variant, quantity, lockedVariantId }) => {
+                if (variant?.isSubscriptionEligible === false) return;
                 const variantId = variant?.id ?? lockedVariantId;
                 if (!variantId) return;
                 const isSelected =

@@ -393,7 +393,7 @@ const ProductPage: React.FC = () => {
             </div>
 
             <div className="mb-6">
-              {product.isSubscriptionEligible === false ? (
+              {selectedVariant?.isSubscriptionEligible === false ? (
                 <p className="text-sm text-muted-foreground">Available for one-time purchases only.</p>
               ) : (
                 <OrderTypeChoice
@@ -436,7 +436,7 @@ const ProductPage: React.FC = () => {
               </div>
             )}
 
-            {orderType === "one-time" || product.isSubscriptionEligible === false ? (
+            {orderType === "one-time" || selectedVariant?.isSubscriptionEligible === false ? (
               <div className="mb-6 flex items-center gap-3">
                 <div className="shrink-0 [&>div]:h-10">
                   <QuantityStepper
