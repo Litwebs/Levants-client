@@ -6,6 +6,7 @@ on:
       - 'src/context/Products/**'
       - 'src/data/products.ts'
       - 'src/pages/ShopPage.tsx'
+      - 'src/pages/ProductPage.tsx'
       - 'src/portal/pages/**'
       - 'tests/subscription-eligibility.test.tsx'
       - '.github/workflows/subscription-eligibility.yml'
