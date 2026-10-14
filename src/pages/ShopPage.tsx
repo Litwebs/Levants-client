@@ -303,8 +303,8 @@ const ShopPage: React.FC<ShopPageProps> = ({
 
   // Map backend products to ProductCard-compatible shape
   const mappedProducts = useMemo(() => {
-    const mapped = products.filter(p => !subscriptionOnly || p.isSubscriptionEligible !== false).map((p) => ({
-      isSubscriptionEligible: p.isSubscriptionEligible,
+    const mapped = products.map(p => ({ ...p, variants: p.variants.filter(v => !subscriptionOnly || v.isSubscriptionEligible !== false) }))
+      .filter(p => !subscriptionOnly || p.variants.length > 0).map((p) => ({
       id: p.id,
       name: p.name,
       category: p.category,
@@ -318,6 +318,7 @@ const ShopPage: React.FC<ShopPageProps> = ({
         ...p.galleryImages.map(resolveImageUrl),
       ].filter((u): u is string => Boolean(u)),
       variants: p.variants.map((v) => ({
+        isSubscriptionEligible: v.isSubscriptionEligible,
         id: v.id,
         name: v.name,
         description: v.description,

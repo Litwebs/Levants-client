@@ -609,7 +609,7 @@ const SubscriptionAddProductsPage: React.FC = () => {
               renderDayAssignment(lockedVariantId)
             }
             onCardAction={({ product, variant, lockedVariantId }) => {
-              if (product.isSubscriptionEligible === false) return;
+              if (variant?.isSubscriptionEligible === false) return;
               const variantId = variant?.id ?? lockedVariantId;
               if (!variantId) return;
               toggleVariantSelection(

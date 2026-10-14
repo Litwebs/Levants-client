@@ -3,6 +3,7 @@
 ======================== */
 
 export interface ProductVariant {
+  isSubscriptionEligible?: boolean;
   id: string;
   name: string;
   description?: string | null;
@@ -30,7 +31,6 @@ export interface ProductImage {
 export type ProductImageRef = string | ProductImage;
 
 export interface Product {
-  isSubscriptionEligible?: boolean;
   id: string;
   name: string;
   slug: string;

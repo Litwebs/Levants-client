@@ -1,4 +1,4 @@
-name: Subscription product eligibility checks
+name: Subscription variant eligibility checks
 on:
   pull_request:
     branches: [uat]
