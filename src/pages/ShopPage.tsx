@@ -55,6 +55,7 @@ export interface ShopCatalogItem {
 }
 
 interface ShopPageProps {
+  subscriptionOnly?: boolean;
   beforeCatalog?: React.ReactNode;
   catalogId?: string;
   catalog?: {
@@ -93,6 +94,7 @@ interface ShopPageProps {
 }
 
 const ShopPage: React.FC<ShopPageProps> = ({
+  subscriptionOnly = false,
   catalog,
   beforeCatalog,
   catalogId,
@@ -202,6 +204,7 @@ const ShopPage: React.FC<ShopPageProps> = ({
       : undefined;
 
     fetchProducts({
+      subscriptionEligible: subscriptionOnly || undefined,
       page: currentPage,
       pageSize: PAGE_SIZE,
       category: categoryFilter,
@@ -217,7 +220,7 @@ const ShopPage: React.FC<ShopPageProps> = ({
               ? "name_asc"
               : undefined,
     });
-  }, [catalog, currentPage, fetchProducts, searchQuery, selectedCategories, sortBy]);
+  }, [catalog, currentPage, fetchProducts, searchQuery, selectedCategories, sortBy, subscriptionOnly]);
 
   const prevSearchQueryRef = useRef(searchQuery);
   useEffect(() => {
@@ -300,7 +303,8 @@ const ShopPage: React.FC<ShopPageProps> = ({
 
   // Map backend products to ProductCard-compatible shape
   const mappedProducts = useMemo(() => {
-    const mapped = products.map((p) => ({
+    const mapped = products.filter(p => !subscriptionOnly || p.isSubscriptionEligible !== false).map((p) => ({
+      isSubscriptionEligible: p.isSubscriptionEligible,
       id: p.id,
       name: p.name,
       category: p.category,
@@ -343,7 +347,7 @@ const ShopPage: React.FC<ShopPageProps> = ({
     return sortBy === "featured"
       ? sortByStorefrontCategoryOrder(mapped, (product) => product.category)
       : mapped;
-  }, [products, sortBy]);
+  }, [products, sortBy, subscriptionOnly]);
 
   const productVariantCards = useMemo<ShopCatalogItem[]>(() => {
     if (catalog) return catalogItems.slice((clampedPage - 1) * PAGE_SIZE, clampedPage * PAGE_SIZE);

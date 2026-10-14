@@ -134,6 +134,7 @@ export const ProductsProvider = ({ children }: { children: ReactNode }) => {
       if (params?.maxPrice !== undefined)
         queryParams.maxPrice = params.maxPrice;
       if (params?.inStock) queryParams.inStock = params.inStock;
+      if (params?.subscriptionEligible) queryParams.subscriptionEligible = true;
       if (params?.search) queryParams.search = params.search;
       if (params?.sort) queryParams.sort = params.sort;
 

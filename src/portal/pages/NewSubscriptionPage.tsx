@@ -40,6 +40,7 @@ interface ApiVariant {
 }
 
 interface ApiProduct {
+  isSubscriptionEligible?: boolean;
   id: string;
   name: string;
   category: string;
@@ -477,9 +478,9 @@ const NewSubscriptionPage: React.FC = () => {
     try {
       const json = await api.get<{ data: { items: ApiProduct[] } }>(
         "/products",
-        { page: 1, pageSize: 50, sort: "category_order" },
+        { page: 1, pageSize: 50, sort: "category_order", subscriptionEligible: true },
       );
-      setProducts(json?.data?.items ?? []);
+      setProducts((json?.data?.items ?? []).filter(product => product.isSubscriptionEligible !== false));
     } catch {
       setProductError("Could not load products. Please try again.");
     } finally {
@@ -1648,6 +1649,7 @@ const NewSubscriptionPage: React.FC = () => {
             </section>
 
             <ShopPage
+              subscriptionOnly
               embedded
               contentGapClassName="flex flex-col lg:flex-row gap-4"
               productGridClassName="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6"
@@ -1664,7 +1666,8 @@ const NewSubscriptionPage: React.FC = () => {
                   ? "!bg-destructive/10 !text-destructive hover:!bg-destructive/20"
                   : undefined
               }
-              onCardAction={({ variant, quantity, lockedVariantId }) => {
+              onCardAction={({ product, variant, quantity, lockedVariantId }) => {
+                if (product.isSubscriptionEligible === false) return;
                 const variantId = variant?.id ?? lockedVariantId;
                 if (!variantId) return;
                 const isSelected =
