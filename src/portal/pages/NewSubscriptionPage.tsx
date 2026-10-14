@@ -1649,6 +1649,7 @@ const NewSubscriptionPage: React.FC = () => {
             </section>
 
             <ShopPage
+              subscriptionOnly
               embedded
               contentGapClassName="flex flex-col lg:flex-row gap-4"
               productGridClassName="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6"
@@ -1665,7 +1666,8 @@ const NewSubscriptionPage: React.FC = () => {
                   ? "!bg-destructive/10 !text-destructive hover:!bg-destructive/20"
                   : undefined
               }
-              onCardAction={({ variant, quantity, lockedVariantId }) => {
+              onCardAction={({ product, variant, quantity, lockedVariantId }) => {
+                if (product.isSubscriptionEligible === false) return;
                 const variantId = variant?.id ?? lockedVariantId;
                 if (!variantId) return;
                 const isSelected =
