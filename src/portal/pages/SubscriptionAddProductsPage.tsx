@@ -589,6 +589,7 @@ const SubscriptionAddProductsPage: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         <div className="lg:col-span-8">
           <ShopPage
+            subscriptionOnly
             embedded
             hideCardQuantityStepper
             contentGapClassName="flex flex-col lg:flex-row gap-4"
@@ -608,6 +609,7 @@ const SubscriptionAddProductsPage: React.FC = () => {
               renderDayAssignment(lockedVariantId)
             }
             onCardAction={({ product, variant, lockedVariantId }) => {
+              if (product.isSubscriptionEligible === false) return;
               const variantId = variant?.id ?? lockedVariantId;
               if (!variantId) return;
               toggleVariantSelection(

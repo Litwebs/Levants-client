@@ -40,6 +40,7 @@ interface ApiVariant {
 }
 
 interface ApiProduct {
+  isSubscriptionEligible?: boolean;
   id: string;
   name: string;
   category: string;
@@ -477,9 +478,9 @@ const NewSubscriptionPage: React.FC = () => {
     try {
       const json = await api.get<{ data: { items: ApiProduct[] } }>(
         "/products",
-        { page: 1, pageSize: 50, sort: "category_order" },
+        { page: 1, pageSize: 50, sort: "category_order", subscriptionEligible: true },
       );
-      setProducts(json?.data?.items ?? []);
+      setProducts((json?.data?.items ?? []).filter(product => product.isSubscriptionEligible !== false));
     } catch {
       setProductError("Could not load products. Please try again.");
     } finally {

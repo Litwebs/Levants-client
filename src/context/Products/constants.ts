@@ -30,6 +30,7 @@ export interface ProductImage {
 export type ProductImageRef = string | ProductImage;
 
 export interface Product {
+  isSubscriptionEligible?: boolean;
   id: string;
   name: string;
   slug: string;
@@ -82,6 +83,7 @@ export const initialProductsState: ProductsState = {
 ======================== */
 
 export interface ProductsQueryParams {
+  subscriptionEligible?: boolean;
   page?: number;
   pageSize?: number;
   category?: string | string[];
