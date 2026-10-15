@@ -270,7 +270,7 @@ for (const size of [{ width: 320, height: 568 }, { width: 360, height: 640 }, { 
     expect(card.width).toBe(size.width - 24);
     const body = tour(page).locator('[data-tour-body]');
     await expect(body).toBeVisible();
-    expect((await body.boundingBox())!.height).toBeGreaterThan(60);
+    expect((await body.boundingBox())!.height).toBeGreaterThan(size.height >= 500 ? 140 : 80);
     for (const label of ["Skip", "Back", "Next"]) {
       const button = tour(page).getByRole("button", { name: label, exact: true });
       await expect(button).toBeInViewport({ ratio: 1 });

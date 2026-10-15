@@ -5,10 +5,10 @@ export function placeTourCard(target: Rect, view: Viewport, cardHeight: number) 
   const margin = 12;
   // Phones use a roomy bottom sheet, independent of the target's position.
   if (view.width <= 640) {
-    const maxHeight = view.height < 480 ? view.height - margin * 2 : Math.min(view.height - margin * 2, Math.max(300, view.height * 0.7));
-    const height = Math.min(cardHeight, maxHeight);
+    const maxHeight = view.height < 480 ? view.height - margin * 2 : Math.min(view.height - margin * 2, Math.max(300, Math.min(440, view.height * 0.7)));
+    const height = maxHeight;
     const top = view.top + view.height - height - margin;
-    return { left: view.left + margin, top, width: view.width - margin * 2, maxHeight: height };
+    return { left: view.left + margin, top, width: view.width - margin * 2, height, maxHeight: height };
   }
   const width = Math.min(420, view.width - margin * 2);
   const height = Math.min(cardHeight, view.height - margin * 2);

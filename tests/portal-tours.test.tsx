@@ -65,4 +65,5 @@ test("phone cards use the full available width at the bottom rather than a gap b
   expect(position.width).toBe(296);
   expect(position.maxHeight).toBeGreaterThan(390);
   expect(position.top + position.maxHeight).toBe(556);
+  expect(placeTourCard(target, view, 200).height).toBe(position.height);
 });

@@ -208,7 +208,7 @@ export function PortalTourProvider({ children, customerId, routeKey }: { childre
               <Dialog.Title ref={titleRef} tabIndex={-1} className="break-words font-heading text-xl font-semibold leading-snug outline-none">{active?.title}</Dialog.Title>
             </div>
           </div>
-          <div ref={bodyRef} data-tour-body tabIndex={0} role="region" aria-label="Tour explanation" className="min-h-0 overflow-y-auto overscroll-contain px-5 pb-5 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring">
+          <div ref={bodyRef} data-tour-body tabIndex={0} role="region" aria-label="Tour explanation" className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-5 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring">
             <div ref={stepRef} key={current} className="portal-tour-step">
               <Dialog.Description className="text-base leading-relaxed text-muted-foreground">{active?.description}</Dialog.Description>
               {targetText && <p className="mt-4 rounded-xl bg-muted p-4 text-sm leading-relaxed">{targetText}</p>}
