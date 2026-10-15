@@ -111,13 +111,13 @@ const NotificationsPage: React.FC = () => {
   const all = notifications;
 
   return (
-    <div className="max-w-2xl mx-auto">
+    <div data-tour-page="notifications" data-tour-ready={true} className="max-w-2xl mx-auto">
       <PageHeader
         title="Notifications"
         description={`${unread.length} unread notification${unread.length !== 1 ? "s" : ""}`}
         action={
           unread.length > 0 ? (
-            <Button variant="outline" size="sm" onClick={markAllRead}>
+            <Button data-tour="notification-read" variant="outline" size="sm" onClick={markAllRead}>
               <CheckCheck className="h-4 w-4" />
               Mark all read
             </Button>
@@ -126,7 +126,7 @@ const NotificationsPage: React.FC = () => {
       />
 
       <Tabs defaultValue="all">
-        <TabsList className="mb-5">
+        <TabsList data-tour="notification-tabs" className="mb-5">
           <TabsTrigger value="all">All ({all.length})</TabsTrigger>
           <TabsTrigger value="unread">Unread ({unread.length})</TabsTrigger>
         </TabsList>

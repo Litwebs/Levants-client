@@ -38,6 +38,7 @@ import {
   SubscriptionStatusBadge,
   DeliveryStatusBadge,
 } from "@/portal/components/StatusBadges";
+import { PortalTourButton } from "@/portal/tours/PortalTour";
 import { ConfirmationModal, EmptyState } from "@/portal/components/PortalUI";
 import { ApiError } from "@/api/client";
 import { usePortalCustomer } from "@/portal/context/CustomerContext";
@@ -1542,7 +1543,7 @@ const SubscriptionDetailPage: React.FC = () => {
   );
 
   return (
-    <div className="max-w-6xl mx-auto">
+    <div data-tour-page="subscription-detail" data-tour-ready={true} className="max-w-6xl mx-auto">
       <div className="flex items-start justify-between gap-4 mb-5">
         <div className="flex items-start gap-2 min-w-0">
           <Button
@@ -1607,7 +1608,7 @@ const SubscriptionDetailPage: React.FC = () => {
       )}
 
       {subscription.status === "paused" && (
-        <div className="mb-4 rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-100">
+        <div data-tour="subscription-state" className="mb-4 rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-100">
           This subscription is paused
           {subscription.pausedUntil
             ? ` until ${formatDate(subscription.pausedUntil)}`
@@ -1618,13 +1619,13 @@ const SubscriptionDetailPage: React.FC = () => {
       )}
 
       {subscription.status === "cancelled" && (
-        <div className="mb-4 rounded-xl border border-red-300 bg-red-50 p-3 text-sm text-red-800 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-100">
+        <div data-tour="subscription-state" className="mb-4 rounded-xl border border-red-300 bg-red-50 p-3 text-sm text-red-800 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-100">
           This subscription is cancelled and cannot be modified.
         </div>
       )}
 
       {cutoff && canModify && (
-        <div
+        <div data-tour="subscription-cutoff"
           className={`mb-4 rounded-xl border p-3 text-xs sm:text-sm leading-relaxed ${
             cutoff.isPastCutoff
               ? "border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-100"
@@ -1686,7 +1687,7 @@ const SubscriptionDetailPage: React.FC = () => {
             : "border-border from-card via-card to-muted/30",
         )}
       >
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
+        <div data-tour="subscription-summary" className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
           <div className="rounded-xl border border-border/70 bg-background/70 px-3 py-2.5">
             <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">
               Next delivery
@@ -1744,14 +1745,14 @@ const SubscriptionDetailPage: React.FC = () => {
 
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-4 sm:gap-5">
         <div className="xl:col-span-8 space-y-4">
-          <section className="bg-card border border-border rounded-2xl p-4 sm:p-5">
+          <section data-tour="subscription-products" className="bg-card border border-border rounded-2xl p-4 sm:p-5">
             <div className="flex items-center justify-between gap-2 mb-3">
               <h3 className="font-semibold text-foreground text-base sm:text-lg">
                 Products in Subscription
               </h3>
               {canModify && (
                 <Button variant="outline" size="sm" className="h-8" asChild>
-                  <Link to={`/portal/subscriptions/${id}/add-products`}>
+                  <Link data-tour="subscription-add" to={`/portal/subscriptions/${id}/add-products`}>
                     <Plus className="h-3.5 w-3.5" />
                     Add product
                   </Link>
@@ -1855,7 +1856,7 @@ const SubscriptionDetailPage: React.FC = () => {
                               <div className="mt-2 flex items-center justify-end gap-2 border-t border-border/70 pt-2">
                                 <button
                                   type="button"
-                                  aria-label={`Decrease ${item.name} quantity for ${dayName}`}
+                                  data-tour="subscription-quantity" aria-label={`Decrease ${item.name} quantity for ${dayName}`}
                                   onClick={() =>
                                     updateDayQty(
                                       dayName,
@@ -1981,7 +1982,7 @@ const SubscriptionDetailPage: React.FC = () => {
                               onClick={() =>
                                 updateQty(item.localId, item.quantity - 1)
                               }
-                              aria-label={`Decrease ${item.name} quantity`}
+                              data-tour="subscription-quantity" aria-label={`Decrease ${item.name} quantity`}
                               disabled={
                                 saving || !canModify
                               }
@@ -2171,7 +2172,7 @@ const SubscriptionDetailPage: React.FC = () => {
                 </Button>
                 <Button
                   size="sm"
-                  onClick={() => void handleSaveProductChanges()}
+                  data-tour="subscription-save-products" onClick={() => void handleSaveProductChanges()}
                   disabled={
                     !hasUnsavedProductChanges ||
                     saving ||
@@ -2184,7 +2185,7 @@ const SubscriptionDetailPage: React.FC = () => {
             </div>
           </section>
 
-          <section className="bg-card border border-border rounded-2xl p-4 sm:p-5">
+          <section data-tour="subscription-delivery-settings" className="bg-card border border-border rounded-2xl p-4 sm:p-5">
             <div className="grid sm:grid-cols-2 gap-6">
               <div>
                 <h3 className="font-semibold text-foreground mb-4 flex items-center gap-2 text-base sm:text-lg">
@@ -2202,7 +2203,7 @@ const SubscriptionDetailPage: React.FC = () => {
                         onValueChange={setSelectedAddressId}
                         disabled={!canModify}
                       >
-                        <SelectTrigger>
+                        <SelectTrigger data-tour="subscription-address">
                           <SelectValue placeholder="Select an address" />
                         </SelectTrigger>
                         <SelectContent>
@@ -2271,7 +2272,7 @@ const SubscriptionDetailPage: React.FC = () => {
                         ? "Preferred Days"
                         : "Preferred Day"}
                     </p>
-                    <div className="flex flex-wrap gap-2">
+                    <div data-tour="subscription-days" className="flex flex-wrap gap-2">
                       {(cutoff?.deliveryDays?.length
                         ? cutoff.deliveryDays.map((d) => toDayName(d))
                         : [
@@ -2323,7 +2324,7 @@ const SubscriptionDetailPage: React.FC = () => {
             <div className="mt-5 pt-4 border-t border-border flex items-center gap-2 flex-wrap">
               <Button
                 size="sm"
-                onClick={() => void handleSaveDeliveryDetails()}
+                data-tour="subscription-save-delivery" onClick={() => void handleSaveDeliveryDetails()}
                 disabled={!canSaveDeliveryDetails}
               >
                 {saving ? "Saving..." : "Save delivery details"}
@@ -2331,7 +2332,7 @@ const SubscriptionDetailPage: React.FC = () => {
             </div>
           </section>
 
-          <section className="bg-card border border-border rounded-2xl p-4 sm:p-5">
+          <section data-tour="subscription-upcoming" className="bg-card border border-border rounded-2xl p-4 sm:p-5">
             <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <h3 className="font-semibold text-foreground text-base sm:text-lg">
@@ -2344,7 +2345,7 @@ const SubscriptionDetailPage: React.FC = () => {
               </div>
               {canModify && deliveries.length > 0 && (
                 <Button asChild size="sm" className="shrink-0">
-                  <Link
+                  <Link data-tour="subscription-add-on"
                     to={`/portal/subscriptions/${id}/next-delivery/add-ons`}
                   >
                     <ShoppingBag className="h-3.5 w-3.5" />
@@ -2387,7 +2388,7 @@ const SubscriptionDetailPage: React.FC = () => {
                         type="button"
                         aria-expanded={isExpanded}
                         aria-controls={detailsId}
-                        aria-label={`${isExpanded ? "Hide" : "View"} details for ${formatDate(delivery.scheduledDate)}`}
+                        data-tour="delivery-expand" aria-label={`${isExpanded ? "Hide" : "View"} details for ${formatDate(delivery.scheduledDate)}`}
                         onClick={() =>
                           setExpandedDeliveryId((current) =>
                             current === deliveryId ? null : deliveryId,
@@ -2530,7 +2531,7 @@ const SubscriptionDetailPage: React.FC = () => {
                     variant="outline"
                     size="sm"
                     className="w-full"
-                    onClick={() => setPauseOpen(true)}
+                    data-tour="subscription-pause" onClick={() => setPauseOpen(true)}
                     disabled={saving || !canModify}
                   >
                     <Pause className="h-3.5 w-3.5" />
@@ -2540,7 +2541,7 @@ const SubscriptionDetailPage: React.FC = () => {
                   <Button
                     size="sm"
                     className="w-full"
-                    onClick={() => setResumeOpen(true)}
+                    data-tour="subscription-resume" onClick={() => setResumeOpen(true)}
                     disabled={saving || subscription.isCancellationScheduled}
                   >
                     <Play className="h-3.5 w-3.5" />
@@ -2552,7 +2553,7 @@ const SubscriptionDetailPage: React.FC = () => {
                     variant="ghost"
                     size="sm"
                     className="w-full text-destructive hover:bg-destructive/10"
-                    onClick={() => setCancelOpen(true)}
+                    data-tour="subscription-cancel" onClick={() => setCancelOpen(true)}
                     disabled={saving || subscription.isCancellationScheduled}
                   >
                     <X className="h-3.5 w-3.5" />
@@ -2693,10 +2694,10 @@ const SubscriptionDetailPage: React.FC = () => {
           }
         }}
       >
-        <DialogContent className="max-w-md p-6">
+        <DialogContent data-tour-page="pause-form" data-tour-ready={!saving} className="max-w-md max-h-[90dvh] overflow-y-auto p-6">
           <DialogHeader>
             <DialogTitle>Pause Subscription?</DialogTitle>
-            <DialogDescription>
+            <DialogDescription data-tour="pause-policy">
               Choose when this subscription should resume. Pauses can last up to
               28 days. Deliveries before your resume date are skipped if their
               cut-off has not passed. Eligible prepaid amounts are returned to
@@ -2706,6 +2707,7 @@ const SubscriptionDetailPage: React.FC = () => {
               the subscription while it is paused.
             </DialogDescription>
           </DialogHeader>
+          <PortalTourButton />
           <div className="space-y-3 pt-2">
             <div className="space-y-1.5">
               <label htmlFor="pause-resume-date" className="text-sm font-medium text-foreground">
@@ -2713,6 +2715,7 @@ const SubscriptionDetailPage: React.FC = () => {
               </label>
               <Input
                 id="pause-resume-date"
+                data-tour="pause-date"
                 type="date"
                 min={pauseMinDate}
                 max={pauseMaxDate}
@@ -2734,7 +2737,7 @@ const SubscriptionDetailPage: React.FC = () => {
                     setPauseRefundMethod(value as SubscriptionRefundMethod)
                   }
                 >
-                  <SelectTrigger aria-label="Settlement method">
+                  <SelectTrigger data-tour="pause-settlement" aria-label="Settlement method">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -2759,7 +2762,7 @@ const SubscriptionDetailPage: React.FC = () => {
               >
                 Keep active
               </Button>
-              <Button onClick={() => void handlePause()} disabled={saving}>
+              <Button data-tour="pause-confirm" onClick={() => void handlePause()} disabled={saving}>
                 {saving ? "Pausing..." : "Pause subscription"}
               </Button>
             </div>
@@ -2767,6 +2770,7 @@ const SubscriptionDetailPage: React.FC = () => {
         </DialogContent>
       </Dialog>
       <ConfirmationModal
+        tourId="resume-confirmation"
         open={resumeOpen}
         onOpenChange={setResumeOpen}
         title="Resume Subscription?"
@@ -2775,6 +2779,7 @@ const SubscriptionDetailPage: React.FC = () => {
         onConfirm={handleResume}
       />
       <ConfirmationModal
+        tourId="cancel-confirmation"
         open={cancelOpen}
         onOpenChange={setCancelOpen}
         title="Cancel Subscription?"

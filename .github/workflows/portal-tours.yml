@@ -1,0 +1,39 @@
+name: Portal guided tours
+on:
+  pull_request:
+    branches: [uat]
+    paths:
+      - 'src/portal/**'
+      - 'src/pages/ShopPage.tsx'
+      - 'tests/portal-tour*.test.tsx'
+      - 'tests/browser/portal-tours.spec.ts'
+      - '.github/workflows/portal-tours.yml'
+permissions:
+  contents: read
+concurrency:
+  group: portal-tours-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+jobs:
+  walkthroughs:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npx eslint src/portal/tours tests/portal-tours.test.tsx tests/portal-tour-interactions.test.tsx tests/browser/portal-tours.spec.ts
+      - run: npx vitest run tests/portal-tours.test.tsx tests/portal-tour-interactions.test.tsx
+      - run: npx playwright install --with-deps chromium
+      - run: npx playwright test tests/browser/portal-tours.spec.ts
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: portal-tour-browser-review
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7

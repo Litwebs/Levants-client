@@ -554,7 +554,7 @@ const SubscriptionAddProductsPage: React.FC = () => {
   }
 
   return (
-    <div className="max-w-7xl mx-auto">
+    <div data-tour-page="subscription-products" data-tour-ready={true} className="max-w-7xl mx-auto">
       <div className="flex items-start justify-between gap-3 mb-5">
         <div className="min-w-0">
           <Button asChild variant="ghost" size="sm" className="mb-2 -ml-2">
@@ -588,7 +588,7 @@ const SubscriptionAddProductsPage: React.FC = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         <div className="lg:col-span-8">
-          <ShopPage
+          <ShopPage tourTarget="recurring-catalogue"
             subscriptionOnly
             embedded
             hideCardQuantityStepper
@@ -631,7 +631,7 @@ const SubscriptionAddProductsPage: React.FC = () => {
               } as React.CSSProperties
             }
           >
-            <section className="bg-card border border-border rounded-xl p-4">
+            <section data-tour="recurring-selection" className="bg-card border border-border rounded-xl p-4">
               <h2 className="text-base font-semibold text-foreground">
                 Selected Products
               </h2>
@@ -865,7 +865,7 @@ const SubscriptionAddProductsPage: React.FC = () => {
                 disabled={
                   selectedList.length === 0 || saving || hasUnassignedDay
                 }
-                onClick={() => void handleSaveSelectedProducts()}
+                data-tour="recurring-save" onClick={() => void handleSaveSelectedProducts()}
               >
                 {saving ? (
                   <>
