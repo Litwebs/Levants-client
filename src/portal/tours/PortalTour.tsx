@@ -200,27 +200,27 @@ export function PortalTourProvider({ children, customerId, routeKey }: { childre
           {geometry && <div aria-hidden="true" data-tour-highlight className="portal-tour-highlight pointer-events-none fixed rounded-xl"
             style={{ left: geometry.rect.left, top: geometry.rect.top, width: geometry.rect.width, height: geometry.rect.height }} />}
         </Dialog.Overlay>
-        <Dialog.Content ref={contentRef} data-portal-tour-ui className="portal-tour-card fixed z-[81] flex flex-col overflow-hidden rounded-xl border border-border bg-card text-card-foreground shadow-xl outline-none"
+        <Dialog.Content ref={contentRef} data-portal-tour-ui data-tour-motion={index % 2 ? "alternate" : "primary"} className="portal-tour-card fixed z-[81] flex flex-col overflow-hidden rounded-xl border border-border bg-card text-card-foreground shadow-xl outline-none"
           style={position} onPointerDownOutside={event => event.preventDefault()}
           onOpenAutoFocus={event => { event.preventDefault(); titleRef.current?.focus({ preventScroll: true }); }}
           onCloseAutoFocus={event => { event.preventDefault(); if (returnFocus.current?.isConnected) returnFocus.current.focus({ preventScroll: true }); }}>
-          <div ref={headerRef} className="portal-tour-header relative shrink-0 px-4 pb-2 pt-3">
-            <button type="button" onClick={close} className="absolute right-2 top-1 flex h-11 w-11 items-center justify-center rounded-lg hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400" aria-label="Skip tour"><X className="h-4 w-4" /></button>
+          <div ref={headerRef} className="portal-tour-header relative shrink-0 px-3 pb-1.5 pt-2.5 sm:px-4 sm:pb-2 sm:pt-3">
+            <button type="button" onClick={close} className="absolute right-1 top-0 z-10 flex h-11 w-11 items-center justify-center rounded-lg hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400" aria-label="Skip tour"><X className="h-4 w-4" /></button>
             <div key={current} className="portal-tour-step pr-10">
-              <p role="status" aria-live="polite" aria-atomic="true" className="mb-1.5 text-xs text-muted-foreground">Step {index + 1} of {model?.steps.length}</p>
-              <Dialog.Title ref={titleRef} tabIndex={-1} className="break-words font-sans text-[17px] font-semibold leading-snug outline-none">{active?.title}</Dialog.Title>
+              <p role="status" aria-live="polite" aria-atomic="true" className="mb-1 text-[11px] text-muted-foreground sm:mb-1.5 sm:text-xs">Step {index + 1} of {model?.steps.length}</p>
+              <Dialog.Title ref={titleRef} tabIndex={-1} className="break-words font-sans text-base font-semibold sm:text-[17px] leading-snug outline-none">{active?.title}</Dialog.Title>
             </div>
           </div>
-          <div ref={bodyRef} data-tour-body tabIndex={0} role="region" aria-label="Tour explanation" className="min-h-0 overflow-y-auto overscroll-contain px-4 pb-3 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-slate-400">
+          <div ref={bodyRef} data-tour-body tabIndex={0} role="region" aria-label="Tour explanation" className="min-h-0 overflow-y-auto overscroll-contain px-3 pb-2 sm:px-4 sm:pb-3 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-slate-400">
             <div ref={stepRef} key={current} className="portal-tour-step">
-              <Dialog.Description className="text-sm leading-[1.5] text-foreground/85">{active?.description}</Dialog.Description>
+              <Dialog.Description className="text-[13px] leading-[1.45] text-foreground/85 sm:text-sm sm:leading-[1.5]">{active?.description}</Dialog.Description>
               {targetText && <details className="mt-2 text-sm">
                 <summary className="cursor-pointer py-1.5 font-medium text-foreground underline decoration-border underline-offset-4">View current details</summary>
                 <p className="mt-1 whitespace-normal text-sm leading-relaxed text-foreground/85">{targetText}</p>
               </details>}
             </div>
           </div>
-          <div ref={footerRef} data-tour-navigation className="portal-tour-footer flex shrink-0 items-center justify-between gap-2 border-t border-border bg-card px-4 py-2">
+          <div ref={footerRef} data-tour-navigation className="portal-tour-footer flex shrink-0 items-center justify-between gap-2 border-t border-border bg-card px-3 py-1.5 sm:px-4 sm:py-2">
             <Button type="button" className="h-11 min-w-11 px-2 text-sm" variant="ghost" onClick={close}>Skip</Button>
             <div className="flex gap-2">
               <Button type="button" className="h-11 min-w-[64px] px-3 text-sm" variant="outline" disabled={index === 0} onClick={() => model && select(model.steps[index - 1].target)}>Back</Button>
