@@ -53,7 +53,7 @@ export function PortalTourProvider({ children, customerId, routeKey }: { childre
   const [current, setCurrent] = useState("");
   const currentRef = useRef("");
   const [geometry, setGeometry] = useState<{ rect: Rect; view: Viewport } | null>(null);
-  const [cardHeight, setCardHeight] = useState(280);
+  const [cardHeight, setCardHeight] = useState(220);
   const titleRef = useRef<HTMLHeadingElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const headerRef = useRef<HTMLDivElement>(null);
@@ -136,7 +136,7 @@ export function PortalTourProvider({ children, customerId, routeKey }: { childre
     const headerBottom = document.querySelector("header")?.getBoundingClientRect().bottom || 0;
     const oldMargins = ["scroll-margin-top", "scroll-margin-bottom"].map(property => ({ property, value: target.style.getPropertyValue(property), priority: target.style.getPropertyPriority(property) }));
     target.style.setProperty("scroll-margin-top", Math.max(12, headerBottom + 12) + "px");
-    target.style.setProperty("scroll-margin-bottom", (view.width <= 640 ? placeTourCard(target.getBoundingClientRect(), view, 0).maxHeight + 24 : 24) + "px");
+    target.style.setProperty("scroll-margin-bottom", (view.width <= 640 ? placeTourCard(target.getBoundingClientRect(), view, view.height).maxHeight + 24 : 24) + "px");
     target.scrollIntoView?.({ block: target.getBoundingClientRect().height > view.height / 2 ? "start" : "center", inline: "nearest", behavior: reducedMotion ? "auto" : "smooth" });
     bodyRef.current?.scrollTo?.({ top: 0, behavior: "auto" });
     let frame = 0;
@@ -177,7 +177,7 @@ export function PortalTourProvider({ children, customerId, routeKey }: { childre
       const header = headerRef.current?.getBoundingClientRect().height || 0;
       const footer = footerRef.current?.getBoundingClientRect().height || 0;
       const body = bodyRef.current?.scrollHeight || 0;
-      setCardHeight(Math.max(240, header + body + footer + 2));
+      setCardHeight(Math.max(120, header + body + footer + 2));
     };
     const observer = new ResizeObserver(measure);
     observer.observe(element);
@@ -194,35 +194,32 @@ export function PortalTourProvider({ children, customerId, routeKey }: { childre
     {children}
     <Dialog.Root open={Boolean(open && active)} onOpenChange={value => { if (!value) close(); }}>
       <Dialog.Portal>
-        <Dialog.Overlay data-portal-tour-ui className="fixed inset-0 z-[80] overflow-hidden" style={{ background: geometry ? "transparent" : "rgba(0,0,0,.65)" }}>
-          {geometry && <div aria-hidden="true" data-tour-highlight className="portal-tour-highlight pointer-events-none fixed rounded-xl border-2 border-emerald-400" style={{ left: geometry.rect.left, top: geometry.rect.top, width: geometry.rect.width, height: geometry.rect.height, boxShadow: "0 0 0 9999px rgba(0,0,0,.65)" }} />}
-        </Dialog.Overlay>
-        <Dialog.Content ref={contentRef} data-portal-tour-ui className="portal-tour-card fixed z-[81] flex flex-col overflow-hidden rounded-2xl border border-border bg-card text-card-foreground shadow-2xl outline-none"
+        <Dialog.Overlay data-portal-tour-ui className="portal-tour-overlay fixed inset-0 z-[80] bg-black/25" />
+        <Dialog.Content ref={contentRef} data-portal-tour-ui className="portal-tour-card fixed z-[81] flex flex-col overflow-hidden rounded-xl border border-border bg-card text-card-foreground shadow-xl outline-none"
           style={position} onPointerDownOutside={event => event.preventDefault()}
           onOpenAutoFocus={event => { event.preventDefault(); titleRef.current?.focus({ preventScroll: true }); }}
           onCloseAutoFocus={event => { event.preventDefault(); if (returnFocus.current?.isConnected) returnFocus.current.focus({ preventScroll: true }); }}>
-          <div ref={headerRef} className="portal-tour-header relative shrink-0 px-5 pb-3 pt-5">
-            <button type="button" onClick={close} className="absolute right-3 top-3 flex h-11 w-11 items-center justify-center rounded-lg hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label="Skip tour"><X className="h-4 w-4" /></button>
+          <div ref={headerRef} className="portal-tour-header relative shrink-0 px-4 pb-2 pt-3">
+            <button type="button" onClick={close} className="absolute right-2 top-1 flex h-11 w-11 items-center justify-center rounded-lg hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400" aria-label="Skip tour"><X className="h-4 w-4" /></button>
             <div key={current} className="portal-tour-step pr-10">
-              <p className="mb-2 text-xs font-medium text-muted-foreground">{model?.definition.title}</p>
-              <Dialog.Title ref={titleRef} tabIndex={-1} className="break-words font-heading text-xl font-semibold leading-snug outline-none">{active?.title}</Dialog.Title>
+              <p role="status" aria-live="polite" aria-atomic="true" className="mb-1.5 text-xs text-muted-foreground">Step {index + 1} of {model?.steps.length}</p>
+              <Dialog.Title ref={titleRef} tabIndex={-1} className="break-words font-sans text-[17px] font-semibold leading-snug outline-none">{active?.title}</Dialog.Title>
             </div>
           </div>
-          <div ref={bodyRef} data-tour-body tabIndex={0} role="region" aria-label="Tour explanation" className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-5 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring">
+          <div ref={bodyRef} data-tour-body tabIndex={0} role="region" aria-label="Tour explanation" className="min-h-0 overflow-y-auto overscroll-contain px-4 pb-3 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-slate-400">
             <div ref={stepRef} key={current} className="portal-tour-step">
-              <Dialog.Description className="text-base leading-relaxed text-muted-foreground">{active?.description}</Dialog.Description>
-              {targetText && <p className="mt-4 rounded-xl bg-muted p-4 text-sm leading-relaxed">{targetText}</p>}
+              <Dialog.Description className="text-sm leading-[1.5] text-foreground/85">{active?.description}</Dialog.Description>
+              {targetText && <details className="mt-2 text-sm">
+                <summary className="cursor-pointer py-1.5 font-medium text-foreground underline decoration-border underline-offset-4">View current details</summary>
+                <p className="mt-1 whitespace-normal text-sm leading-relaxed text-foreground/85">{targetText}</p>
+              </details>}
             </div>
           </div>
-          <div ref={footerRef} data-tour-navigation className="portal-tour-footer shrink-0 border-t border-border bg-card px-5 py-4">
-            <div className="mb-3 flex items-center gap-3">
-              <p role="status" aria-live="polite" aria-atomic="true" className="shrink-0 text-xs text-muted-foreground">Step {index + 1} of {model?.steps.length}</p>
-              <div aria-hidden="true" className="h-1 flex-1 overflow-hidden rounded-full bg-muted"><div className="portal-tour-progress h-full rounded-full bg-forest" style={{ width: ((index + 1) / (model?.steps.length || 1)) * 100 + "%" }} /></div>
-            </div>
-            <div className="grid grid-cols-3 gap-2">
-              <Button type="button" className="h-11 min-w-0 px-2" variant="ghost" onClick={close}>Skip</Button>
-              <Button type="button" className="h-11 min-w-0 px-2" variant="outline" disabled={index === 0} onClick={() => model && select(model.steps[index - 1].target)}>Back</Button>
-              <Button type="button" className="h-11 min-w-0 px-2" onClick={() => {
+          <div ref={footerRef} data-tour-navigation className="portal-tour-footer flex shrink-0 items-center justify-between gap-2 border-t border-border bg-card px-4 py-2">
+            <Button type="button" className="h-11 min-w-11 px-2 text-sm" variant="ghost" onClick={close}>Skip</Button>
+            <div className="flex gap-2">
+              <Button type="button" className="h-11 min-w-[64px] px-3 text-sm" variant="outline" disabled={index === 0} onClick={() => model && select(model.steps[index - 1].target)}>Back</Button>
+              <Button type="button" className="h-11 min-w-[64px] px-3 text-sm" onClick={() => {
                 if (!model || index === model.steps.length - 1) close();
                 else select(model.steps[index + 1].target);
               }}>{model && index === model.steps.length - 1 ? "Finish" : "Next"}</Button>

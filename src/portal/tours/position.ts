@@ -3,22 +3,22 @@ export type Viewport = { width: number; height: number; top: number; left: numbe
 
 export function placeTourCard(target: Rect, view: Viewport, cardHeight: number) {
   const margin = 12;
-  // Phones use a roomy bottom sheet, independent of the target's position.
   if (view.width <= 640) {
-    const maxHeight = view.height < 480 ? view.height - margin * 2 : Math.min(view.height - margin * 2, Math.max(300, Math.min(440, view.height * 0.6)));
-    const height = maxHeight;
-    const top = view.top + view.height - height - margin;
-    return { left: view.left + margin, top, width: view.width - margin * 2, height, maxHeight: height };
+    // Content-sized phone card: leave most of the page visible, with no fixed sheet height.
+    const limit = Math.min(view.height - margin * 2, view.height * (view.height < 480 ? 0.65 : 0.44));
+    const height = Math.min(cardHeight, limit);
+    return { left: view.left + margin, top: view.top + view.height - height - margin, width: view.width - margin * 2, maxHeight: height };
   }
-  const width = Math.min(420, view.width - margin * 2);
+  const width = Math.min(360, view.width - margin * 2);
   const height = Math.min(cardHeight, view.height - margin * 2);
-  const left = Math.max(view.left + margin, Math.min(target.left, view.left + view.width - width - margin));
+  const largeSection = target.width >= view.width * 0.65 || target.height >= view.height * 0.55;
+  const left = largeSection ? view.left + (view.width - width) / 2 : Math.max(view.left + margin, Math.min(target.left, view.left + view.width - width - margin));
   const bottomEdge = view.top + view.height;
   let top: number;
-  if (bottomEdge - target.bottom - margin * 2 >= height) top = target.bottom + margin;
+  if (largeSection) top = view.top + (view.height - height) / 2;
+  else if (bottomEdge - target.bottom - margin * 2 >= height) top = target.bottom + margin;
   else if (target.top - view.top - margin * 2 >= height) top = target.top - height - margin;
-  else top = target.top < view.top + view.height / 2 ? bottomEdge - height - margin : view.top + margin;
+  else top = view.top + (view.height - height) / 2;
   const safeTop = Math.max(view.top + margin, Math.min(top, bottomEdge - height - margin));
-  // Constrain the card immediately, even before a longer new step is measured.
   return { left, top: safeTop, width, maxHeight: bottomEdge - safeTop - margin };
 }
