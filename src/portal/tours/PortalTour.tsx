@@ -136,7 +136,7 @@ export function PortalTourProvider({ children, customerId, routeKey }: { childre
     const headerBottom = document.querySelector("header")?.getBoundingClientRect().bottom || 0;
     const oldMargins = ["scroll-margin-top", "scroll-margin-bottom"].map(property => ({ property, value: target.style.getPropertyValue(property), priority: target.style.getPropertyPriority(property) }));
     target.style.setProperty("scroll-margin-top", Math.max(12, headerBottom + 12) + "px");
-    target.style.setProperty("scroll-margin-bottom", (view.width <= 640 ? Math.min(view.height * 0.7, 420) + 24 : 24) + "px");
+    target.style.setProperty("scroll-margin-bottom", (view.width <= 640 ? placeTourCard(target.getBoundingClientRect(), view, 0).maxHeight + 24 : 24) + "px");
     target.scrollIntoView?.({ block: target.getBoundingClientRect().height > view.height / 2 ? "start" : "center", inline: "nearest", behavior: reducedMotion ? "auto" : "smooth" });
     bodyRef.current?.scrollTo?.({ top: 0, behavior: "auto" });
     let frame = 0;
