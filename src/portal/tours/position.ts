@@ -11,6 +11,8 @@ export function placeTourCard(target: Rect, view: Viewport, cardHeight: number) 
   if (bottomEdge - target.bottom - margin * 2 >= height) top = target.bottom + margin;
   else if (target.top - view.top - margin * 2 >= height) top = target.top - height - margin;
   else top = target.top < view.top + view.height / 2 ? bottomEdge - height - margin : view.top + margin;
-  return { left, top: Math.max(view.top + margin, Math.min(top, bottomEdge - height - margin)), width, maxHeight: view.height - margin * 2 };
+  const safeTop = Math.max(view.top + margin, Math.min(top, bottomEdge - height - margin));
+  // Constrain the card immediately, even before a longer new step is measured.
+  return { left, top: safeTop, width, maxHeight: bottomEdge - safeTop - margin };
 }
 

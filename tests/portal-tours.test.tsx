@@ -34,6 +34,7 @@ for (const width of [320, 390, 768, 1440]) {
         expect(position.left).toBeGreaterThanOrEqual(offset + 12);
         expect(position.left + position.width).toBeLessThanOrEqual(offset + width - 12);
         expect(position.top).toBeGreaterThanOrEqual(offset + 12);
+        expect(position.top + position.maxHeight).toBeLessThanOrEqual(offset + height - 12);
         expect(position.top + Math.min(320, position.maxHeight)).toBeLessThanOrEqual(offset + height - 12);
       }
     }

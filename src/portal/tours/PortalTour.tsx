@@ -57,6 +57,7 @@ export function PortalTourProvider({ children, customerId, routeKey }: { childre
   const contentRef = useRef<HTMLDivElement>(null);
   const returnFocus = useRef<HTMLElement | null>(null);
   const savedScroll = useRef({ top: 0, left: 0 });
+  const savedParents = useRef<Array<{ element: HTMLElement; top: number; left: number }>>([]);
 
   const select = useCallback((target: string) => { currentRef.current = target; setCurrent(target); }, []);
   const scan = useCallback(() => {
@@ -89,6 +90,10 @@ export function PortalTourProvider({ children, customerId, routeKey }: { childre
     returnFocus.current = document.activeElement instanceof HTMLElement && document.activeElement !== document.body
       ? document.activeElement : Array.from(document.querySelectorAll<HTMLElement>("[data-portal-tour-launcher]")).filter(visible).at(-1) || null;
     savedScroll.current = { top: window.scrollY, left: window.scrollX };
+    savedParents.current = [];
+    for (let element: HTMLElement | null = next.root; element; element = element.parentElement) {
+      savedParents.current.push({ element, top: element.scrollTop, left: element.scrollLeft });
+    }
     select(next.steps[0].target); setGeometry(null); openRef.current = true; setOpen(true);
   }, [select]);
   const start = useCallback(() => { const next = scan(); if (next) begin(next); }, [begin, scan]);
@@ -107,6 +112,12 @@ export function PortalTourProvider({ children, customerId, routeKey }: { childre
   const close = useCallback(() => {
     if (key) rememberTour(key);
     openRef.current = false; setOpen(false);
+    for (const saved of savedParents.current) {
+      if (saved.element.isConnected) {
+        saved.element.scrollTop = saved.top;
+        saved.element.scrollLeft = saved.left;
+      }
+    }
     window.scrollTo({ ...savedScroll.current, behavior: "auto" });
   }, [key]);
   const index = model?.steps.findIndex(step => step.target === current) ?? -1;
@@ -144,9 +155,10 @@ export function PortalTourProvider({ children, customerId, routeKey }: { childre
   useLayoutEffect(() => {
     if (!open || !contentRef.current) return;
     const element = contentRef.current;
-    const observer = new ResizeObserver(() => setCardHeight(element.getBoundingClientRect().height));
+    const measure = () => setCardHeight(Math.max(element.scrollHeight + 2, element.getBoundingClientRect().height));
+    const observer = new ResizeObserver(measure);
     observer.observe(element);
-    setCardHeight(element.getBoundingClientRect().height);
+    measure();
     return () => observer.disconnect();
   }, [open]);
 
