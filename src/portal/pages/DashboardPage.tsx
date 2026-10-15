@@ -185,7 +185,7 @@ const DashboardPage: React.FC = () => {
 
   if (loading) {
     return (
-      <div data-tour-page="dashboard" data-tour-ready={!error} className="max-w-5xl mx-auto space-y-6">
+      <div className="max-w-5xl mx-auto space-y-6">
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin" />
           Loading dashboard...
@@ -195,7 +195,7 @@ const DashboardPage: React.FC = () => {
   }
 
   return (
-    <div className="max-w-5xl mx-auto space-y-6">
+    <div data-tour-page="dashboard" data-tour-ready={!error} className="max-w-5xl mx-auto space-y-6">
       {error && (
         <div className="p-3 bg-destructive/10 text-destructive rounded-lg text-sm">
           {error}
