@@ -6,13 +6,20 @@
   transition: left 280ms ease, top 280ms ease, width 280ms ease, height 280ms ease;
 }
 .portal-tour-card {
-  animation: portal-tour-enter 240ms cubic-bezier(.2,.8,.2,1) both;
+  animation: portal-tour-enter 300ms cubic-bezier(.2,.8,.2,1) backwards;
+}
+.portal-tour-card[data-tour-motion="alternate"] {
+  animation-name: portal-tour-enter-alternate;
 }
 .portal-tour-step {
-  animation: portal-tour-step-enter 220ms cubic-bezier(.2,.8,.2,1) both;
+  animation: portal-tour-step-enter 220ms cubic-bezier(.2,.8,.2,1) backwards;
 }
 @keyframes portal-tour-enter {
-  from { opacity: 0; transform: translateY(12px); }
+  from { opacity: 0; transform: translateY(10px) scale(.97); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes portal-tour-enter-alternate {
+  from { opacity: 0; transform: translateY(10px) scale(.97); }
   to { opacity: 1; transform: translateY(0); }
 }
 @keyframes portal-tour-step-enter {
@@ -20,6 +27,6 @@
   to { opacity: 1; transform: translateY(0); }
 }
 @media (prefers-reduced-motion: reduce) {
-  .portal-tour-card, .portal-tour-step { animation: none; }
+  .portal-tour-card[data-tour-motion], .portal-tour-step { animation: none; }
   .portal-tour-highlight { transition: none; }
 }

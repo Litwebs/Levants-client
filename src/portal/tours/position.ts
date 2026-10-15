@@ -5,9 +5,10 @@ export function placeTourCard(target: Rect, view: Viewport, cardHeight: number) 
   const margin = 12;
   if (view.width <= 640) {
     // Content-sized phone card: leave most of the page visible, with no fixed sheet height.
-    const limit = Math.min(view.height - margin * 2, view.height * (view.height < 480 ? 0.65 : 0.44));
+    const limit = Math.min(view.height - margin * 2, view.height < 480 ? view.height * 0.65 : Math.min(240, view.height * 0.4));
     const height = Math.min(cardHeight, limit);
-    return { left: view.left + margin, top: view.top + view.height - height - margin, width: view.width - margin * 2, maxHeight: height };
+    const width = Math.min(320, view.width - margin * 2);
+    return { left: view.left + (view.width - width) / 2, top: view.top + view.height - height - margin, width, maxHeight: height };
   }
   const width = Math.min(360, view.width - margin * 2);
   const height = Math.min(cardHeight, view.height - margin * 2);

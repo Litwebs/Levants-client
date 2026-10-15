@@ -278,7 +278,7 @@ for (const size of [{ width: 320, height: 568 }, { width: 360, height: 640 }, { 
     await page.locator('[data-tour="subscription-pause"]').click();
     await expect(tour(page)).toBeVisible();
     const card = (await tour(page).boundingBox())!;
-    expect(card.width).toBe(size.width - 24);
+    expect(card.width).toBe(Math.min(320, size.width - 24));
     const body = tour(page).locator('[data-tour-body]');
     await expect(body).toBeVisible();
     expect(card.height).toBeLessThanOrEqual(size.height * (size.height < 480 ? 0.65 : 0.44) + 1);
@@ -310,6 +310,11 @@ test("compact cards animate normally and respect reduced-motion preferences", as
   await page.goto("/portal/dashboard");
   await expect(tour(page)).toBeVisible();
   await tour(page).getByRole("button", { name: "Next", exact: true }).click();
+  expect(await tour(page).evaluate(element => element.getAnimations().some(animation => animation.playState === "running"))).toBe(true);
+  await expect(tour(page)).toHaveCSS("animation-name", "portal-tour-enter-alternate");
+  await expect(tour(page)).toHaveCSS("transform", "none");
+  await tour(page).getByRole("button", { name: "Back", exact: true }).click();
+  await expect(tour(page)).toHaveCSS("animation-name", "portal-tour-enter");
   expect(await tour(page).locator('.portal-tour-step').first().evaluate(element => getComputedStyle(element).animationName)).toBe("portal-tour-step-enter");
   await checkSpotlight(page);
   await expect(page.locator("[data-tour-highlight]")).toHaveCSS("transition-duration", "0.28s, 0.28s, 0.28s, 0.28s");
@@ -336,3 +341,40 @@ test("desktop overview is centred, compact and has no target outline", async ({ 
   await info.attach("tour-compact-desktop", { body: await page.screenshot(), contentType: "image/png" });
   await finish(page);
 });
+
+for (const width of [320, 390, 640]) {
+  test(`mobile card stays compact and its cross closes every step at ${width}px`, async ({ page }, info) => {
+    await page.setViewportSize({ width, height: 640 });
+    await page.emulateMedia({ reducedMotion: "no-preference" });
+    const writes = await api(page);
+    await page.goto("/portal/dashboard");
+    const launcher = page.getByRole("button", { name: "Take a tour", exact: true });
+    for (let step = 0; step < 4; step++) {
+      if (step) await launcher.click();
+      await expect(tour(page)).toBeVisible();
+      for (let next = 0; next < step; next++) await tour(page).getByRole("button", { name: "Next", exact: true }).click();
+      const close = tour(page).getByRole("button", { name: "Skip tour", exact: true });
+      // The close target must win hit testing even while the header is animated.
+      await expect(close).toBeInViewport({ ratio: 1 });
+      await expect.poll(() => close.evaluate(element => {
+        const rect = element.getBoundingClientRect();
+        return element.contains(document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2));
+      })).toBe(true);
+      if (step === 3) {
+        await expect(tour(page)).toHaveCSS("transform", "none");
+        const box = (await tour(page).boundingBox())!;
+        expect(box.width).toBeLessThanOrEqual(320);
+        expect(box.height).toBeLessThan(210);
+        await checkSpotlight(page);
+        await info.attach(`tour-mobile-final-${width}`, { body: await page.screenshot(), contentType: "image/png" });
+      }
+      await close.click();
+      await expect(tour(page)).toHaveCount(0);
+      await expect(launcher).toBeFocused();
+      // A dismissed auto-tour must stay dismissed, while replay remains available.
+      await page.waitForTimeout(600);
+      await expect(tour(page)).toHaveCount(0);
+    }
+    expect(writes).toEqual([]);
+  });
+}
