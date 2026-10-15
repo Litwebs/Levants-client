@@ -8,7 +8,7 @@ const order = { _id: "order-1", customer: "tour-customer", orderId: "ORD-100", s
 const product = { id: "milk", name: "Whole milk", category: "Dairy", description: "Fresh milk", isActive: true, variants: [{ id: "milk-v", name: "1 litre", sku: "MILK", price: 2, currency: "GBP", stockQuantity: 100, availableStock: 100, isSubscriptionEligible: true }], pricing: { min: 2, max: 2, currency: "GBP" } };
 const meta = { page: 1, pageSize: 20, total: 1, totalPages: 1 };
 
-async function api(page: Page, options: { status?: string; empty?: boolean; customerId?: string; storageBlocked?: boolean } = {}) {
+async function api(page: Page, options: { status?: string; empty?: boolean; customerId?: string } = {}) {
   const writes: string[] = [];
   await page.route("**/api/**", async route => {
     const request = route.request();
@@ -31,10 +31,6 @@ async function api(page: Page, options: { status?: string; empty?: boolean; cust
     if (path === "/portal/credits") return reply({ balance: 500, transactions: [] });
     if (path === "/products") return reply({ items: [product] });
     return reply({});
-  });
-  if (options.storageBlocked) await page.addInitScript(() => {
-    Storage.prototype.getItem = () => { throw new DOMException("Blocked", "SecurityError"); };
-    Storage.prototype.setItem = () => { throw new DOMException("Blocked", "SecurityError"); };
   });
   return writes;
 }
@@ -69,9 +65,10 @@ for (const width of [390, 1440]) {
     await page.setViewportSize({ width, height: 844 });
     await page.emulateMedia({ reducedMotion: "reduce" });
     const writes = await api(page);
-    for (const path of ["dashboard", "subscriptions", "subscriptions/subscription-1", "subscriptions/subscription-1/add-products", "subscriptions/subscription-1/next-delivery/add-ons", "orders", "orders/order-1", "payments", "credit", "addresses", "account", "support", "notifications", "subscriptions/new"]) {
+    const screens: Record<string, number> = { dashboard: 4, subscriptions: 5, "subscriptions/subscription-1": 12, "subscriptions/subscription-1/add-products": 4, "subscriptions/subscription-1/next-delivery/add-ons": 4, orders: 5, "orders/order-1": 4, payments: 4, credit: 2, addresses: 4, account: 10, support: 5, notifications: 3, "subscriptions/new": 3 };
+    for (const [path, minimumSteps] of Object.entries(screens)) {
       await page.goto(`/portal/${path}`);
-      await finish(page);
+      expect((await finish(page)).length, path).toBeGreaterThanOrEqual(minimumSteps);
       const launcher = page.getByRole("button", { name: "Take a tour", exact: true });
       await expect(launcher).toBeEnabled();
       await launcher.click();
@@ -208,4 +205,49 @@ test("tour adapts when an asynchronously rendered target disappears", async ({ p
   await page.locator('[data-tour="subscription-card"]').evaluate(element => element.remove());
   await expect(tour(page).getByRole("heading")).toHaveText("Create another subscription");
   await finish(page);
+});
+
+test("one-time address changes get contextual help without saving the order", async ({ page }) => {
+  const writes = await api(page);
+  await page.route("**/api/portal/orders/order-1", route => route.fulfill({ json: { success: true, data: { order: { ...order, deliveryChangeAllowed: true, deliveryChangeCutoffAt: delivery.cutoffAt } } } }));
+  await page.goto("/portal/orders/order-1");
+  expect(await finish(page)).toContain("A change for this order");
+  await page.locator('[data-tour="order-change-delivery"]').click();
+  await page.getByRole("button", { name: "Take a tour", exact: true }).click();
+  const titles = await finish(page);
+  expect(titles).toContain("Choose this order's address");
+  expect(titles).toContain("Save the one-time address change");
+  expect(writes).toEqual([]);
+});
+
+test("cancellation help leaves the subscription confirmation untouched", async ({ page }) => {
+  const writes = await api(page);
+  await page.goto("/portal/subscriptions/subscription-1");
+  await finish(page);
+  await page.locator('[data-tour="subscription-cancel"]').click();
+  expect(await finish(page)).toContain("Confirm only when certain");
+  await expect(page.locator('[data-tour-page="cancel-confirmation"]')).toBeVisible();
+  expect(writes).toEqual([]);
+});
+
+test("blocked tour storage keeps replay available and dismisses for the session", async ({ page }) => {
+  await api(page);
+  await page.addInitScript(() => {
+    const get = Storage.prototype.getItem;
+    const set = Storage.prototype.setItem;
+    Storage.prototype.getItem = function(key: string) {
+      if (key.startsWith("levants:portal-tour:")) throw new DOMException("Blocked", "SecurityError");
+      return get.call(this, key);
+    };
+    Storage.prototype.setItem = function(key: string, value: string) {
+      if (key.startsWith("levants:portal-tour:")) throw new DOMException("Blocked", "SecurityError");
+      return set.call(this, key, value);
+    };
+  });
+  await page.goto("/portal/dashboard");
+  await finish(page);
+  await expect(page.getByRole("button", { name: "Take a tour", exact: true })).toBeEnabled();
+  await page.getByRole("button", { name: "Take a tour", exact: true }).click();
+  await finish(page);
+  await expect(tour(page)).toHaveCount(0);
 });

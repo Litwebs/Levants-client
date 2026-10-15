@@ -546,7 +546,7 @@ const OrderDetailPage: React.FC = () => {
             )}
             {order.deliveryChangeAllowed && (
               <div className="pt-1">
-                <Button
+                <Button data-tour="order-change-delivery"
                   type="button"
                   variant="outline"
                   size="sm"
@@ -606,7 +606,7 @@ const OrderDetailPage: React.FC = () => {
                 <label className="space-y-1.5 text-sm font-medium text-foreground">
                   Saved delivery address
                   <select
-                    value={deliveryAddressId}
+                    data-tour="order-delivery-address" value={deliveryAddressId}
                     onChange={(event) =>
                       setDeliveryAddressId(event.target.value)
                     }
@@ -631,7 +631,7 @@ const OrderDetailPage: React.FC = () => {
               <Button
                 type="button"
                 size="sm"
-                onClick={() => void handleSaveDelivery()}
+                data-tour="order-save-delivery" onClick={() => void handleSaveDelivery()}
                 disabled={deliverySaving || !hasDeliveryChanges}
               >
                 {deliverySaving ? (

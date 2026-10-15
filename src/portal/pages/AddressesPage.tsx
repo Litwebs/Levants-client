@@ -123,7 +123,7 @@ const AddressForm: React.FC<{
         <div className="space-y-1.5">
           <Label htmlFor="fullName">Full name</Label>
           <Input
-            id="fullName"
+            data-tour="address-name" id="fullName"
             ref={fullNameRef}
             placeholder="Sarah Mitchell"
             disabled={isDisabled}
@@ -132,7 +132,7 @@ const AddressForm: React.FC<{
         <div className="space-y-1.5">
           <Label htmlFor="phone">Phone number</Label>
           <Input
-            id="phone"
+            data-tour="address-phone" id="phone"
             ref={phoneRef}
             placeholder="+44 7700 900000"
             disabled={isDisabled}
@@ -209,7 +209,7 @@ const AddressForm: React.FC<{
       </div>
       <div className="flex items-center gap-2">
         <Checkbox
-          id="setDefault"
+          data-tour="address-set-default" id="setDefault"
           checked={isDefault}
           onCheckedChange={(checked) => setIsDefault(checked === true)}
           disabled={isDisabled}

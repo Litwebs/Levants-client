@@ -176,7 +176,7 @@ const AccountSettingsPage: React.FC = () => {
               <div className="space-y-1.5">
                 <Label htmlFor="firstName">First name</Label>
                 <Input
-                  id="firstName"
+                  data-tour="account-firstName" id="firstName"
                   value={firstName}
                   onChange={(e) => setFirstName(e.target.value)}
                   disabled={loading}
@@ -185,7 +185,7 @@ const AccountSettingsPage: React.FC = () => {
               <div className="space-y-1.5">
                 <Label htmlFor="lastName">Last name</Label>
                 <Input
-                  id="lastName"
+                  data-tour="account-lastName" id="lastName"
                   value={lastName}
                   onChange={(e) => setLastName(e.target.value)}
                   disabled={loading}
@@ -205,7 +205,7 @@ const AccountSettingsPage: React.FC = () => {
             <div className="space-y-1.5">
               <Label htmlFor="phone">Phone number</Label>
               <Input
-                id="phone"
+                data-tour="account-phone" id="phone"
                 type="tel"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
@@ -215,7 +215,7 @@ const AccountSettingsPage: React.FC = () => {
             <div className="space-y-1.5">
               <Label htmlFor="themePreference">Theme preference</Label>
               <select
-                id="themePreference"
+                data-tour="account-themePreference" id="themePreference"
                 value={themePreference}
                 onChange={(e) =>
                   setThemePreferenceState(e.target.value as "light" | "dark")
@@ -267,7 +267,7 @@ const AccountSettingsPage: React.FC = () => {
             <div className="relative">
               <Input
                 type={showCurrent ? "text" : "password"}
-                placeholder="Enter current password"
+                data-tour="password-current" placeholder="Enter current password"
                 className="pr-10"
                 value={currentPassword}
                 onChange={(e) => setCurrentPassword(e.target.value)}
@@ -290,7 +290,7 @@ const AccountSettingsPage: React.FC = () => {
             <div className="relative">
               <Input
                 type={showNew ? "text" : "password"}
-                placeholder="Create new password"
+                data-tour="password-new" placeholder="Create new password"
                 className="pr-10"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
@@ -313,7 +313,7 @@ const AccountSettingsPage: React.FC = () => {
             <div className="relative">
               <Input
                 type={showConfirm ? "text" : "password"}
-                placeholder="Repeat new password"
+                data-tour="password-confirm" placeholder="Repeat new password"
                 className="pr-10"
                 value={confirmNewPassword}
                 onChange={(e) => setConfirmNewPassword(e.target.value)}
@@ -331,7 +331,7 @@ const AccountSettingsPage: React.FC = () => {
               </button>
             </div>
           </div>
-          <Button onClick={handleChangePassword} disabled={changingPassword}>
+          <Button data-tour="password-save" onClick={handleChangePassword} disabled={changingPassword}>
             {changingPassword ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin" />

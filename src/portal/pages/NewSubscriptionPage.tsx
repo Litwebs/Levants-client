@@ -1338,7 +1338,7 @@ const NewSubscriptionPage: React.FC = () => {
     <div
       className="w-full flex min-h-screen flex-col"
       data-tour-page={["new-days", "new-frequency", "new-products", "new-address", "new-review"][step]}
-      data-tour-ready={!loadingProducts && availableDays !== null && !deliveryDaysError}
+      data-tour-ready={!loadingProducts && availableDays !== null && !deliveryDaysError && (step !== 3 || !addressesLoading) && (step !== 4 || !methodsLoading)}
       style={{ minHeight: `calc(100dvh - ${siteHeaderHeight}px)` }}
     >
       <div

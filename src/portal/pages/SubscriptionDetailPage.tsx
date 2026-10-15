@@ -2203,7 +2203,7 @@ const SubscriptionDetailPage: React.FC = () => {
                         onValueChange={setSelectedAddressId}
                         disabled={!canModify}
                       >
-                        <SelectTrigger>
+                        <SelectTrigger data-tour="subscription-address">
                           <SelectValue placeholder="Select an address" />
                         </SelectTrigger>
                         <SelectContent>
@@ -2272,7 +2272,7 @@ const SubscriptionDetailPage: React.FC = () => {
                         ? "Preferred Days"
                         : "Preferred Day"}
                     </p>
-                    <div className="flex flex-wrap gap-2">
+                    <div data-tour="subscription-days" className="flex flex-wrap gap-2">
                       {(cutoff?.deliveryDays?.length
                         ? cutoff.deliveryDays.map((d) => toDayName(d))
                         : [
@@ -2324,7 +2324,7 @@ const SubscriptionDetailPage: React.FC = () => {
             <div className="mt-5 pt-4 border-t border-border flex items-center gap-2 flex-wrap">
               <Button
                 size="sm"
-                onClick={() => void handleSaveDeliveryDetails()}
+                data-tour="subscription-save-delivery" onClick={() => void handleSaveDeliveryDetails()}
                 disabled={!canSaveDeliveryDetails}
               >
                 {saving ? "Saving..." : "Save delivery details"}
