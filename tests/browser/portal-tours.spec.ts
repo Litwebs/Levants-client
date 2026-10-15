@@ -38,6 +38,17 @@ async function api(page: Page, options: { status?: string; empty?: boolean; cust
 }
 
 const tour = (page: Page) => page.locator('[role="dialog"][data-portal-tour-ui]');
+async function checkSpotlight(page: Page) {
+  const highlight = page.locator("[data-tour-highlight]");
+  await expect(highlight).toBeVisible();
+  for (const side of ["top", "right", "bottom", "left"]) {
+    await expect(highlight).toHaveCSS(`border-${side}-width`, "0px");
+  }
+  await expect(highlight).toHaveCSS("outline-style", "none");
+  await expect(highlight).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+  await expect(highlight).toHaveCSS("box-shadow", /9999px/);
+  await expect(page.locator(".portal-tour-overlay")).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+}
 async function checkBounds(page: Page) {
   const box = await tour(page).boundingBox();
   const size = page.viewportSize()!;
@@ -46,7 +57,7 @@ async function checkBounds(page: Page) {
   expect(box!.y).toBeGreaterThanOrEqual(0);
   expect(box!.x + box!.width).toBeLessThanOrEqual(size.width + 1);
   expect(box!.y + box!.height).toBeLessThanOrEqual(size.height + 1);
-  await expect(page.locator("[data-tour-highlight]")).toHaveCount(0);
+  await checkSpotlight(page);
 }
 async function finish(page: Page) {
   await expect(tour(page)).toBeVisible();
@@ -272,7 +283,7 @@ for (const size of [{ width: 320, height: 568 }, { width: 360, height: 640 }, { 
     await expect(body).toBeVisible();
     expect(card.height).toBeLessThanOrEqual(size.height * (size.height < 480 ? 0.65 : 0.44) + 1);
     expect((await body.boundingBox())!.height).toBeGreaterThan(48);
-    await expect(page.locator('[data-tour-highlight]')).toHaveCount(0);
+    await checkSpotlight(page);
     await expect(tour(page).locator('details')).not.toHaveAttribute('open', '');
     await info.attach(`tour-compact-${size.width}`, { body: await page.screenshot(), contentType: "image/png" });
     await tour(page).getByText('View current details', { exact: true }).click();
@@ -300,8 +311,10 @@ test("compact cards animate normally and respect reduced-motion preferences", as
   await expect(tour(page)).toBeVisible();
   await tour(page).getByRole("button", { name: "Next", exact: true }).click();
   expect(await tour(page).locator('.portal-tour-step').first().evaluate(element => getComputedStyle(element).animationName)).toBe("portal-tour-step-enter");
-  await expect(page.locator('[data-tour-highlight]')).toHaveCount(0);
+  await checkSpotlight(page);
+  await expect(page.locator("[data-tour-highlight]")).toHaveCSS("transition-duration", "0.28s, 0.28s, 0.28s, 0.28s");
   await page.emulateMedia({ reducedMotion: "reduce" });
+  await expect(page.locator("[data-tour-highlight]")).toHaveCSS("transition-duration", "0s");
   expect(await tour(page).locator('.portal-tour-step').first().evaluate(element => getComputedStyle(element).animationName)).toBe("none");
   expect(await tour(page).evaluate(element => getComputedStyle(element).animationName)).toBe("none");
   await finish(page);
@@ -319,7 +332,7 @@ test("desktop overview is centred, compact and has no target outline", async ({ 
   expect(box.width).toBeLessThanOrEqual(360);
   expect(box.height).toBeLessThan(300);
   expect(box.y).toBeGreaterThan(200);
-  await expect(page.locator('[data-tour-highlight]')).toHaveCount(0);
+  await checkSpotlight(page);
   await info.attach("tour-compact-desktop", { body: await page.screenshot(), contentType: "image/png" });
   await finish(page);
 });
