@@ -3,7 +3,14 @@ export type Viewport = { width: number; height: number; top: number; left: numbe
 
 export function placeTourCard(target: Rect, view: Viewport, cardHeight: number) {
   const margin = 12;
-  const width = Math.min(370, view.width - margin * 2);
+  // Phones use a roomy bottom sheet, independent of the target's position.
+  if (view.width <= 640) {
+    const maxHeight = view.height < 480 ? view.height - margin * 2 : Math.min(view.height - margin * 2, Math.max(300, view.height * 0.7));
+    const height = Math.min(cardHeight, maxHeight);
+    const top = view.top + view.height - height - margin;
+    return { left: view.left + margin, top, width: view.width - margin * 2, maxHeight: height };
+  }
+  const width = Math.min(420, view.width - margin * 2);
   const height = Math.min(cardHeight, view.height - margin * 2);
   const left = Math.max(view.left + margin, Math.min(target.left, view.left + view.width - width - margin));
   const bottomEdge = view.top + view.height;
