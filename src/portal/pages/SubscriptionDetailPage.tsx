@@ -1608,7 +1608,7 @@ const SubscriptionDetailPage: React.FC = () => {
       )}
 
       {subscription.status === "paused" && (
-        <div className="mb-4 rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-100">
+        <div data-tour="subscription-state" className="mb-4 rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-100">
           This subscription is paused
           {subscription.pausedUntil
             ? ` until ${formatDate(subscription.pausedUntil)}`
@@ -1619,7 +1619,7 @@ const SubscriptionDetailPage: React.FC = () => {
       )}
 
       {subscription.status === "cancelled" && (
-        <div className="mb-4 rounded-xl border border-red-300 bg-red-50 p-3 text-sm text-red-800 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-100">
+        <div data-tour="subscription-state" className="mb-4 rounded-xl border border-red-300 bg-red-50 p-3 text-sm text-red-800 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-100">
           This subscription is cancelled and cannot be modified.
         </div>
       )}
