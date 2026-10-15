@@ -15,4 +15,3 @@ export function placeTourCard(target: Rect, view: Viewport, cardHeight: number) 
   // Constrain the card immediately, even before a longer new step is measured.
   return { left, top: safeTop, width, maxHeight: bottomEdge - safeTop - margin };
 }
-
