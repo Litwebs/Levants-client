@@ -12,7 +12,9 @@ async function api(page: Page, options: { status?: string; empty?: boolean; cust
   const writes: string[] = [];
   await page.route("**/api/**", async route => {
     const request = route.request();
-    const path = new URL(request.url()).pathname.replace(/^\/api/, "");
+    const pathname = new URL(request.url()).pathname;
+    if (!pathname.startsWith("/api/")) return route.continue();
+    const path = pathname.slice(4);
     const reply = (data: unknown) => route.fulfill({ json: { success: true, data, meta } });
     if (path === "/portal/auth/me") return reply({ customer: { _id: options.customerId || "tour-customer", firstName: "Tour", lastName: "Customer", email: "tour@example.com", emailVerifiedAt: "2026-01-01", themePreference: "light", creditBalance: 500 } });
     // The existing Payments page prepares Stripe on load. This is not a tour action.
