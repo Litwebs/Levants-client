@@ -188,7 +188,9 @@ export function PortalTourProvider({ children, customerId, routeKey }: { childre
     return () => observer.disconnect();
   }, [open, active]);
 
-  const position = geometry ? placeTourCard(geometry.rect, geometry.view, cardHeight || 280) : { left: 12, top: 12, width: "calc(100% - 24px)", maxHeight: "calc(100dvh - 24px)" };
+  const currentView = geometry?.view || viewport();
+  const initialTarget: Rect = { top: currentView.top, left: currentView.left, width: currentView.width, height: currentView.height, right: currentView.left + currentView.width, bottom: currentView.top + currentView.height };
+  const position = placeTourCard(geometry?.rect || initialTarget, currentView, cardHeight || 220);
   const targetText = active?.readTarget ? (active.element.textContent || "").replace(/\s+/g, " ").trim().slice(0, 1000) : "";
   return <TourContext.Provider value={{ ready: Boolean(model), start }}>
     {children}
