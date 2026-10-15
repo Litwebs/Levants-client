@@ -5,7 +5,7 @@ const step = (target: string, title: string, description: string, readTarget = f
 // Targets are explicit UI anchors. Absent/hidden controls are omitted at runtime.
 export const portalTours: Record<string, PortalTour> = {
   dashboard: { title: "Your portal dashboard", steps: [
-    step("page", "Your account at a glance", "This is your starting point for subscriptions, deliveries and orders. This tour only explains the page; it never changes your account."),
+    step("page", "Your account at a glance", "Manage subscriptions, deliveries and orders here. This guide explains the controls without making changes."),
     step("dashboard-summary", "Account summary", "Use these cards to see your account totals and open the related area."),
     step("dashboard-subscriptions", "Your recurring deliveries", "Open a subscription to see its products, next delivery and management options."),
     step("new-subscription", "Start a subscription", "Choose New Subscription to build a recurring order. The builder has a tour for each form step."),
@@ -19,8 +19,8 @@ export const portalTours: Record<string, PortalTour> = {
   ] },
   "subscription-detail": { title: "Manage a subscription", steps: [
     step("subscription-summary", "Your delivery schedule", "Check the next delivery, frequency, selected days and totals here. Multi-day subscriptions show the cost for each day."),
-    step("subscription-state", "Check the subscription state", "Some controls remain visible for reference while a subscription is paused or cancelled. Read this notice before trying to edit or resume it.", true),
-    step("subscription-cutoff", "Check the cut-off first", "Each delivery day can have its own deadline. This live notice explains which delivery your changes will affect. Read it again before confirming a change.", true),
+    step("subscription-state", "Check the subscription state", "Read this status notice to see which actions are available.", true),
+    step("subscription-cutoff", "Check the cut-off first", "Check the deadline and which delivery your changes will affect.", true),
     step("subscription-products", "These products repeat", "These are the products in your regular order. Changes here affect the recurring subscription, rather than just a one-time extra."),
     step("subscription-quantity", "Adjust recurring quantities", "When editing is available, use the quantity controls to build your changes. Review the change preview and settlement information before saving."),
     step("subscription-add", "Add a recurring product", "Add product opens the recurring catalogue. Only eligible variants are offered. To add something once, use Add to next delivery instead."),
@@ -37,17 +37,17 @@ export const portalTours: Record<string, PortalTour> = {
     step("subscription-cancel", "Cancel a subscription", "Cancel opens a confirmation explaining when cancellation takes effect and how protected or paid deliveries are handled. It is not the same as pausing."),
   ] },
   "pause-form": { title: "Pause a subscription", steps: [
-    step("pause-policy", "Read the pause rules", "Read the current limits and cut-off rules before choosing a pause. Deliveries that are already protected can remain scheduled.", true),
+    step("pause-policy", "Read the pause rules", "Check the pause limits and cut-off rules before choosing a resume date.", true),
     step("pause-date", "Choose when to resume", "Choose a date within the range shown below the field. Review which deliveries fall before that date."),
     step("pause-settlement", "Choose how eligible amounts are returned", "Select a card refund or store credit for eligible prepaid amounts. Store credit stays in your account; a card refund goes back to the payment method."),
     step("pause-confirm", "Confirm only when ready", "This button actually pauses the subscription. Finish or Skip in this tour leaves the form open without submitting it."),
   ] },
   "resume-confirmation": { title: "Resume a subscription", steps: [
-    step("confirmation-policy", "Review the restart", "Read when your deliveries will restart. Close this confirmation if you need to review your subscription first.", true),
+    step("confirmation-policy", "Review the restart", "Check when deliveries restart before confirming.", true),
     step("confirmation-confirm", "Confirm the restart", "Resume applies the change. Finishing this tour does not resume the subscription."),
   ] },
   "cancel-confirmation": { title: "Cancel a subscription", steps: [
-    step("confirmation-policy", "Review cancellation", "Read the confirmation carefully and check the subscription's cut-off notice. Further settlement choices may appear for eligible prepaid deliveries.", true),
+    step("confirmation-policy", "Review cancellation", "Check the cancellation notice and settlement choices before confirming.", true),
     step("confirmation-confirm", "Confirm only when certain", "This is the real cancellation action. Use Keep Subscription to return without cancelling. Tour navigation never cancels anything."),
   ] },
   "new-days": { title: "Choose delivery days", group: "new-subscription", steps: [
@@ -82,7 +82,7 @@ export const portalTours: Record<string, PortalTour> = {
     step("recurring-save", "Save the reviewed additions", "Read the cut-off and charge explanation beside the summary. Save selected products applies your changes; tour navigation never saves them."),
   ] },
   "delivery-add-ons": { title: "One-time delivery extras", steps: [
-    step("add-on-delivery", "Check the target delivery", "These extras apply to the delivery shown here, not every future delivery. Check its date and cut-off before selecting anything.", true),
+    step("add-on-delivery", "Check the target delivery", "These extras apply once. Check the delivery date and cut-off before adding items.", true),
     step("add-on-catalogue", "Choose one-time extras", "Select the variants and quantities you want for this delivery. One-time purchases can include variants that are not eligible for recurring subscriptions."),
     step("add-on-selection", "Review this one-time order", "Check the selected extras and total. Your regular subscription products are unchanged."),
     step("add-on-confirm", "Confirm the one-time purchase", "Read the payment summary before confirming. This button can charge your saved card; Next and Finish in this tour never purchase anything."),

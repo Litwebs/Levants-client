@@ -58,12 +58,19 @@ test("every tour has unique explicit targets and task-specific accessible text",
   }
 });
 
-test("phone cards use the full available width at the bottom rather than a gap beside the target", () => {
+test("phone cards size to content and occupy at most 44% of a portrait screen", () => {
   const view = { width: 320, height: 568, left: 0, top: 0 };
   const target = { top: 100, bottom: 144, left: 250, right: 294, width: 44, height: 44 };
   const position = placeTourCard(target, view, 600);
   expect(position.width).toBe(296);
-  expect(position.maxHeight).toBeGreaterThan(330);
-  expect(position.top + position.maxHeight).toBe(556);
-  expect(placeTourCard(target, view, 200).height).toBe(position.height);
+  expect(position.maxHeight).toBeLessThanOrEqual(view.height * 0.44);
+  expect(position.top + position.maxHeight).toBeCloseTo(556, 6);
+  expect(placeTourCard(target, view, 180).maxHeight).toBe(180);
+});
+
+test("large desktop sections use a centred compact card", () => {
+  const position = placeTourCard({ top: 20, bottom: 880, left: 200, right: 1400, width: 1200, height: 860 }, { width: 1440, height: 900, left: 0, top: 0 }, 220);
+  expect(position.width).toBe(360);
+  expect(position.left).toBe(540);
+  expect(position.top).toBe(340);
 });

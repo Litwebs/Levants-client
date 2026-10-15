@@ -46,7 +46,7 @@ async function checkBounds(page: Page) {
   expect(box!.y).toBeGreaterThanOrEqual(0);
   expect(box!.x + box!.width).toBeLessThanOrEqual(size.width + 1);
   expect(box!.y + box!.height).toBeLessThanOrEqual(size.height + 1);
-  await expect(page.locator("[data-tour-highlight]")).toBeVisible();
+  await expect(page.locator("[data-tour-highlight]")).toHaveCount(0);
 }
 async function finish(page: Page) {
   await expect(tour(page)).toBeVisible();
@@ -270,7 +270,15 @@ for (const size of [{ width: 320, height: 568 }, { width: 360, height: 640 }, { 
     expect(card.width).toBe(size.width - 24);
     const body = tour(page).locator('[data-tour-body]');
     await expect(body).toBeVisible();
-    expect((await body.boundingBox())!.height).toBeGreaterThan(size.height >= 500 ? 140 : 80);
+    expect(card.height).toBeLessThanOrEqual(size.height * (size.height < 480 ? 0.65 : 0.44) + 1);
+    expect((await body.boundingBox())!.height).toBeGreaterThan(48);
+    await expect(page.locator('[data-tour-highlight]')).toHaveCount(0);
+    await expect(tour(page).locator('details')).not.toHaveAttribute('open', '');
+    await info.attach(`tour-compact-${size.width}`, { body: await page.screenshot(), contentType: "image/png" });
+    await tour(page).getByText('View current details', { exact: true }).click();
+    await expect(tour(page).locator('details')).toHaveAttribute('open', '');
+    await checkBounds(page);
+    expect((await tour(page).boundingBox())!.height).toBeLessThanOrEqual(size.height * (size.height < 480 ? 0.65 : 0.44) + 1);
     for (const label of ["Skip", "Back", "Next"]) {
       const button = tour(page).getByRole("button", { name: label, exact: true });
       await expect(button).toBeInViewport({ ratio: 1 });
@@ -285,16 +293,33 @@ for (const size of [{ width: 320, height: 568 }, { width: 360, height: 640 }, { 
   });
 }
 
-test("steps and spotlight animate normally and respect reduced-motion preferences", async ({ page }) => {
+test("compact cards animate normally and respect reduced-motion preferences", async ({ page }) => {
   await api(page);
   await page.emulateMedia({ reducedMotion: "no-preference" });
   await page.goto("/portal/dashboard");
   await expect(tour(page)).toBeVisible();
   await tour(page).getByRole("button", { name: "Next", exact: true }).click();
   expect(await tour(page).locator('.portal-tour-step').first().evaluate(element => getComputedStyle(element).animationName)).toBe("portal-tour-step-enter");
-  expect(await page.locator('[data-tour-highlight]').evaluate(element => getComputedStyle(element).transitionDuration)).toContain("0.28s");
+  await expect(page.locator('[data-tour-highlight]')).toHaveCount(0);
   await page.emulateMedia({ reducedMotion: "reduce" });
   expect(await tour(page).locator('.portal-tour-step').first().evaluate(element => getComputedStyle(element).animationName)).toBe("none");
-  expect(await page.locator('[data-tour-highlight]').evaluate(element => getComputedStyle(element).transitionDuration)).toBe("0s");
+  expect(await tour(page).evaluate(element => getComputedStyle(element).animationName)).toBe("none");
+  await finish(page);
+});
+
+
+test("desktop overview is centred, compact and has no target outline", async ({ page }, info) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await api(page);
+  await page.goto("/portal/dashboard");
+  await expect(tour(page)).toBeVisible();
+  await expect.poll(async () => Math.abs((await tour(page).boundingBox())!.x + (await tour(page).boundingBox())!.width / 2 - 720)).toBeLessThan(2);
+  const box = (await tour(page).boundingBox())!;
+  expect(box.width).toBeLessThanOrEqual(360);
+  expect(box.height).toBeLessThan(300);
+  expect(box.y).toBeGreaterThan(200);
+  await expect(page.locator('[data-tour-highlight]')).toHaveCount(0);
+  await info.attach("tour-compact-desktop", { body: await page.screenshot(), contentType: "image/png" });
   await finish(page);
 });
