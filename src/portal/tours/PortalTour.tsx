@@ -196,7 +196,10 @@ export function PortalTourProvider({ children, customerId, routeKey }: { childre
     {children}
     <Dialog.Root open={Boolean(open && active)} onOpenChange={value => { if (!value) close(); }}>
       <Dialog.Portal>
-        <Dialog.Overlay data-portal-tour-ui className="portal-tour-overlay fixed inset-0 z-[80] bg-black/25" />
+        <Dialog.Overlay data-portal-tour-ui className="portal-tour-overlay fixed inset-0 z-[80] overflow-hidden" style={{ background: geometry ? "transparent" : "rgba(0,0,0,.25)" }}>
+          {geometry && <div aria-hidden="true" data-tour-highlight className="portal-tour-highlight pointer-events-none fixed rounded-xl"
+            style={{ left: geometry.rect.left, top: geometry.rect.top, width: geometry.rect.width, height: geometry.rect.height }} />}
+        </Dialog.Overlay>
         <Dialog.Content ref={contentRef} data-portal-tour-ui className="portal-tour-card fixed z-[81] flex flex-col overflow-hidden rounded-xl border border-border bg-card text-card-foreground shadow-xl outline-none"
           style={position} onPointerDownOutside={event => event.preventDefault()}
           onOpenAutoFocus={event => { event.preventDefault(); titleRef.current?.focus({ preventScroll: true }); }}
