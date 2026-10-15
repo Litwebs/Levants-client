@@ -98,7 +98,7 @@ const SubscriptionCard: React.FC<{
   const isBusy = actionLoadingId === sub._id;
 
   return (
-    <div
+    <div data-tour="subscription-card"
       className={cn(
         "bg-card border border-border border-l-4 rounded-2xl overflow-hidden transition-shadow hover:shadow-md",
         sub.status === "cancelled" &&
@@ -263,7 +263,7 @@ const SubscriptionCard: React.FC<{
             </Button>
           )}
           <Button asChild size="sm" variant="outline" className="h-8 ml-auto">
-            <Link to={`/portal/subscriptions/${sub._id}`}>
+            <Link data-tour="subscription-open" to={`/portal/subscriptions/${sub._id}`}>
               Manage <ArrowRight className="h-3.5 w-3.5" />
             </Link>
           </Button>
@@ -343,13 +343,13 @@ const SubscriptionsPage: React.FC = () => {
   );
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div data-tour-page="subscriptions" data-tour-ready={!loading && !error} className="max-w-4xl mx-auto">
       <PageHeader
         title="My Subscriptions"
         description="Manage your recurring dairy deliveries"
         action={
           <Button asChild size="sm">
-            <Link to="/portal/subscriptions/new">
+            <Link data-tour="new-subscription" to="/portal/subscriptions/new">
               <Plus className="h-4 w-4" />
               New Subscription
             </Link>
@@ -370,7 +370,7 @@ const SubscriptionsPage: React.FC = () => {
         </div>
       ) : (
         <Tabs defaultValue="active">
-          <TabsList className="mb-5">
+          <TabsList data-tour="subscription-tabs" className="mb-5">
             <TabsTrigger value="active">Active ({active.length})</TabsTrigger>
             <TabsTrigger value="paused">Paused ({paused.length})</TabsTrigger>
             <TabsTrigger value="cancelled">

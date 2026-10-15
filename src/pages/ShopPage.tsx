@@ -55,6 +55,7 @@ export interface ShopCatalogItem {
 }
 
 interface ShopPageProps {
+  tourTarget?: string;
   subscriptionOnly?: boolean;
   beforeCatalog?: React.ReactNode;
   catalogId?: string;
@@ -95,6 +96,7 @@ interface ShopPageProps {
 
 const ShopPage: React.FC<ShopPageProps> = ({
   subscriptionOnly = false,
+  tourTarget,
   catalog,
   beforeCatalog,
   catalogId,
@@ -431,7 +433,7 @@ const ShopPage: React.FC<ShopPageProps> = ({
   };
 
   return (
-    <div className={embedded ? "bg-background" : "min-h-screen bg-background"}>
+    <div data-tour={tourTarget} className={embedded ? "bg-background" : "min-h-screen bg-background"}>
       {!embedded && (
         <div className="bg-secondary/30 py-12 lg:py-16">
           <div className="container-custom">

@@ -1,3 +1,4 @@
+import { PortalTourButton } from "@/portal/tours/PortalTour";
 import React, { useState, useEffect, useRef } from "react";
 import { MapPin, Plus, Pencil, Trash2, Check, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -111,7 +112,8 @@ const AddressForm: React.FC<{
   const isDisabled = isLoading || isSaving;
 
   return (
-    <div className="space-y-4">
+    <div data-tour-page="address-form" data-tour-ready={!isDisabled} className="space-y-4">
+      <PortalTourButton />
       {error && (
         <div className="p-3 bg-destructive/10 text-destructive rounded-lg text-sm">
           {error}
@@ -140,7 +142,7 @@ const AddressForm: React.FC<{
       <div className="space-y-1.5">
         <Label htmlFor="line1">Address line 1 *</Label>
         <Input
-          id="line1"
+          data-tour="address-line1" id="line1"
           ref={line1Ref}
           placeholder="14 Meadow Lane"
           disabled={isDisabled}
@@ -150,7 +152,7 @@ const AddressForm: React.FC<{
       <div className="space-y-1.5">
         <Label htmlFor="line2">Address line 2 (optional)</Label>
         <Input
-          id="line2"
+          data-tour="address-line2" id="line2"
           ref={line2Ref}
           placeholder="Flat 3"
           disabled={isDisabled}
@@ -160,7 +162,7 @@ const AddressForm: React.FC<{
         <div className="space-y-1.5">
           <Label htmlFor="city">City *</Label>
           <Input
-            id="city"
+            data-tour="address-city" id="city"
             ref={cityRef}
             placeholder="Manchester"
             disabled={isDisabled}
@@ -170,7 +172,7 @@ const AddressForm: React.FC<{
         <div className="space-y-1.5">
           <Label htmlFor="postcode">Postcode *</Label>
           <Input
-            id="postcode"
+            data-tour="address-postcode" id="postcode"
             ref={postcodeRef}
             placeholder="M14 5TF"
             disabled={isDisabled}
@@ -181,7 +183,7 @@ const AddressForm: React.FC<{
       <div className="space-y-1.5">
         <Label htmlFor="country">Country *</Label>
         <Input
-          id="country"
+          data-tour="address-country" id="country"
           ref={countryRef}
           placeholder="United Kingdom"
           disabled={isDisabled}
@@ -193,7 +195,7 @@ const AddressForm: React.FC<{
           Delivery instructions (optional)
         </Label>
         <Textarea
-          id="deliveryInstructions"
+          data-tour="address-instructions" id="deliveryInstructions"
           ref={deliveryInstructionsRef}
           placeholder="Leave at the door if no answer…"
           rows={2}
@@ -220,7 +222,7 @@ const AddressForm: React.FC<{
         <Button variant="outline" onClick={onCancel} disabled={isDisabled}>
           Cancel
         </Button>
-        <Button onClick={handleSave} disabled={isDisabled}>
+        <Button data-tour="address-save" onClick={handleSave} disabled={isDisabled}>
           {isSaving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
           Save Address
         </Button>
@@ -364,14 +366,14 @@ const AddressesPage: React.FC = () => {
   const visibleError = formError || error;
 
   return (
-    <div className="max-w-3xl mx-auto">
+    <div data-tour-page="addresses" data-tour-ready={!loading} className="max-w-3xl mx-auto">
       <PageHeader
         title="Delivery Addresses"
         description="Manage where your orders get delivered"
         action={
           <Button
             size="sm"
-            onClick={() => {
+            data-tour="address-add" onClick={() => {
               setFormError(null);
               setAddOpen(true);
             }}
@@ -454,7 +456,7 @@ const AddressesPage: React.FC = () => {
                     variant="ghost"
                     size="icon"
                     className="h-8 w-8"
-                    aria-label="Edit address"
+                    data-tour="address-edit" aria-label="Edit address"
                     onClick={() => requestEdit(addr)}
                     disabled={formLoading}
                   >
@@ -464,7 +466,7 @@ const AddressesPage: React.FC = () => {
                     variant="ghost"
                     size="icon"
                     className="h-8 w-8 text-destructive hover:bg-destructive/10"
-                    aria-label="Delete address"
+                    data-tour="address-delete" aria-label="Delete address"
                     onClick={() => requestDelete(addr)}
                     disabled={addr.isDefault || formLoading || deleteLoading}
                   >
@@ -477,7 +479,7 @@ const AddressesPage: React.FC = () => {
                   variant="ghost"
                   size="sm"
                   className="mt-3 h-7 text-xs text-forest"
-                  onClick={() => requestSetDefault(addr)}
+                  data-tour="address-default" onClick={() => requestSetDefault(addr)}
                   disabled={formLoading || defaultLoading || deleteLoading}
                 >
                   <Check className="h-3.5 w-3.5" />
@@ -491,7 +493,7 @@ const AddressesPage: React.FC = () => {
 
       {/* Add modal */}
       <Dialog open={addOpen} onOpenChange={setAddOpen}>
-        <DialogContent className="max-w-xl">
+        <DialogContent className="max-w-xl max-h-[90dvh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Add New Address</DialogTitle>
           </DialogHeader>
@@ -508,7 +510,7 @@ const AddressesPage: React.FC = () => {
         open={!!editAddress}
         onOpenChange={(v) => !v && setEditAddress(null)}
       >
-        <DialogContent className="max-w-xl">
+        <DialogContent className="max-w-xl max-h-[90dvh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Address</DialogTitle>
           </DialogHeader>

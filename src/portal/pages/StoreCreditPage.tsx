@@ -64,13 +64,13 @@ const StoreCreditPage: React.FC = () => {
   }, []);
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6">
+    <div data-tour-page="credit" data-tour-ready={!loading && !error} className="max-w-3xl mx-auto space-y-6">
       <PageHeader
         title="Store Credit"
         description="Use your balance towards future orders and subscriptions."
       />
 
-      <div className="bg-card border border-border rounded-2xl p-6 flex items-center gap-4">
+      <div data-tour="credit-balance" className="bg-card border border-border rounded-2xl p-6 flex items-center gap-4">
         <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center text-primary">
           <Wallet className="h-6 w-6" />
         </div>
@@ -80,7 +80,7 @@ const StoreCreditPage: React.FC = () => {
         </div>
       </div>
 
-      <div className="bg-card border border-border rounded-2xl p-6">
+      <div data-tour="credit-history" className="bg-card border border-border rounded-2xl p-6">
         <h2 className="text-sm font-medium mb-4">History</h2>
         {loading ? (
           <div className="text-sm text-muted-foreground flex items-center gap-2">

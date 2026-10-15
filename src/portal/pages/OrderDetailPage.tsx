@@ -388,7 +388,7 @@ const OrderDetailPage: React.FC = () => {
   };
 
   return (
-    <div className="max-w-2xl mx-auto">
+    <div data-tour-page="order-detail" data-tour-ready={true} className="max-w-2xl mx-auto">
       <div className="flex items-center gap-3 mb-6">
         <Button asChild variant="ghost" size="icon" className="h-8 w-8">
           <Link to="/portal/orders">
@@ -489,7 +489,7 @@ const OrderDetailPage: React.FC = () => {
       </div>
 
       <div className="bg-card border border-border rounded-2xl p-5 mb-4 space-y-4">
-        <h3 className="font-semibold text-foreground">Order Details</h3>
+        <h3 data-tour="order-information" className="font-semibold text-foreground">Order Details</h3>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {hasCustomerDetails && (
@@ -729,7 +729,7 @@ const OrderDetailPage: React.FC = () => {
           </>
         )}
 
-        <div>
+        <div data-tour="order-items">
           <p className="text-xs text-muted-foreground uppercase tracking-wide mb-2">
             Items Ordered
           </p>
@@ -738,7 +738,7 @@ const OrderDetailPage: React.FC = () => {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => void handleDownloadReceipt()}
+                data-tour="order-receipt" onClick={() => void handleDownloadReceipt()}
                 disabled={receiptLoading}
               >
                 {receiptLoading ? "Preparing..." : "Download Receipt"}
@@ -773,7 +773,7 @@ const OrderDetailPage: React.FC = () => {
 
       {hasRefunds && (
         <div className="bg-card border border-border rounded-2xl p-5 mb-4 space-y-3">
-          <h3 className="font-semibold text-foreground">Refunds</h3>
+          <h3 data-tour="order-refunds" className="font-semibold text-foreground">Refunds</h3>
           {order.refunds && order.refunds.length > 0 ? (
             <div className="space-y-2">
               {order.refunds.map((refund, idx) => (

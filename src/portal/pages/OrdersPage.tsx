@@ -224,7 +224,7 @@ const OrdersPage: React.FC = () => {
   };
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div data-tour-page="orders" data-tour-ready={!loading && !error} className="max-w-4xl mx-auto">
       <div className="sticky top-14 z-20 -mx-2 px-2 pt-2 pb-4 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
         <PageHeader
           title="My Orders"
@@ -240,7 +240,7 @@ const OrdersPage: React.FC = () => {
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search orders..."
+              data-tour="orders-search" placeholder="Search orders..."
               className="pl-9"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -250,7 +250,7 @@ const OrdersPage: React.FC = () => {
             value={statusFilter}
             onValueChange={(v) => setStatusFilter(v as "all" | ApiOrderStatus)}
           >
-            <SelectTrigger className="w-full sm:w-56">
+            <SelectTrigger data-tour="orders-filter" className="w-full sm:w-56">
               <Filter className="h-4 w-4 mr-2" />
               <SelectValue placeholder="Filter by status" />
             </SelectTrigger>
@@ -361,7 +361,7 @@ const OrdersPage: React.FC = () => {
 
                 <div className="flex items-center gap-3 flex-wrap">
                   <Button asChild variant="outline" size="sm">
-                    <Link to={`/portal/orders/${order._id}`}>
+                    <Link data-tour="order-open" to={`/portal/orders/${order._id}`}>
                       View details
                       <ArrowRight className="h-3.5 w-3.5" />
                     </Link>
@@ -370,7 +370,7 @@ const OrdersPage: React.FC = () => {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => void handleDownloadReceipt(order._id)}
+                      data-tour="order-receipt" onClick={() => void handleDownloadReceipt(order._id)}
                       disabled={receiptLoadingId === order._id}
                     >
                       {receiptLoadingId === order._id

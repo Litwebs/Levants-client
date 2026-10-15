@@ -1337,10 +1337,13 @@ const NewSubscriptionPage: React.FC = () => {
   return (
     <div
       className="w-full flex min-h-screen flex-col"
+      data-tour-page={["new-days", "new-frequency", "new-products", "new-address", "new-review"][step]}
+      data-tour-ready={!loadingProducts && availableDays !== null && !deliveryDaysError}
       style={{ minHeight: `calc(100dvh - ${siteHeaderHeight}px)` }}
     >
       <div
         ref={subHeaderRef}
+        data-tour="builder-progress"
         className="sticky z-30 mb-5 -mx-4 bg-background/95 pt-4 pb-4 backdrop-blur-sm sm:-mx-6 lg:-mx-8"
         style={{ top: subHeaderTopOffset }}
       >
@@ -1420,7 +1423,7 @@ const NewSubscriptionPage: React.FC = () => {
       >
         {/* Step 0: Delivery days */}
         {step === 0 && (
-          <div>
+          <div data-tour="builder-days">
             <h2 className="font-semibold text-foreground mb-1">
               Which days would you like delivery?
             </h2>
@@ -1469,7 +1472,7 @@ const NewSubscriptionPage: React.FC = () => {
 
         {/* Step 1: Frequency */}
         {step === 1 && (
-          <div>
+          <div data-tour="builder-frequency">
             <h2 className="font-semibold text-foreground mb-1">
               How often would you like delivery?
             </h2>
@@ -1537,7 +1540,7 @@ const NewSubscriptionPage: React.FC = () => {
               </p>
             </div>
 
-            <div className="mb-5 flex flex-wrap gap-2" role="tablist">
+            <div className="mb-5 flex flex-wrap gap-2" role="tablist" data-tour="builder-product-days">
               {deliveryDays.map((day) => {
                 const itemCount = Object.values(
                   dayQuantities[day] || {},
@@ -1562,7 +1565,7 @@ const NewSubscriptionPage: React.FC = () => {
               })}
             </div>
 
-            <section className="mb-6 rounded-xl border border-border bg-muted/20 p-4">
+            <section data-tour="builder-selected-products" className="mb-6 rounded-xl border border-border bg-muted/20 p-4">
               <h3 className="text-sm font-semibold text-foreground">
                 {activeProductDay} delivery
               </h3>
@@ -1651,6 +1654,7 @@ const NewSubscriptionPage: React.FC = () => {
             </section>
 
             <ShopPage
+              tourTarget="builder-products"
               subscriptionOnly
               embedded
               contentGapClassName="flex flex-col lg:flex-row gap-4"
@@ -1686,7 +1690,7 @@ const NewSubscriptionPage: React.FC = () => {
 
         {/* Step 3: Address and delivery instructions */}
         {step === 3 && (
-          <div>
+          <div data-tour="builder-address">
             <h2 className="font-semibold text-foreground mb-1">
               Delivery details
             </h2>
@@ -1933,6 +1937,7 @@ const NewSubscriptionPage: React.FC = () => {
               </label>
               <textarea
                 id="subscription-delivery-instructions"
+                data-tour="builder-instructions"
                 value={deliveryInstructions}
                 onChange={(event) =>
                   setDeliveryInstructions(event.target.value.slice(0, 500))
@@ -1951,7 +1956,7 @@ const NewSubscriptionPage: React.FC = () => {
 
         {/* Step 4: Review and payment */}
         {step === 4 && (
-          <div>
+          <div data-tour="builder-review">
             {isPreparedSubscription && (
               <div className="mb-5 rounded-xl border border-forest/20 bg-forest/5 p-4">
                 <p className="text-sm font-semibold text-forest">
@@ -2170,7 +2175,7 @@ const NewSubscriptionPage: React.FC = () => {
             </div>
 
             {/* ── Payment method ───────────────────────────────────────── */}
-            <div className="mt-5 rounded-2xl border border-border bg-background/70 p-4 space-y-3">
+            <div data-tour="builder-payment" className="mt-5 rounded-2xl border border-border bg-background/70 p-4 space-y-3">
               <h3 className="font-semibold text-foreground">Payment method</h3>
 
               {methodsLoading ? (
@@ -2331,12 +2336,13 @@ const NewSubscriptionPage: React.FC = () => {
               {step === 0 || isPreparedSubscription ? "Cancel" : "Back"}
             </Button>
             {step < steps.length - 1 ? (
-              <Button onClick={handleNext} disabled={!canContinue}>
+              <Button data-tour="builder-next" onClick={handleNext} disabled={!canContinue}>
                 Next
                 <ArrowRight className="h-4 w-4" />
               </Button>
             ) : (
               <Button
+                data-tour="builder-confirm"
                 onClick={() => void handleCreateSubscription()}
                 disabled={submitLoading || showNewForm || !selectedMethodId}
               >
