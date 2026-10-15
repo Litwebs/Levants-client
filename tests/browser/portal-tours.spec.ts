@@ -256,3 +256,45 @@ test("blocked tour storage keeps replay available and dismisses for the session"
   await finish(page);
   await expect(tour(page)).toHaveCount(0);
 });
+
+for (const size of [{ width: 320, height: 568 }, { width: 360, height: 640 }, { width: 640, height: 360 }]) {
+  test(`small-screen tour keeps readable content and persistent touch controls at ${size.width}x${size.height}`, async ({ page }, info) => {
+    await page.setViewportSize(size);
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    const writes = await api(page);
+    await page.goto("/portal/subscriptions/subscription-1");
+    await finish(page);
+    await page.locator('[data-tour="subscription-pause"]').click();
+    await expect(tour(page)).toBeVisible();
+    const card = (await tour(page).boundingBox())!;
+    expect(card.width).toBe(size.width - 24);
+    const body = tour(page).locator('[data-tour-body]');
+    await expect(body).toBeVisible();
+    expect((await body.boundingBox())!.height).toBeGreaterThan(size.height >= 500 ? 140 : 80);
+    for (const label of ["Skip", "Back", "Next"]) {
+      const button = tour(page).getByRole("button", { name: label, exact: true });
+      await expect(button).toBeInViewport({ ratio: 1 });
+      expect((await button.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+    }
+    expect(await tour(page).evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
+    await body.evaluate(element => { element.scrollTop = element.scrollHeight; });
+    await expect(tour(page).getByRole("button", { name: "Next", exact: true })).toBeInViewport({ ratio: 1 });
+    await info.attach(`tour-phone-${size.width}`, { body: await page.screenshot(), contentType: "image/png" });
+    await finish(page);
+    expect(writes).toEqual([]);
+  });
+}
+
+test("steps and spotlight animate normally and respect reduced-motion preferences", async ({ page }) => {
+  await api(page);
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await page.goto("/portal/dashboard");
+  await expect(tour(page)).toBeVisible();
+  await tour(page).getByRole("button", { name: "Next", exact: true }).click();
+  expect(await tour(page).locator('.portal-tour-step').first().evaluate(element => getComputedStyle(element).animationName)).toBe("portal-tour-step-enter");
+  expect(await page.locator('[data-tour-highlight]').evaluate(element => getComputedStyle(element).transitionDuration)).toContain("0.28s");
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  expect(await tour(page).locator('.portal-tour-step').first().evaluate(element => getComputedStyle(element).animationName)).toBe("none");
+  expect(await page.locator('[data-tour-highlight]').evaluate(element => getComputedStyle(element).transitionDuration)).toBe("0s");
+  await finish(page);
+});

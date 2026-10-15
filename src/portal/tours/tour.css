@@ -1,0 +1,28 @@
+.portal-tour-card {
+  animation: portal-tour-enter 240ms cubic-bezier(.2,.8,.2,1) both;
+}
+.portal-tour-step {
+  animation: portal-tour-step-enter 220ms cubic-bezier(.2,.8,.2,1) both;
+}
+.portal-tour-highlight {
+  transition: left 280ms ease, top 280ms ease, width 280ms ease, height 280ms ease;
+}
+.portal-tour-progress {
+  transition: width 240ms ease;
+}
+@keyframes portal-tour-enter {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes portal-tour-step-enter {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@media (max-height: 400px) {
+  .portal-tour-header { padding: 12px 16px 8px; }
+  .portal-tour-footer { padding: 8px 16px 12px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .portal-tour-card, .portal-tour-step { animation: none; }
+  .portal-tour-highlight, .portal-tour-progress { transition: none; }
+}

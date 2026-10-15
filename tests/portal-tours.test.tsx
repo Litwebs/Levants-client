@@ -57,3 +57,13 @@ test("every tour has unique explicit targets and task-specific accessible text",
     }
   }
 });
+
+test("phone cards use the full available width at the bottom rather than a gap beside the target", () => {
+  const view = { width: 320, height: 568, left: 0, top: 0 };
+  const target = { top: 100, bottom: 144, left: 250, right: 294, width: 44, height: 44 };
+  const position = placeTourCard(target, view, 600);
+  expect(position.width).toBe(296);
+  expect(position.maxHeight).toBeGreaterThan(330);
+  expect(position.top + position.maxHeight).toBe(556);
+  expect(placeTourCard(target, view, 200).height).toBe(position.height);
+});
