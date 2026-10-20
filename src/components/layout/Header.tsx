@@ -11,7 +11,7 @@ import { useBusinessInfo } from "@/context/BusinessInfoContext";
 
 type ActiveDiscount = {
   code: string;
-  kind: "percent" | "amount";
+  kind: "percent" | "amount" | "free_delivery";
   percentOff?: number;
   amountOff?: number;
   currency?: string;
@@ -164,6 +164,8 @@ const Header: React.FC<HeaderProps> = ({
 
     const scopeText =
       variants.length > 0 ? `Applies to: ${variants.join(", ")}` : "Sitewide";
+
+    if (activeDiscount.kind === "free_delivery") return { code, valueText: "Free delivery", scopeText };
 
     if (activeDiscount.kind === "percent") {
       const percent = Number(activeDiscount.percentOff || 0);

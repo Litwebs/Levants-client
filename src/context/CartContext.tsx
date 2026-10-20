@@ -13,6 +13,8 @@ import { Product, ProductVariant } from "@/data/products";
 import { resolveImageUrl } from "@/api/client";
 import { getDeal, listDeals, type Deal } from "@/api/deals";
 import { basketOfferSignature, matchBasketDeals } from "@/lib/basketDeals";
+import { usePromotionPricing } from "@/hooks/usePromotionPricing";
+import { buildBasketOrderItems } from "@/lib/basketDeals";
 import { ApiError } from "@/api/client";
 
 export interface CartItem {
@@ -33,6 +35,7 @@ interface CartState {
 }
 
 type CartAction =
+  | { type: "REFRESH_PRICES"; payload: Array<{ variantId: string; price: number }> }
   | {
       type: "ADD_ITEM";
       payload: { product: Product; variant?: ProductVariant; quantity: number };
@@ -58,7 +61,7 @@ type CartAction =
       payload: { items: CartItem[]; deals: DealCartItem[] };
     };
 
-interface CartContextType extends CartState {
+interface CartContextType extends CartState, ReturnType<typeof usePromotionPricing> {
   addItem: (
     product: Product,
     variant?: ProductVariant,
@@ -114,6 +117,17 @@ const getMaxStock = (
 
 const cartReducer = (state: CartState, action: CartAction): CartState => {
   switch (action.type) {
+    case "REFRESH_PRICES": {
+      let changed = false;
+      const items = state.items.map(item => {
+        const update = action.payload.find(price => price.variantId === (item.variant?.id || item.product.id));
+        if (!update || update.price === (item.variant?.price ?? item.product.price)) return item;
+        changed = true;
+        return item.variant ? { ...item, variant: { ...item.variant, price: update.price } } : { ...item, product: { ...item.product, price: update.price } };
+      });
+      return changed ? { ...state, items } : state;
+    }
+
     case "ADD_ITEM": {
       const { product, variant, quantity } = action.payload;
       const itemKey = getItemKey(product.id, variant?.id);
@@ -562,10 +576,14 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({
     0,
   );
   const offerPricing = useMemo(() => matchBasketDeals(state.items, availableDeals, state.deals), [state.items, availableDeals, state.deals]);
-  const subtotal = Math.round((productSubtotal + dealSubtotal - offerPricing.automaticSavings) * 100) / 100;
+  const basketSubtotal = Math.round((productSubtotal + dealSubtotal - offerPricing.automaticSavings) * 100) / 100;
 
-  const deliveryFee = 1;
-  const total = subtotal + deliveryFee;
+  const promotionPricing = usePromotionPricing(buildBasketOrderItems(state.items, state.deals), offerPricing.checkoutDeals.length > 0);
+  const priceUpdates = promotionPricing.promotion?.items;
+  useEffect(() => { if (priceUpdates) dispatch({ type: "REFRESH_PRICES", payload: priceUpdates }); }, [priceUpdates]);
+  const subtotal = promotionPricing.promotion?.subtotal ?? basketSubtotal;
+  const deliveryFee = promotionPricing.promotion?.deliveryFee ?? 1;
+  const total = Math.max(0, subtotal - (promotionPricing.promotion?.discountAmount || 0)) + deliveryFee;
 
   return (
     <CartContext.Provider
@@ -577,6 +595,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({
         refreshDeals,
         checkOffers,
         ...offerPricing,
+        ...promotionPricing,
         updateDealQuantity,
         removeItem,
         updateQuantity,

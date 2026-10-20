@@ -53,6 +53,7 @@ export interface CreateOrderPayload {
    */
   // deliveryInstructions?: string;
   discountCode?: string;
+  expectedTotalMinor?: number;
   /**
    * Store credit to apply, in MINOR units (pence).
    */

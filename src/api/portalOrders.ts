@@ -131,6 +131,7 @@ export type PortalCheckoutPayload = {
   };
   customerInstructions?: string;
   discountCode?: string;
+  expectedTotalMinor?: number;
   creditToApplyMinor?: number;
 };
 

@@ -2,6 +2,7 @@ import React from "react";
 import { Link } from "react-router-dom";
 import { X, Plus, Minus, ShoppingBag, Trash2 } from "lucide-react";
 import { useCart } from "@/context/CartContext";
+import PromotionSummary from "@/components/cart/PromotionSummary";
 import AutomaticDealSavings from "./AutomaticDealSavings";
 
 const CartDrawer: React.FC = () => {
@@ -18,6 +19,7 @@ const CartDrawer: React.FC = () => {
     subtotal,
     deliveryFee,
     total,
+    promotion,
   } = useCart();
 
   if (!isOpen) return null;
@@ -237,6 +239,8 @@ const CartDrawer: React.FC = () => {
         {/* Footer */}
         {(items.length > 0 || deals.length > 0) && (
           <div className="border-t border-border px-6 py-4 space-y-4">
+            <PromotionSummary />
+            {!!promotion?.discountAmount && <p className="text-sm mb-2">Promotion saving: −£{promotion.discountAmount.toFixed(2)}</p>}
             {/* Free Delivery Notice */}
 
             {/* Order Summary */}
@@ -250,7 +254,7 @@ const CartDrawer: React.FC = () => {
                 <span className="text-muted-foreground">Delivery</span>
                 <span>
                   {deliveryFee === 0 ? (
-                    <span className="text-primary font-medium">FREE</span>
+                    <span className="text-primary font-medium">£0.00 · FREE</span>
                   ) : (
                     `£${deliveryFee.toFixed(2)}`
                   )}

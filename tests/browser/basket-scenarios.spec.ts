@@ -36,6 +36,11 @@ async function mockApi(page: Page, state: { deals: Record<string, Deal>; failOff
     const url = new URL(request.url());
     if (!url.pathname.startsWith("/api/")) return route.continue();
     const path = url.pathname.slice(4);
+    if (path === "/discounts/quote") {
+      const payload = request.postDataJSON();
+      const subtotal = payload.items.reduce((sum: number, item: {variantId:string;quantity:number}) => sum + (Object.values(variants).find(v => v.id === item.variantId)?.price || 0) * item.quantity, 0);
+      return route.fulfill({json:{success:true,data:{subtotal,discountAmount:0,deliveryFee:1,total:subtotal+1,campaign:null}}});
+    }
     if (path === "/deals") {
       if (state.failOfferCheck) {
         state.failOfferCheck = false;
