@@ -1,9 +1,8 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import { Trash2, ArrowRight, ShoppingBag } from "lucide-react";
+import { Trash2, ArrowRight, ShoppingBag, Tag } from "lucide-react";
 import { useCart } from "@/context/CartContext";
 import QuantityStepper from "@/components/ui/QuantityStepper";
-import PromotionSummary, { PromotionCodeInput } from "@/components/cart/PromotionSummary";
 import AutomaticDealSavings from "@/components/cart/AutomaticDealSavings";
 
 const CartPage: React.FC = () => {
@@ -19,7 +18,6 @@ const CartPage: React.FC = () => {
     subtotal,
     deliveryFee,
     total,
-    promotion,
     clearCart,
   } = useCart();
 
@@ -175,8 +173,21 @@ const CartPage: React.FC = () => {
               </h2>
 
               {/* Promo Code */}
-              {checkoutDeals.length === 0 && <PromotionCodeInput />}
-              <PromotionSummary />
+              {checkoutDeals.length === 0 ? <div className="mb-6">
+                <label className="block text-sm font-medium mb-2">
+                  Promo Code
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="Enter code"
+                    className="flex-1 input-field py-2.5"
+                  />
+                  <button className="btn-outline py-2.5 px-4">
+                    <Tag className="w-4 h-4" />
+                  </button>
+                </div>
+              </div> : null}
 
               {/* Totals */}
               <AutomaticDealSavings />
@@ -185,17 +196,21 @@ const CartPage: React.FC = () => {
                   <span className="text-muted-foreground">Subtotal</span>
                   <span>£{subtotal.toFixed(2)}</span>
                 </div>
-                {!!promotion?.discountAmount && <div className="flex justify-between text-sm"><span>Promotion</span><span>−£{promotion.discountAmount.toFixed(2)}</span></div>}
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Delivery</span>
                   <span>
                     {deliveryFee === 0 ? (
-                      <span className="text-primary font-medium">£0.00 · FREE</span>
+                      <span className="text-primary font-medium">FREE</span>
                     ) : (
                       `£${deliveryFee.toFixed(2)}`
                     )}
                   </span>
                 </div>
+                {deliveryFee > 0 && subtotal < 25 && (
+                  <p className="text-xs text-muted-foreground">
+                    Add £{(25 - subtotal).toFixed(2)} more for free delivery
+                  </p>
+                )}
                 <div className="border-t border-border pt-3 flex justify-between font-semibold text-lg">
                   <span>Total</span>
                   <span>£{total.toFixed(2)}</span>

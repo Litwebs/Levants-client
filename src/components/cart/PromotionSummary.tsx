@@ -3,7 +3,7 @@ import { useCart } from "@/context/CartContext";
 export function PromotionCodeInput() {
   const { promotionCode, setPromotionCode, refreshPricing, pricingLoading } = useCart();
   return <div className="mb-4">
-    <label htmlFor="promotion-code" className="block text-sm font-medium mb-2">Promo Code</label>
+    <label htmlFor="promotion-code" className="block text-sm font-medium mb-2">Discount Code</label>
     <div className="flex gap-2">
       <input id="promotion-code" value={promotionCode} maxLength={32} onChange={e => setPromotionCode(e.target.value.toUpperCase())}
         placeholder="Enter code" className="input-field min-w-0 flex-1 py-2.5" />

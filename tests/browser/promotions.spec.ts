@@ -31,10 +31,10 @@ async function setup(page: Page, state: CampaignState) {
 const initial = (): CampaignState => ({active:true,kind:"free_delivery",minimum:10,orders:[]});
 for (const width of [390, 1440]) {
   test(`automatic free delivery is consistent from cart to checkout at ${width}px`, async ({page}) => {
-    await page.setViewportSize({width,height:900});const state=initial();await setup(page,state);await page.goto("/cart");
+    await page.setViewportSize({width,height:900});const state=initial();await setup(page,state);await page.goto("/shop");await page.getByRole("button",{name:"Cart",exact:true}).click();
     await expect(page.getByTestId("promotion-summary")).toContainText("£0.00 delivery");
     await expect(page.getByText("£0.00 · FREE",{exact:true})).toBeVisible();
-    await page.getByRole("link",{name:"Proceed to Checkout"}).click();
+    await page.getByRole("link",{name:"Checkout Securely"}).click();
     const place=page.getByRole("button",{name:"Place Order - £10.00",exact:true});await expect(place).toBeEnabled();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
     await place.click();await expect(page).toHaveURL(/test-payment/);
@@ -44,7 +44,7 @@ for (const width of [390, 1440]) {
 test("code replaces automatic campaign and removal restores free delivery",async({page})=>{
   const state=initial();await setup(page,state);await page.goto("/checkout");
   await expect(page.getByRole("button",{name:"Place Order - £10.00",exact:true})).toBeEnabled();
-  await page.getByLabel("Promo Code",{exact:true}).fill("SAVE2");
+  await page.getByLabel("Discount Code",{exact:true}).fill("SAVE2");
   await expect(page.getByRole("button",{name:"Place Order - £9.00",exact:true})).toBeEnabled();
   await expect(page.getByTestId("promotion-summary")).toContainText("Save two pounds");
   await page.getByRole("button",{name:"Remove",exact:true}).click();
@@ -65,7 +65,7 @@ test("campaign expiry refreshes pricing without a reload",async({page})=>{
 });
 test("invalid codes and quote outages block checkout until corrected",async({page})=>{
   const state=initial();await setup(page,state);await page.goto("/checkout");
-  await page.getByLabel("Promo Code",{exact:true}).fill("INVALID");
+  await page.getByLabel("Discount Code",{exact:true}).fill("INVALID");
   await expect(page.getByRole("alert")).toContainText("Invalid discount code");
   await expect(page.getByRole("button",{name:/Place Order/})).toBeDisabled();
   await page.getByRole("button",{name:"Remove",exact:true}).click();
