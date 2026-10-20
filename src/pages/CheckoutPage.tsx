@@ -10,6 +10,7 @@ import { portalOrdersApi } from "@/api/portalOrders";
 import { isPortalLoggedIn } from "@/lib/portalAuth";
 import { useBusinessInfo } from "@/context/BusinessInfoContext";
 import { Input, Textarea } from "@/components/common/FormControls";
+import PromotionSummary, { PromotionCodeInput } from "@/components/cart/PromotionSummary";
 import AutomaticDealSavings from "@/components/cart/AutomaticDealSavings";
 import { buildBasketOrderItems } from "@/lib/basketDeals";
 
@@ -41,14 +42,13 @@ type CheckoutProfile = {
 const CheckoutPage: React.FC = () => {
   const navigate = useNavigate();
   const businessInfo = useBusinessInfo();
-  const { items, deals, automaticDeals, checkoutDeals, subtotal, checkOffers } = useCart();
+  const { items, deals, automaticDeals, checkoutDeals, subtotal, checkOffers, promotion, promotionCode: discountCode, setPromotionCode: setDiscountCode, refreshPricing, pricingLoading, pricingError } = useCart();
   const [checkingOffers, setCheckingOffers] = useState(false);
   const placingOrder = useRef(false);
   const {
     customer,
     createGuestCustomer,
     createOrder,
-    validateDiscount,
     loading,
     error,
   } = useOrders();
@@ -66,20 +66,6 @@ const CheckoutPage: React.FC = () => {
   const [selectedSavedAddressId, setSelectedSavedAddressId] = useState<
     string | null
   >(null);
-
-  const [discountCode, setDiscountCode] = useState("");
-  const [validatedDiscount, setValidatedDiscount] = useState<{
-    code: string;
-    discountAmount: number;
-    eligibleSubtotal: number;
-  } | null>(null);
-
-  useEffect(() => {
-    if (checkoutDeals.length) {
-      setDiscountCode("");
-      setValidatedDiscount(null);
-    }
-  }, [checkoutDeals.length]);
 
   const [formData, setFormData] = useState({
     firstName: "",
@@ -243,47 +229,8 @@ const CheckoutPage: React.FC = () => {
   const buildOrderItems = () => buildBasketOrderItems(items, deals);
 
   const ensureDiscountValidatedIfNeeded = async (customerId: string) => {
-    if (checkoutDeals.length > 0) {
-      setDiscountCode("");
-      setValidatedDiscount(null);
-      return true;
-    }
-
-    const code = discountCode.trim();
-    if (!code) {
-      setValidatedDiscount(null);
-      return true;
-    }
-
-    if (
-      validatedDiscount &&
-      validatedDiscount.code.toUpperCase() === code.toUpperCase()
-    ) {
-      return true;
-    }
-
-    const orderItems = buildOrderItems();
-
-    const res = await validateDiscount({
-      customerId,
-      discountCode: code,
-      items: orderItems,
-    });
-
-    if (!res) {
-      toast.error("Invalid discount code");
-      return false;
-    }
-
-    setValidatedDiscount({
-      code: res.discountCode,
-      discountAmount: res.discountAmount,
-      eligibleSubtotal: res.eligibleSubtotal,
-    });
-    toast.success("Discount code applied", {
-      description: `-£${Number(res.discountAmount || 0).toFixed(2)}`,
-    });
-    return true;
+    try { await refreshPricing(customerId); return true; }
+    catch (error) { toast.error(error instanceof Error ? error.message : "Could not check promotions"); return false; }
   };
 
   const handleNext = async () => {
@@ -430,14 +377,11 @@ const CheckoutPage: React.FC = () => {
 
       // If a code is entered, require it to be validated before sending to order creation.
       const usingCredit = applyCredit && canUseCredit && creditAppliedMinor > 0;
-      if (!usingCredit) {
-        const ok = await ensureDiscountValidatedIfNeeded(activeCustomerId);
-        if (!ok) {
-          toast.error(
-            "Please fix your discount code before placing the order.",
-          );
-          return;
-        }
+      const freshPricing = await refreshPricing(activeCustomerId);
+      const freshTotal = Math.round((freshPricing?.total ?? (subtotal + 1)) * 100);
+      if (freshTotal !== Math.round(displayTotal * 100)) {
+        toast.info("Your promotions have changed. Review the updated total, then place your order.");
+        return;
       }
 
       // 2. Create order → get Stripe checkout URL.
@@ -468,8 +412,9 @@ const CheckoutPage: React.FC = () => {
         discountCode:
           usingCredit || checkoutDeals.length > 0
             ? undefined
-            : validatedDiscount?.code || discountCode.trim() || undefined,
+            : discountCode.trim() || undefined,
         creditToApplyMinor: usingCredit ? creditAppliedMinor : undefined,
+        expectedTotalMinor: freshTotal,
       };
 
       let result;
@@ -506,17 +451,18 @@ const CheckoutPage: React.FC = () => {
       } else {
         toast.error("Failed to create order. Please try again.");
       }
-    } catch {
-      toast.error("Something went wrong. Please try again.");
+    } catch (error) {
+      await refreshPricing(customer?._id || loggedInCustomerId || undefined).catch(() => {});
+      toast.error(error instanceof Error ? error.message : "Something went wrong. Please try again.");
     } finally {
       placingOrder.current = false;
       setCheckingOffers(false);
     }
   };
 
-  const discountAmount = Number(validatedDiscount?.discountAmount || 0);
+  const discountAmount = Number(promotion?.discountAmount || 0);
   const displaySubtotal = Math.max(0, subtotal - discountAmount);
-  const deliveryFee = 1;
+  const deliveryFee = promotion?.deliveryFee ?? 1;
   const displayTotal = displaySubtotal + deliveryFee;
 
   // Store credit (in MINOR units / pence). Cannot be combined with a discount.
@@ -893,50 +839,8 @@ const CheckoutPage: React.FC = () => {
                         so discount codes cannot be combined with them.
                       </p>
                     </div>
-                  ) : !applyCredit ? (
-                    <div className="mb-4">
-                      <label htmlFor="discount-code" className="block text-sm font-medium mb-2">
-                        Discount Code
-                      </label>
-                      <div className="flex gap-2">
-                        <input
-                          id="discount-code"
-                          type="text"
-                          placeholder="Enter code"
-                          className="flex-1 input-field py-2.5"
-                          value={discountCode}
-                          onChange={(e) => {
-                            setDiscountCode(e.target.value);
-                            setValidatedDiscount(null);
-                          }}
-                        />
-                        <button
-                          type="button"
-                          className="btn-outline py-2.5 px-4"
-                          disabled={loading}
-                          onClick={async () => {
-                            if (!discountCode.trim()) {
-                              toast.error("Enter a discount code first.");
-                              return;
-                            }
-                            const activeCustomerId =
-                              customer?._id || loggedInCustomerId;
-                            if (!activeCustomerId) {
-                              toast.error(
-                                "Complete checkout details first, then apply the code.",
-                              );
-                              return;
-                            }
-                            await ensureDiscountValidatedIfNeeded(
-                              activeCustomerId,
-                            );
-                          }}
-                        >
-                          Apply
-                        </button>
-                      </div>
-                    </div>
-                  ) : null}
+                  ) : !applyCredit ? <PromotionCodeInput /> : null}
+                  <PromotionSummary />
 
                   {canUseCredit && (
                     <div className="mb-4 p-4 rounded-xl border border-border bg-secondary/20">
@@ -951,7 +855,6 @@ const CheckoutPage: React.FC = () => {
                             if (checked) {
                               // Store credit can't be combined with a discount.
                               setDiscountCode("");
-                              setValidatedDiscount(null);
                             }
                           }}
                         />
@@ -1073,7 +976,7 @@ const CheckoutPage: React.FC = () => {
                 <button
                   onClick={handlePlaceOrder}
                   className="btn-primary flex items-center gap-2"
-                  disabled={loading || portalCheckoutLoading || checkingPostcode || checkingOffers}
+                  disabled={loading || portalCheckoutLoading || checkingPostcode || checkingOffers || pricingLoading || !!pricingError}
                 >
                   {loading || portalCheckoutLoading || checkingOffers ? (
                     <>
