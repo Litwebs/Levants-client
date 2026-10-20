@@ -7,12 +7,6 @@ on:
       - 'tests/**'
       - 'playwright.uat-basket.config.ts'
       - '.github/workflows/basket-persistence.yml'
-  push:
-    branches: [uat]
-    paths:
-      - 'tests/uat/basket-persistence.spec.ts'
-      - 'playwright.uat-basket.config.ts'
-      - '.github/workflows/basket-persistence.yml'
 permissions:
   contents: read
 concurrency:
@@ -29,6 +23,7 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
+      - run: npx eslint tests/uat/basket-persistence.spec.ts playwright.uat-basket.config.ts
       - run: npx playwright install --with-deps chromium webkit
       - name: Test real UAT basket storage in Chromium and WebKit
         run: npx playwright test --config playwright.uat-basket.config.ts
