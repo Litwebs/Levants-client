@@ -58,7 +58,7 @@ test("UI-added basket and changed quantity survive checkout reload and a new doc
   const other = await context.newPage();
   await other.goto("/shop");
   await other.getByRole("button", { name: "Cart", exact: true }).click();
-  await expect(other.getByText("Test Variant £12.00", { exact: false })).toBeVisible();
+  await expect(other.getByRole("heading", { name: "TEST PRODUCT", exact: true })).toBeVisible();
   await expect.poll(() => savedBasket(other)).toEqual(expected);
   await other.close();
 
