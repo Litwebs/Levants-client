@@ -98,12 +98,16 @@ export type PortalSubscriptionDelivery = {
   cutoffAt?: string | null;
   isPastCutoff?: boolean;
   generatedAt?: string | null;
+  canChangeThisDelivery?: boolean;
+  recurringItems?: DeliveryReductionItem[];
+  oneTimeChanges?: DeliveryReductionChange[];
   order?: {
     _id: string;
     orderId?: string;
     status?: string;
     deliveryStatus?: string;
     total?: number;
+    deliveryFee?: number;
   } | null;
   addOns?: Array<{
     operationId: string;
@@ -120,6 +124,43 @@ export type PortalSubscriptionDelivery = {
       subtotal: number;
     }>;
   }>;
+};
+
+export type DeliveryReductionItem = Omit<PortalSubscriptionItem, "_id"> & { _id?: string };
+export type DeliveryReductionSelection = Array<{ variant: string; quantity: number }>;
+export type DeliveryReductionQuote = {
+  deliveryId: string;
+  scheduledDate: string;
+  cutoffAt: string;
+  expectedVersion: number;
+  quoteToken: string;
+  before: DeliveryReductionItem[];
+  after: DeliveryReductionItem[];
+  originalTotalMinor: number;
+  revisedTotalMinor: number;
+  creditedMinor: number;
+  deliveryFeeMinor: number;
+  cancelsDelivery: boolean;
+  hasChanges: boolean;
+};
+export type DeliveryReductionChange = Pick<DeliveryReductionQuote,
+  "before" | "after" | "originalTotalMinor" | "revisedTotalMinor" | "creditedMinor" | "cancelsDelivery"> & {
+    operationId: string;
+    createdAt: string;
+    creditTransaction: string | null;
+  };
+export type DeliveryReductionRequest = {
+  items: DeliveryReductionSelection;
+  quoteToken: string;
+  expectedVersion: number;
+  operationId: string;
+};
+export type DeliveryReductionResult = {
+  deliveryId: string;
+  adjustment: DeliveryReductionChange;
+  creditedMinor: number;
+  revisedTotalMinor: number;
+  customerVersion: number;
 };
 
 export type PaginationMeta = {
@@ -206,6 +247,15 @@ export type CreateSubscriptionPayload = {
 const base = "/portal/subscriptions";
 
 export const portalSubscriptionsApi = {
+  getDeliveryReduction: (subscriptionId: string, deliveryId: string) =>
+    api.get<ApiEnvelope<DeliveryReductionQuote>>(`${base}/${subscriptionId}/deliveries/${deliveryId}/one-time-change`),
+
+  previewDeliveryReduction: (subscriptionId: string, deliveryId: string, items: DeliveryReductionSelection) =>
+    api.post<ApiEnvelope<DeliveryReductionQuote>>(`${base}/${subscriptionId}/deliveries/${deliveryId}/one-time-change/preview`, { items }),
+
+  confirmDeliveryReduction: (subscriptionId: string, deliveryId: string, payload: DeliveryReductionRequest) =>
+    api.post<ApiEnvelope<DeliveryReductionResult>>(`${base}/${subscriptionId}/deliveries/${deliveryId}/one-time-change/confirm`, payload),
+
   list: (query: { status?: PortalSubscriptionStatus; page?: number; pageSize?: number } = {}) =>
     api.get<ApiEnvelope<ListSubscriptionsResponse>>(base, query),
 
