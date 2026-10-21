@@ -8,6 +8,7 @@ This batch implements the customer interface. Backend acceptance, staff views, g
 ## Customer flow
 
 - Each eligible paid delivery offers **Change This Delivery Only**. Eligibility comes from the server; older responses without that flag keep the existing portal behaviour.
+- The existing delivery API sorts an account's complete history oldest first. The portal now locates the page containing the next delivery using a bounded binary search, then offers older/newer navigation. Existing customers are no longer restricted to their first ten historical records. A background refresh retains the selected page.
 - The editor loads saved delivery quantities and prices. Customers can reduce whole-number quantities or remove recurring items. Paid one-time add-ons remain separate.
 - **Review change** requests a server-authoritative quote. The review shows before/after quantities, original and revised delivery totals, the retained fee and eligible store credit. Editing a quantity discards the previous quote.
 - Removing all recurring items cancels that delivery only when the backend quote says no items remain. The review explains the fee treatment before confirmation.
@@ -30,7 +31,8 @@ Read-only requests can be dismissed; their late responses cannot overwrite a reo
 
 - `tests/delivery-reduction.test.tsx`: customer interaction cases for eligibility, read-only opening, validation, preview invalidation, exact confirmation, double submission, full removal, add-ons, further reductions, zero credit, lost-response recovery after remount/cut-off, account isolation, stale responses, malformed envelopes, display-refresh failure and keyboard/slow-read behaviour.
 - `tests/deliveryReductionRetry.test.mjs`: five isolated recovery-storage cases, including page reload, account/subscription/delivery isolation, restricted storage, confirmed cleanup and corrupt data. These run the actual transpiled TypeScript module.
-- `tests/browser/delivery-reduction.spec.ts`: eight API-fixture browser cases covering 320/390/1440px review bounds and touch targets, actual portal delivery snapshots/future quantities, full removal with £0 total/fee, exact request recovery after reload, stale review, keyboard focus and preservation of an unsaved recurring quantity draft.
+- `tests/subscriptionDeliveryPage.test.mjs`: six date/page-discovery cases, including long histories, page boundaries, legacy/single-page responses, selected-page preservation and clamping after history changes.
+- `tests/browser/delivery-reduction.spec.ts`: nine API-fixture browser cases covering 320/390/1440px review bounds and touch targets, actual portal delivery snapshots/future quantities, full removal with £0 total/fee, exact request recovery after reload, stale review, keyboard focus, preservation of an unsaved recurring quantity draft and navigation for an account with more than twenty historical deliveries.
 - `.github/workflows/delivery-reduction-ui.yml`: normal type checking, scoped lint, feature component/storage tests, production build, Chromium browser cases and retained evidence. Existing validation workflows and test commands are unchanged.
 
 Browser fixtures exercise the real portal UI and HTTP client with intercepted API responses. They do not prove database transactions, provider behaviour or deployed server/storefront compatibility. Paired real-API acceptance is still required before rollout.

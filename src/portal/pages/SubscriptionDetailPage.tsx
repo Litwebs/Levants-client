@@ -45,6 +45,7 @@ import { ConfirmationModal, EmptyState } from "@/portal/components/PortalUI";
 import { ApiError } from "@/api/client";
 import { usePortalCustomer } from "@/portal/context/CustomerContext";
 import { useAddresses } from "@/portal/context/AddressesContext";
+import { selectSubscriptionDeliveryPage, type SubscriptionDeliveryPage } from "@/api/subscriptionDeliveryPage";
 import {
   portalSubscriptionsApi,
   type PortalSubscription,
@@ -385,6 +386,7 @@ const SubscriptionDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const { customer, refreshCustomer } = usePortalCustomer();
   const currentId = useRef(id);
+  const loadGeneration = useRef(0);
   currentId.current = id;
   const {
     addresses,
@@ -397,6 +399,9 @@ const SubscriptionDetailPage: React.FC = () => {
   const [deliveries, setDeliveries] = useState<PortalSubscriptionDelivery[]>(
     [],
   );
+  const deliveryPage = useRef(0);
+  const [deliveryPages, setDeliveryPages] = useState({ page: 1, totalPages: 1 });
+  const [deliveryPageLoading, setDeliveryPageLoading] = useState(false);
   const canModify = canModifySubscription(subscription);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -488,11 +493,13 @@ const SubscriptionDetailPage: React.FC = () => {
     });
   }, [deliveryDays, frequency, productDraft]);
 
-  const load = async (background = false) => {
+  const load = async (background = false, requestedPage = deliveryPage.current) => {
     if (!id) return;
+    const serial = ++loadGeneration.current;
 
     try {
       if (!background) { setLoading(true); setError(null); }
+      setDeliveryPageLoading(true);
 
       const [subRes, delRes] = await Promise.all([
         portalSubscriptionsApi.get(id),
@@ -502,15 +509,26 @@ const SubscriptionDetailPage: React.FC = () => {
       const sub = (subRes as any)?.data?.subscription as PortalSubscription;
       const nextCutoff =
         ((subRes as any)?.data?.cutoff as PortalSubscriptionCutoff) || null;
-      const nextDeliveries =
+      const firstDeliveries =
         ((delRes as any)?.data?.deliveries as PortalSubscriptionDelivery[]) ||
         [];
+      if (currentId.current !== id || serial !== loadGeneration.current) return;
+      const firstPage: SubscriptionDeliveryPage = { deliveries: firstDeliveries,
+        meta: delRes.data?.meta || { page: 1, pageSize: 10, total: firstDeliveries.length } };
+      const chosen = await selectSubscriptionDeliveryPage(firstPage, sub?.upcomingDeliveryDate || sub?.nextDeliveryDate,
+        async page => {
+          const response = await portalSubscriptionsApi.listDeliveries(id, { page, pageSize: 10 });
+          if (!response.success || !response.data) throw new Error("Unable to load delivery history.");
+          return response.data;
+        }, requestedPage);
 
-      if (currentId.current !== id) return;
+      if (currentId.current !== id || serial !== loadGeneration.current) return;
 
       setSubscription(sub || null);
       setCutoff(nextCutoff);
-      setDeliveries(nextDeliveries);
+      setDeliveries(chosen.deliveries);
+      deliveryPage.current = chosen.meta.page;
+      setDeliveryPages({ page: chosen.meta.page, totalPages: Math.max(1, Math.ceil(chosen.meta.total / chosen.meta.pageSize)) });
 
       if (sub && !background) {
         setFrequency(sub.frequency);
@@ -542,17 +560,21 @@ const SubscriptionDetailPage: React.FC = () => {
         err instanceof ApiError
           ? err.message
           : "Failed to load subscription details.";
-      if (currentId.current !== id) return;
+      if (currentId.current !== id || serial !== loadGeneration.current) return;
       if (!background) setError(message);
       toast.error(message);
       if (!background) setSubscription(null);
       else throw err;
     } finally {
-      if (!background && currentId.current === id) setLoading(false);
+      if (currentId.current === id && serial === loadGeneration.current) {
+        setDeliveryPageLoading(false);
+        if (!background) setLoading(false);
+      }
     }
   };
 
   useEffect(() => {
+    deliveryPage.current = 0;
     void load();
   }, [id]);
 
@@ -2365,6 +2387,14 @@ const SubscriptionDetailPage: React.FC = () => {
             {deliveries.some(delivery => delivery.status === "generated" && delivery.oneTimeChanges?.length &&
               !isPastCutoffInstant(delivery.cutoffAt, delivery.isPastCutoff ?? true)) &&
               <p className="mb-3 rounded-lg bg-muted/40 p-3 text-sm text-muted-foreground">An upcoming delivery has a one-time reduction. You can reduce it further here. Regular product or schedule changes can be saved after that delivery’s cut-off, for a later delivery.</p>}
+            {deliveryPageLoading && <p role="status" className="mb-2 text-sm text-muted-foreground">Loading deliveries…</p>}
+            {deliveryPages.totalPages > 1 && <nav aria-label="Delivery history pages" className="mb-3 flex flex-wrap items-center justify-between gap-2 text-sm">
+              <Button type="button" variant="outline" size="sm" className="min-h-11" disabled={deliveryPageLoading || deliveryPages.page <= 1}
+                onClick={() => { void load(true, deliveryPages.page - 1).catch(() => {}); }}>Older deliveries</Button>
+              <span>Page {deliveryPages.page} of {deliveryPages.totalPages}</span>
+              <Button type="button" variant="outline" size="sm" className="min-h-11" disabled={deliveryPageLoading || deliveryPages.page >= deliveryPages.totalPages}
+                onClick={() => { void load(true, deliveryPages.page + 1).catch(() => {}); }}>Newer deliveries</Button>
+            </nav>}
             {deliveries.length === 0 ? (
               <p className="text-sm text-muted-foreground">
                 No upcoming deliveries.

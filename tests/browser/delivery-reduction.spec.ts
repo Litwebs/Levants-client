@@ -16,7 +16,7 @@ const removed: DeliveryReductionQuote = { ...reduced, quoteToken: "c".repeat(64)
 
 // These are API-contract fixtures for the actual portal UI, not database or
 // provider evidence. Every mutation outside the two reviewed endpoints fails.
-async function fixture(page: Page, options: { lostResponse?: boolean; stale?: boolean } = {}) {
+async function fixture(page: Page, options: { lostResponse?: boolean; stale?: boolean; longHistory?: boolean } = {}) {
   const confirmations: DeliveryReductionRequest[] = [];
   const previews: unknown[] = [];
   const unexpected: string[] = [];
@@ -33,12 +33,17 @@ async function fixture(page: Page, options: { lostResponse?: boolean; stale?: bo
         emailVerifiedAt: "2026-01-01", themePreference: "light", creditBalance: saved?.creditedMinor || 0 } });
       if (path === "/portal/addresses") return reply({ addresses: [address] });
       if (path.endsWith("/one-time-change")) { initialReads++; return reply(initial); }
-      if (path.endsWith("/deliveries")) return reply({ deliveries: [{ ...current,
+      if (path.endsWith("/deliveries")) {
+        const values: PortalSubscriptionDelivery[] = [{ ...current,
         ...(saved ? { recurringItems: saved.adjustment.after, oneTimeChanges: [saved.adjustment], canChangeThisDelivery: false,
           status: saved.adjustment.cancelsDelivery ? "cancelled" : "generated", order: { ...current.order, total: saved.revisedTotalMinor / 100,
             deliveryFee: saved.adjustment.cancelsDelivery ? 0 : 1 } } : {}) },
-      { _id: "delivery-2", scheduledDate: "2035-05-14T08:00:00Z", status: "scheduled", cutoffAt: "2035-05-12T21:00:00Z", isPastCutoff: false, addOns: [] }],
-      meta: { total: 2, page: 1, pageSize: 10 } });
+      { _id: "delivery-2", scheduledDate: "2035-05-14T08:00:00Z", status: "scheduled", cutoffAt: "2035-05-12T21:00:00Z", isPastCutoff: false, addOns: [] }];
+        if (options.longHistory) values.unshift(...Array.from({ length: 20 }, (_, index) => ({ _id: `past-${index}`,
+          scheduledDate: new Date(Date.UTC(2035, 0, index + 1)).toISOString(), status: "delivered", canChangeThisDelivery: false })));
+        const number = Number(new URL(request.url()).searchParams.get("page") || 1);
+        return reply({ deliveries: values.slice((number - 1) * 10, number * 10), meta: { total: values.length, page: number, pageSize: 10 } });
+      }
       if (path === "/portal/subscriptions/subscription-1") return reply({ subscription: { _id: "subscription-1", subscriptionNumber: "SUB-100", status: "active",
         frequency: "weekly", preferredDeliveryDay: 1, preferredDeliveryDays: [1], nextDeliveryDate: current.scheduledDate,
         upcomingDeliveryDate: current.scheduledDate, deliveryAddress: address, items: [item], customerVersion: saved ? 4 : 3,
@@ -172,4 +177,19 @@ test("refreshing the adjusted delivery preserves an unsaved recurring quantity d
   await dialog.getByRole("button", { name: "Confirm delivery change", exact: true }).click();
   await page.getByRole("button", { name: "Done", exact: true }).click();
   await expect(draft).toContainText("5"); expect(state.unexpected).toEqual([]);
+});
+
+test("long-standing customers land on their upcoming delivery and can browse older/newer pages", async ({ page }) => {
+  const state = await fixture(page, { longHistory: true });
+  await page.goto("/portal/subscriptions/subscription-1");
+  const nav = page.getByRole("navigation", { name: "Delivery history pages" });
+  await expect(nav).toContainText("Page 3 of 3");
+  await expect(page.getByRole("button", { name: "Change This Delivery Only", exact: true })).toBeVisible();
+  await nav.getByRole("button", { name: "Older deliveries", exact: true }).click();
+  await expect(nav).toContainText("Page 2 of 3");
+  await expect(page.getByRole("button", { name: "Change This Delivery Only", exact: true })).toHaveCount(0);
+  await nav.getByRole("button", { name: "Newer deliveries", exact: true }).click();
+  await expect(nav).toContainText("Page 3 of 3");
+  await expect(page.getByRole("button", { name: "Change This Delivery Only", exact: true })).toBeVisible();
+  expect(state.confirmations).toHaveLength(0); expect(state.unexpected).toEqual([]);
 });
