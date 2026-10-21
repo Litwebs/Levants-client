@@ -1,14 +1,17 @@
 name: Customer deals checks
 on:
   pull_request:
-    branches: [main, uat, feat/customer-deals]
   push:
-    branches: [feat/customer-deals, feature/deals]
+    branches: [main]
+  workflow_dispatch:
 permissions:
   contents: read
+concurrency:
+  group: customer-deals-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
   storefront:
-    name: Storefront deals, typecheck and build
+    name: Storefront unit checks and build (browser tests on main only)
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -18,15 +21,18 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
+      - run: node --test scripts/ci-policy.test.mjs
       - run: npm run test:deals
       - run: npx tsc --noEmit -p tsconfig.app.json
       - name: Lint deal implementation
         run: npx eslint src/api/deals.ts src/components/deals src/context/CartContext.tsx src/pages/DealsPage.tsx src/pages/DealDetailPage.tsx src/pages/HomePage.tsx src/components/layout/Header.tsx tests/deals.test.tsx tests/deals-presentation.test.tsx tests/addresses.test.tsx src/portal/tours tests/portal-tour-interactions.test.tsx tests/portal-tours.test.tsx tests/browser playwright.config.ts vitest.config.ts
       - run: npm run build
-      - run: npx playwright install --with-deps chromium
-      - run: npm run test:deals:browser
+      - if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main' || github.base_ref == 'main'
+        run: npx playwright install --with-deps chromium
+      - if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main' || github.base_ref == 'main'
+        run: npm run test:deals:browser
       - uses: actions/upload-artifact@v4
-        if: always()
+        if: always() && (github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main' || github.base_ref == 'main')
         with:
           name: deals-browser-review
           path: |
