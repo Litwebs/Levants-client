@@ -26,7 +26,10 @@ async function fixture(page: Page, options: { lostResponse?: boolean; stale?: bo
     for (const name of ["subscription-detail", "credit"]) localStorage.setItem(`levants:portal-tour:v1:ui-customer:${name}`, "seen");
   });
   await page.route("**/api/**", async route => {
-    const request = route.request(); const path = new URL(request.url()).pathname.replace(/^\/api/, "");
+    const request = route.request(); const pathname = new URL(request.url()).pathname;
+    // Vite serves source modules under /src/api/: only mock real API requests.
+    if (!pathname.startsWith("/api/")) return route.continue();
+    const path = pathname.slice(4);
     const reply = (data: unknown) => route.fulfill({ json: { success: true, data } });
     if (request.method() === "GET") {
       if (path === "/portal/auth/me") return reply({ customer: { _id: "ui-customer", firstName: "UI", lastName: "Customer", email: "ui@example.com",
