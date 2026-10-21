@@ -5,7 +5,7 @@ const money = (minor: number) => new Intl.NumberFormat("en-GB", { style: "curren
 
 export default function DeliveryReductionHistory({ changes }: { changes?: DeliveryReductionChange[] }) {
   if (!changes?.length) return null;
-  return <section aria-label="One-time delivery changes" className="mt-3 space-y-3 border-t border-border/70 pt-3 text-sm">
+  return <section data-tour="delivery-reduction-history" aria-label="One-time delivery changes" className="mt-3 space-y-3 border-t border-border/70 pt-3 text-sm">
     <h4 className="font-semibold">One-time delivery changes</h4>
     <p className="text-muted-foreground">These changes apply to this delivery. Your regular subscription stays the same.</p>
     {changes.map(change => <div key={change.operationId} className="rounded-lg bg-muted/30 p-3">

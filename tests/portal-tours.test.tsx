@@ -46,6 +46,18 @@ test("the builder shares visit history while every stage has its own replay cont
   expect(stages.every(id => portalTours[id].group === "new-subscription")).toBe(true);
   expect(new Set(stages.map(id => portalTours[id].title)).size).toBe(5);
 });
+test("delivery-only help respects existing subscription tour dismissal and explains every live state", () => {
+  const tour = portalTours["delivery-reduction"];
+  expect(tour.group).toBe("subscription-detail");
+  expect(tour.steps.map(step => step.target)).toEqual(expect.arrayContaining([
+    "reduction-deadline", "reduction-quantities", "reduction-preview", "reduction-review", "reduction-confirm",
+    "reduction-pending", "reduction-check", "reduction-error", "reduction-reload", "reduction-success", "reduction-credit",
+  ]));
+  expect(tour.steps.find(step => step.target === "reduction-confirm")!.description).toContain("never confirm");
+  expect(tour.steps.find(step => step.target === "reduction-check")!.description).toContain("same credit twice");
+  expect(tour.steps.find(step => step.target === "reduction-review")!.description).toContain("not a card refund");
+  expect(portalTours["subscription-detail"].steps.some(step => step.target === "delivery-reduction-history")).toBe(true);
+});
 
 test("every tour has unique explicit targets and task-specific accessible text", () => {
   for (const tour of Object.values(portalTours)) {

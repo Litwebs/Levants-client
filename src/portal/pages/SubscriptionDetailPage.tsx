@@ -41,6 +41,7 @@ import {
 import { PortalTourButton } from "@/portal/tours/PortalTour";
 import DeliveryReduction from "@/portal/components/DeliveryReduction";
 import DeliveryReductionHistory from "@/portal/components/DeliveryReductionHistory";
+import DeliveryReductionGuide from "@/portal/components/DeliveryReductionGuide";
 import { ConfirmationModal, EmptyState } from "@/portal/components/PortalUI";
 import { ApiError } from "@/api/client";
 import { usePortalCustomer } from "@/portal/context/CustomerContext";
@@ -2363,6 +2364,7 @@ const SubscriptionDetailPage: React.FC = () => {
           </section>
 
           <section data-tour="subscription-upcoming" className="bg-card border border-border rounded-2xl p-4 sm:p-5">
+            <DeliveryReductionGuide />
             <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <h3 className="font-semibold text-foreground text-base sm:text-lg">

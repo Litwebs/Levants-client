@@ -42,3 +42,13 @@ Local verification limitations must remain explicit in the PR: this workspace's 
 ## Manual UAT acceptance after paired deployment
 
 Use an authorised customer fixture with an editable, confirmed paid delivery and recorded inventory consumption. Verify review/confirmation on desktop and phone, actual account credit/history, adjusted delivery items, preserved add-ons, future normal quantities and staff records. Exercise a lost response, a stale preview and crossing the UK cut-off. Confirm that closing the editor/review makes no financial change. Reconcile the actual ledger/order/stock data and test full removal separately. Record the exact deployed server and storefront revisions with the results.
+
+## Customer guidance checkpoint
+
+Upcoming Deliveries now includes a collapsible customer guide covering eligible paid deliveries, UK cut-offs, quantity reductions, preview versus explicit confirmation, saved-price store credit (not a card refund), add-on preservation, fee-inclusive cancellation, stale reviews and interrupted-confirmation recovery. It also explains the protection against overwriting an adjusted delivery with a recurring product/schedule edit before cut-off.
+
+The delivery editor has a replayable, state-aware walkthrough for initial quantities, the reviewed quote, real confirmation, saved-request recovery, unavailable/stale states and confirmed success. Only mounted visible controls appear. Its group remains subscription-detail, respecting existing dismissal rather than forcing another automatic tour. Loading/in-flight states are not tour-ready. The page and credit tours explain the delivery-only action, saved adjustment history and credit ledger. Tour navigation does not invoke preview, confirm, check-result or other financial actions.
+
+Guidance validation adds three guide component cases and one tour-definition case, plus four actual-portal browser cases: all three widths preserve quantities and avoid preview/confirmation calls through initial/review/success tours; recovery help leaves the saved request unchanged until an explicit identical retry. Total delivery browser cases are now 13 (the previous nine remain unchanged). Dedicated UI CI includes the new guide component cases and retains guidance screenshots. Existing portal-tour assertions, selections and timeouts are unchanged.
+
+Typecheck, scoped lint and browser discovery pass locally. Local component execution still stalls on teardown, so clean component and browser acceptance must come from CI. This is guidance, not paired real-API or live UAT acceptance. No merge, deployment or backend financial changes are included.

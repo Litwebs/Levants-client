@@ -8,6 +8,8 @@ on:
       - 'src/api/subscriptionDeliveryPage.ts'
       - 'src/portal/components/DeliveryReduction*.tsx'
       - 'src/portal/pages/SubscriptionDetailPage.tsx'
+      - 'src/portal/pages/StoreCreditPage.tsx'
+      - 'src/portal/tours/**'
       - 'tests/delivery*'
       - 'tests/subscriptionDeliveryPage.test.mjs'
       - 'tests/browser/delivery-reduction.spec.ts'
@@ -29,8 +31,8 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run typecheck
-      - run: npx eslint src/api/portalSubscriptions.ts src/api/deliveryReductionRetry.ts src/api/subscriptionDeliveryPage.ts src/portal/components/DeliveryReduction.tsx src/portal/components/DeliveryReductionHistory.tsx src/portal/pages/SubscriptionDetailPage.tsx tests/delivery-reduction.test.tsx tests/browser/delivery-reduction.spec.ts
-      - run: npx vitest run tests/delivery-reduction.test.tsx
+      - run: npx eslint src/api/portalSubscriptions.ts src/api/deliveryReductionRetry.ts src/api/subscriptionDeliveryPage.ts src/portal/components/DeliveryReduction.tsx src/portal/components/DeliveryReductionHistory.tsx src/portal/components/DeliveryReductionGuide.tsx src/portal/pages/SubscriptionDetailPage.tsx src/portal/pages/StoreCreditPage.tsx tests/delivery-reduction.test.tsx tests/delivery-reduction-guide.test.tsx tests/browser/delivery-reduction.spec.ts
+      - run: npx vitest run tests/delivery-reduction.test.tsx tests/delivery-reduction-guide.test.tsx
       - run: node --test tests/deliveryReductionRetry.test.mjs tests/subscriptionDeliveryPage.test.mjs
       - run: npm run build
       - run: npx playwright install --with-deps chromium

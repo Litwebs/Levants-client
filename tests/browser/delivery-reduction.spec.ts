@@ -83,6 +83,79 @@ async function open(page: Page) {
   return dialog;
 }
 
+async function finishReductionTour(page: Page) {
+  const tour = page.locator('[role="dialog"][data-portal-tour-ui]');
+  await expect(tour).toBeVisible();
+  const titles: string[] = [];
+  for (let count = 0; count < 15; count++) {
+    const bounds = (await tour.boundingBox())!; const view = page.viewportSize()!;
+    expect(bounds.x).toBeGreaterThanOrEqual(0); expect(bounds.y).toBeGreaterThanOrEqual(0);
+    expect(bounds.x + bounds.width).toBeLessThanOrEqual(view.width + 1);
+    expect(bounds.y + bounds.height).toBeLessThanOrEqual(view.height + 1);
+    titles.push(await tour.getByRole("heading").innerText());
+    const finish = tour.getByRole("button", { name: "Finish", exact: true });
+    if (await finish.count()) { await finish.click(); break; }
+    await tour.getByRole("button", { name: "Next", exact: true }).click();
+  }
+  await expect(tour).toHaveCount(0);
+  return titles;
+}
+
+for (const width of [320, 390, 1440]) {
+  test(`customer guide and editor/review/success tours are read-only at ${width}px`, async ({ page }, info) => {
+    await page.setViewportSize({ width, height: 844 });
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    const state = await fixture(page);
+    await page.goto("/portal/subscriptions/subscription-1");
+    const guide = page.locator('[data-tour="delivery-reduction-guide"]');
+    await guide.locator("summary").click();
+    await expect(guide).toContainText("including after the cut-off");
+    await expect(guide).toContainText("Paid one-time add-ons stay unchanged");
+    expect(state.previews).toHaveLength(0); expect(state.confirmations).toHaveLength(0);
+    await guide.locator("summary").click();
+    await page.getByRole("button", { name: "Change This Delivery Only", exact: true }).click();
+    const editor = page.locator('[data-tour-page="delivery-reduction"]');
+    await expect(editor.getByRole("spinbutton")).toHaveValue("4");
+    const launcher = editor.getByRole("button", { name: "Take a tour", exact: true });
+    await launcher.click();
+    expect(await finishReductionTour(page)).toContain("Review without applying a change");
+    await expect(launcher).toBeFocused();
+    await expect(editor.getByRole("spinbutton")).toHaveValue("4");
+    expect(state.previews).toHaveLength(0); expect(state.confirmations).toHaveLength(0);
+    await editor.getByRole("spinbutton").fill("2");
+    await editor.getByRole("button", { name: "Review change", exact: true }).click();
+    await launcher.click();
+    expect(await finishReductionTour(page)).toContain("Confirm only when ready");
+    expect(state.previews).toHaveLength(1); expect(state.confirmations).toHaveLength(0);
+    const screenshot = await editor.screenshot({ path: info.outputPath(`delivery-guidance-${width}.png`) });
+    await info.attach(`delivery-guidance-${width}`, { body: screenshot, contentType: "image/png" });
+    await editor.getByRole("button", { name: "Confirm delivery change", exact: true }).click();
+    await expect(editor.getByRole("heading", { name: "Delivery changed", exact: true })).toBeVisible();
+    await launcher.click();
+    expect(await finishReductionTour(page)).toContain("Find the store credit entry");
+    expect(state.confirmations).toHaveLength(1); expect(state.unexpected).toEqual([]);
+  });
+}
+
+test("recovery tour checks nothing and leaves the identical saved confirmation for explicit retry", async ({ page }) => {
+  const state = await fixture(page, { lostResponse: true }); const dialog = await open(page);
+  await dialog.getByRole("spinbutton").fill("2");
+  await dialog.getByRole("button", { name: "Review change", exact: true }).click();
+  await dialog.getByRole("button", { name: "Confirm delivery change", exact: true }).click();
+  await expect(dialog.getByRole("alert")).toBeVisible();
+  await page.reload(); await page.getByRole("button", { name: "Check delivery change", exact: true }).click();
+  const editor = page.locator('[data-tour-page="delivery-reduction"]');
+  const before = await page.evaluate(() => JSON.stringify(Object.entries(sessionStorage)));
+  await editor.getByRole("button", { name: "Take a tour", exact: true }).click();
+  expect(await finishReductionTour(page)).toContain("Check the same saved request");
+  expect(await page.evaluate(() => JSON.stringify(Object.entries(sessionStorage)))).toBe(before);
+  expect(state.confirmations).toHaveLength(1); expect(state.initialReads()).toBe(1);
+  await editor.getByRole("button", { name: "Check result", exact: true }).click();
+  await expect(editor.getByRole("heading", { name: "Delivery changed", exact: true })).toBeVisible();
+  expect(state.confirmations).toHaveLength(2); expect(state.confirmations[1]).toEqual(state.confirmations[0]);
+  expect(state.unexpected).toEqual([]);
+});
+
 for (const width of [320, 390, 1440]) {
   test(`review, confirmation, adjusted snapshot and future quantities at ${width}px`, async ({ page }, info) => {
     await page.setViewportSize({ width, height: 844 });

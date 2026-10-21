@@ -5,6 +5,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { ApiError } from "@/api/client";
 import { portalSubscriptionsApi, type DeliveryReductionQuote, type DeliveryReductionResult, type PortalSubscriptionDelivery } from "@/api/portalSubscriptions";
 import { clearDeliveryReduction, deliveryReductionKey, readDeliveryReduction, saveDeliveryReduction, type PendingDeliveryReduction } from "@/api/deliveryReductionRetry";
+import { PortalTourButton } from "@/portal/tours/PortalTour";
 
 const money = (minor: number) => new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format(minor / 100);
 const date = (value: string) => new Date(value).toLocaleString("en-GB", { timeZone: "Europe/London", dateStyle: "medium", timeStyle: "short" });
@@ -139,7 +140,7 @@ export default function DeliveryReduction({ customerId, subscriptionId, delivery
     <DialogTrigger asChild><Button type="button" variant="outline" size="sm" data-tour="delivery-reduction" className="min-h-11 w-full whitespace-normal sm:w-auto">
       {pending ? "Check delivery change" : "Change This Delivery Only"}
     </Button></DialogTrigger>
-    <DialogContent onCloseAutoFocus={event => {
+    <DialogContent data-tour-page="delivery-reduction" data-tour-ready={!busy && Boolean(initial || pending || success || error)} onCloseAutoFocus={event => {
       if (success && !delivery.canChangeThisDelivery) {
         const fallback = document.getElementById(`delivery-toggle-${delivery._id}`);
         if (fallback) { event.preventDefault(); fallback.focus(); }
@@ -149,17 +150,18 @@ export default function DeliveryReduction({ customerId, subscriptionId, delivery
         <DialogTitle>{success ? "Delivery changed" : "Change this delivery only"}</DialogTitle>
         <DialogDescription>{success ? "Your regular subscription stays the same." : `Reduce or remove recurring items for ${date(delivery.scheduledDate)} (UK time). Future deliveries keep your regular quantities.`}</DialogDescription>
       </DialogHeader>
+      {!busy && <div className="[&_button]:min-h-11"><PortalTourButton /></div>}
       {busy && <p role="status" className="text-sm text-muted-foreground">{pending ? "Checking your delivery change…" : "Loading delivery details…"}</p>}
-      {error && <p role="alert" className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm">{error}</p>}
-      {success ? <div className="space-y-3 text-sm" role="status">
+      {error && <p data-tour="reduction-error" role="alert" className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm">{error}</p>}
+      {success ? <div data-tour="reduction-success" className="space-y-3 text-sm" role="status">
         <p className="font-semibold text-forest">{money(success.creditedMinor)} added as store credit</p>
         <p>Revised delivery total: {money(success.revisedTotalMinor)}</p>
         {success.adjustment.cancelsDelivery && <p>This delivery was cancelled because no items remain.</p>}
-        <Link className="inline-block text-forest underline underline-offset-4" to="/portal/credit">View store credit and history</Link>
+        <Link data-tour="reduction-credit" className="inline-block text-forest underline underline-offset-4" to="/portal/credit">View store credit and history</Link>
         <Button type="button" className="min-h-11 w-full" onClick={() => changeOpen(false)}>Done</Button>
       </div> : <>
-        {pending ? <p className="rounded-lg bg-muted p-3 text-sm">A previous confirmation needs checking. Check its result before making another change. Retrying checks the same request and cannot issue the same credit twice.</p> : initial && <div className="space-y-3">
-          <p className="text-sm text-muted-foreground">Editable until {date(initial.cutoffAt)} (UK time).</p>
+        {pending ? <p data-tour="reduction-pending" className="rounded-lg bg-muted p-3 text-sm">A previous confirmation needs checking. Check its result before making another change. Retrying checks the same request and cannot issue the same credit twice.</p> : initial && <div data-tour="reduction-quantities" className="space-y-3">
+          <p data-tour="reduction-deadline" className="text-sm text-muted-foreground">Editable until {date(initial.cutoffAt)} (UK time).</p>
           {initial.before.map(item => <div key={item.variant} className="space-y-2 rounded-lg border border-border p-3">
             <label className="block break-words text-sm font-medium" htmlFor={`reduction-${delivery._id}-${item.variant}`}>{item.name}</label>
             <p className="text-xs text-muted-foreground">Currently {item.quantity} × {money(Math.round(item.unitPrice * 100))}</p>
@@ -178,7 +180,7 @@ export default function DeliveryReduction({ customerId, subscriptionId, delivery
           {!valid && <p className="text-sm text-destructive">Use whole numbers from zero to the current quantity.</p>}
           {!shown && <p className="text-sm">Current delivery total: {money(initial.originalTotalMinor)}</p>}
         </div>}
-        {shown && <section aria-label="Review delivery change" className="space-y-3 rounded-lg bg-muted/40 p-3 text-sm">
+        {shown && <section data-tour="reduction-review" aria-label="Review delivery change" className="space-y-3 rounded-lg bg-muted/40 p-3 text-sm">
           <h3 className="font-semibold">Review your change</h3>
           {shown.before.map(item => <p key={item.variant} className="break-words">{item.name}: {item.quantity} → {shown.after.find(after => after.variant === item.variant)?.quantity || 0}</p>)}
           <dl className="space-y-2 border-t border-border pt-3">
@@ -192,10 +194,10 @@ export default function DeliveryReduction({ customerId, subscriptionId, delivery
         </section>}
         <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
           <Button type="button" variant="outline" disabled={confirming.current} className="min-h-11" onClick={() => changeOpen(false)}>Close</Button>
-          {pending || review ? <Button type="button" disabled={busy || (!pending && (!valid || !review?.hasChanges))} className="min-h-11" onClick={() => void confirm()}>
+          {pending || review ? <Button data-tour={pending ? "reduction-check" : "reduction-confirm"} type="button" disabled={busy || (!pending && (!valid || !review?.hasChanges))} className="min-h-11" onClick={() => void confirm()}>
             {pending ? "Check result" : "Confirm delivery change"}
-          </Button> : initial ? <Button type="button" disabled={busy || !changed} className="min-h-11" onClick={() => void preview()}>Review change</Button>
-            : <Button type="button" disabled={busy} className="min-h-11" onClick={() => void load()}>Reload delivery</Button>}
+          </Button> : initial ? <Button data-tour="reduction-preview" type="button" disabled={busy || !changed} className="min-h-11" onClick={() => void preview()}>Review change</Button>
+            : <Button data-tour="reduction-reload" type="button" disabled={busy} className="min-h-11" onClick={() => void load()}>Reload delivery</Button>}
         </div>
       </>}
     </DialogContent>
