@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import {
   ArrowLeft,
@@ -39,10 +39,14 @@ import {
   DeliveryStatusBadge,
 } from "@/portal/components/StatusBadges";
 import { PortalTourButton } from "@/portal/tours/PortalTour";
+import DeliveryReduction from "@/portal/components/DeliveryReduction";
+import DeliveryReductionHistory from "@/portal/components/DeliveryReductionHistory";
+import DeliveryReductionGuide from "@/portal/components/DeliveryReductionGuide";
 import { ConfirmationModal, EmptyState } from "@/portal/components/PortalUI";
 import { ApiError } from "@/api/client";
 import { usePortalCustomer } from "@/portal/context/CustomerContext";
 import { useAddresses } from "@/portal/context/AddressesContext";
+import { selectSubscriptionDeliveryPage, type SubscriptionDeliveryPage } from "@/api/subscriptionDeliveryPage";
 import {
   portalSubscriptionsApi,
   type PortalSubscription,
@@ -270,6 +274,9 @@ const getRecurringItemsForDelivery = (
   delivery: PortalSubscriptionDelivery,
   subscription: PortalSubscription,
 ) => {
+  if (Array.isArray(delivery.recurringItems)) return delivery.recurringItems;
+  const adjustment = delivery.oneTimeChanges?.at(-1);
+  if (adjustment) return adjustment.after;
   const deliveryDay = new Date(delivery.scheduledDate).getDay();
   const dayPlan = subscription.deliveryDayPlans?.find(
     (plan) => Number(plan.day) === deliveryDay,
@@ -292,7 +299,7 @@ const getTotalForDelivery = (
   subscription: PortalSubscription,
 ) => {
   const orderTotal = Number(delivery.order?.total);
-  if (Number.isFinite(orderTotal) && orderTotal > 0) return orderTotal;
+  if (delivery.order?.total != null && Number.isFinite(orderTotal) && orderTotal >= 0) return orderTotal;
   return (
     getRecurringSubtotalForDelivery(delivery, subscription) +
     SUBSCRIPTION_DELIVERY_FEE +
@@ -378,7 +385,10 @@ const addressMatchesSubscription = (
 
 const SubscriptionDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
-  const { refreshCustomer } = usePortalCustomer();
+  const { customer, refreshCustomer } = usePortalCustomer();
+  const currentId = useRef(id);
+  const loadGeneration = useRef(0);
+  currentId.current = id;
   const {
     addresses,
     fetchAddresses,
@@ -390,6 +400,9 @@ const SubscriptionDetailPage: React.FC = () => {
   const [deliveries, setDeliveries] = useState<PortalSubscriptionDelivery[]>(
     [],
   );
+  const deliveryPage = useRef(0);
+  const [deliveryPages, setDeliveryPages] = useState({ page: 1, totalPages: 1 });
+  const [deliveryPageLoading, setDeliveryPageLoading] = useState(false);
   const canModify = canModifySubscription(subscription);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -481,12 +494,13 @@ const SubscriptionDetailPage: React.FC = () => {
     });
   }, [deliveryDays, frequency, productDraft]);
 
-  const load = async () => {
+  const load = async (background = false, requestedPage = deliveryPage.current) => {
     if (!id) return;
+    const serial = ++loadGeneration.current;
 
     try {
-      setLoading(true);
-      setError(null);
+      if (!background) { setLoading(true); setError(null); }
+      setDeliveryPageLoading(true);
 
       const [subRes, delRes] = await Promise.all([
         portalSubscriptionsApi.get(id),
@@ -496,15 +510,28 @@ const SubscriptionDetailPage: React.FC = () => {
       const sub = (subRes as any)?.data?.subscription as PortalSubscription;
       const nextCutoff =
         ((subRes as any)?.data?.cutoff as PortalSubscriptionCutoff) || null;
-      const nextDeliveries =
+      const firstDeliveries =
         ((delRes as any)?.data?.deliveries as PortalSubscriptionDelivery[]) ||
         [];
+      if (currentId.current !== id || serial !== loadGeneration.current) return;
+      const firstPage: SubscriptionDeliveryPage = { deliveries: firstDeliveries,
+        meta: delRes.data?.meta || { page: 1, pageSize: 10, total: firstDeliveries.length } };
+      const chosen = await selectSubscriptionDeliveryPage(firstPage, sub?.upcomingDeliveryDate || sub?.nextDeliveryDate,
+        async page => {
+          const response = await portalSubscriptionsApi.listDeliveries(id, { page, pageSize: 10 });
+          if (!response.success || !response.data) throw new Error("Unable to load delivery history.");
+          return response.data;
+        }, requestedPage);
+
+      if (currentId.current !== id || serial !== loadGeneration.current) return;
 
       setSubscription(sub || null);
       setCutoff(nextCutoff);
-      setDeliveries(nextDeliveries);
+      setDeliveries(chosen.deliveries);
+      deliveryPage.current = chosen.meta.page;
+      setDeliveryPages({ page: chosen.meta.page, totalPages: Math.max(1, Math.ceil(chosen.meta.total / chosen.meta.pageSize)) });
 
-      if (sub) {
+      if (sub && !background) {
         setFrequency(sub.frequency);
         const subDays = normalizeDayIndexes(
           Array.isArray(sub.preferredDeliveryDays) &&
@@ -534,15 +561,21 @@ const SubscriptionDetailPage: React.FC = () => {
         err instanceof ApiError
           ? err.message
           : "Failed to load subscription details.";
-      setError(message);
+      if (currentId.current !== id || serial !== loadGeneration.current) return;
+      if (!background) setError(message);
       toast.error(message);
-      setSubscription(null);
+      if (!background) setSubscription(null);
+      else throw err;
     } finally {
-      setLoading(false);
+      if (currentId.current === id && serial === loadGeneration.current) {
+        setDeliveryPageLoading(false);
+        if (!background) setLoading(false);
+      }
     }
   };
 
   useEffect(() => {
+    deliveryPage.current = 0;
     void load();
   }, [id]);
 
@@ -550,12 +583,10 @@ const SubscriptionDetailPage: React.FC = () => {
     void fetchAddresses();
   }, [fetchAddresses]);
 
+  const subscriptionAddressKey = JSON.stringify(subscription?.pendingChanges?.deliveryAddress || subscription?.deliveryAddress || null);
   useEffect(() => {
-    if (!subscription || addresses.length === 0) return;
-
-    const effectiveDeliveryAddress =
-      subscription.pendingChanges?.deliveryAddress ||
-      subscription.deliveryAddress;
+    const effectiveDeliveryAddress = JSON.parse(subscriptionAddressKey) as PortalSubscription["deliveryAddress"] | null;
+    if (!effectiveDeliveryAddress || addresses.length === 0) return;
 
     const matchingAddress = addresses.find((address) =>
       addressMatchesSubscription(address, effectiveDeliveryAddress),
@@ -566,7 +597,7 @@ const SubscriptionDetailPage: React.FC = () => {
       addresses[0];
 
     setSelectedAddressId(getAddressId(fallbackAddress));
-  }, [addresses, subscription]);
+  }, [addresses, id, subscriptionAddressKey]);
 
   useEffect(() => {
     if (!pauseOpen) {
@@ -2333,14 +2364,15 @@ const SubscriptionDetailPage: React.FC = () => {
           </section>
 
           <section data-tour="subscription-upcoming" className="bg-card border border-border rounded-2xl p-4 sm:p-5">
+            <DeliveryReductionGuide />
             <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <h3 className="font-semibold text-foreground text-base sm:text-lg">
                   Upcoming Deliveries
                 </h3>
                 <p className="mt-0.5 text-xs text-muted-foreground">
-                  Add a one-time product to your next delivery without changing
-                  the subscription.
+                  Add extras once, or reduce an eligible paid delivery before its cut-off.
+                  Your regular subscription stays the same.
                 </p>
               </div>
               {canModify && deliveries.length > 0 && (
@@ -2354,6 +2386,17 @@ const SubscriptionDetailPage: React.FC = () => {
                 </Button>
               )}
             </div>
+            {deliveries.some(delivery => delivery.status === "generated" && delivery.oneTimeChanges?.length &&
+              !isPastCutoffInstant(delivery.cutoffAt, delivery.isPastCutoff ?? true)) &&
+              <p className="mb-3 rounded-lg bg-muted/40 p-3 text-sm text-muted-foreground">An upcoming delivery has a one-time reduction. You can reduce it further here. Regular product or schedule changes can be saved after that delivery’s cut-off, for a later delivery.</p>}
+            {deliveryPageLoading && <p role="status" className="mb-2 text-sm text-muted-foreground">Loading deliveries…</p>}
+            {deliveryPages.totalPages > 1 && <nav aria-label="Delivery history pages" className="mb-3 flex flex-wrap items-center justify-between gap-2 text-sm">
+              <Button type="button" variant="outline" size="sm" className="min-h-11" disabled={deliveryPageLoading || deliveryPages.page <= 1}
+                onClick={() => { void load(true, deliveryPages.page - 1).catch(() => {}); }}>Older deliveries</Button>
+              <span>Page {deliveryPages.page} of {deliveryPages.totalPages}</span>
+              <Button type="button" variant="outline" size="sm" className="min-h-11" disabled={deliveryPageLoading || deliveryPages.page >= deliveryPages.totalPages}
+                onClick={() => { void load(true, deliveryPages.page + 1).catch(() => {}); }}>Newer deliveries</Button>
+            </nav>}
             {deliveries.length === 0 ? (
               <p className="text-sm text-muted-foreground">
                 No upcoming deliveries.
@@ -2385,6 +2428,7 @@ const SubscriptionDetailPage: React.FC = () => {
                       className="overflow-hidden rounded-xl border border-border/70 bg-muted/10 transition-colors hover:border-forest/30"
                     >
                       <button
+                        id={`delivery-toggle-${deliveryId}`}
                         type="button"
                         aria-expanded={isExpanded}
                         aria-controls={detailsId}
@@ -2406,6 +2450,7 @@ const SubscriptionDetailPage: React.FC = () => {
                               {addOnQuantity === 1 ? "" : "s"} confirmed
                             </span>
                           )}
+                          {Boolean(delivery.oneTimeChanges?.length) && <span className="mt-0.5 block text-xs text-forest">Changed for this delivery only</span>}
                         </span>
                         <span className="flex shrink-0 items-center gap-2">
                           <DeliveryStatusBadge status={delivery.status} />
@@ -2419,6 +2464,14 @@ const SubscriptionDetailPage: React.FC = () => {
                         </span>
                       </button>
 
+                      <div className="px-3 pb-3 empty:hidden">
+                        <DeliveryReduction key={`${customer?._id}:${deliveryId}`} customerId={customer?._id || ""} subscriptionId={id!} delivery={delivery}
+                          onChanged={async result => {
+                            setNotice(`Delivery changed. ${formatMoney(result.creditedMinor / 100)} added as store credit. Your regular subscription stays the same.`);
+                            await Promise.all([load(true), refreshCustomer()]);
+                          }} />
+                      </div>
+
                       {isExpanded && (
                         <div
                           id={detailsId}
@@ -2430,6 +2483,7 @@ const SubscriptionDetailPage: React.FC = () => {
                             Subscription items
                           </p>
                           <div className="space-y-1.5 text-sm">
+                            {recurringItems.length === 0 && <p className="text-muted-foreground">No recurring items remain for this delivery.</p>}
                             {recurringItems.map((item) => (
                               <div
                                 key={`${deliveryId}-${item._id || item.sku}`}
@@ -2486,13 +2540,15 @@ const SubscriptionDetailPage: React.FC = () => {
                             )}
                             <div className="flex items-center justify-between gap-3 text-muted-foreground">
                               <span>Delivery fee</span>
-                              <span>{formatMoney(SUBSCRIPTION_DELIVERY_FEE)}</span>
+                              <span>{formatMoney(delivery.order?.deliveryFee ?? SUBSCRIPTION_DELIVERY_FEE)}</span>
                             </div>
                             <div className="flex items-center justify-between gap-3 border-t border-border/70 pt-2 font-semibold text-foreground">
                               <span>Delivery total</span>
                               <span>{formatMoney(deliveryTotal)}</span>
                             </div>
                           </div>
+
+                          <DeliveryReductionHistory changes={delivery.oneTimeChanges} />
 
                           {delivery.order?._id && (
                             <Button

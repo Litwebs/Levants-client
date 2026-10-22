@@ -69,6 +69,9 @@ const StoreCreditPage: React.FC = () => {
         title="Store Credit"
         description="Use your balance towards future orders and subscriptions."
       />
+      <p data-tour="credit-delivery-reductions" className="text-sm text-muted-foreground">
+        A confirmed delivery-only reduction adds its eligible difference here as store credit, not a card refund. Check the reason below and expand that delivery in your subscription for its before-and-after history.
+      </p>
 
       <div data-tour="credit-balance" className="bg-card border border-border rounded-2xl p-6 flex items-center gap-4">
         <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center text-primary">
