@@ -22,7 +22,8 @@ async function addTestItem(page: Page) {
   await page.goto("/shop");
   await expect(page.getByText("UAT · Test environment · Payments use Stripe sandbox", { exact: true })).toBeVisible();
   const card = page.locator(".card-product").filter({
-    has: page.getByRole("heading", { name: "TEST PRODUCT - Test Variant", exact: true }),
+    // Fixture names are editable in UAT; select the same paid variant by identity.
+    has: page.locator('a[href="/product/6acaa10014b239b5efd7c62d?variant=6acaa13714b239b5efd7c64a"]'),
   });
   await expect(card).toHaveCount(1);
   await card.getByRole("button", { name: "Add to basket", exact: true }).click();
