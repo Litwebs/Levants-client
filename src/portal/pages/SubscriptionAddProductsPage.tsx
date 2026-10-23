@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Loader2, Minus, Plus, Trash2 } from "lucide-react";
 import { canModifySubscription } from "@/portal/utils/subscriptionEditingPolicy";
+import { recurringItemPaymentMessage } from "@/portal/utils/recurringItemPaymentMessage";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import ShopPage from "@/pages/ShopPage";
@@ -71,12 +72,6 @@ const normalizeDayIndexes = (days: number[]) =>
   [...new Set(days)]
     .filter((day) => Number.isInteger(day) && day >= 0 && day <= 6)
     .sort((a, b) => a - b);
-
-const formatDayList = (days: string[]) => {
-  if (days.length <= 1) return days[0] || "the selected day";
-  if (days.length === 2) return `${days[0]} and ${days[1]}`;
-  return `${days.slice(0, -1).join(", ")}, and ${days[days.length - 1]}`;
-};
 
 const getDayCutoffLabel = (
   dayIndex: number,
@@ -815,41 +810,28 @@ const SubscriptionAddProductsPage: React.FC = () => {
                       </span>
                     </>
                   )}
-                  {cutoff?.isPastCutoff
-                    ? isMultiDayWeekly
-                      ? `The cut-off for your next deliveries on ${formatDayList(
-                          deliveryDays,
-                        )} has passed, so these products are added from the delivery after that. You won't be charged now — the new amount of ${formatMoney(
-                          currentPerDelivery + selectedPerDeliveryTotal,
-                        )} is taken on each delivery going forward.`
-                      : formatDeliveryDate(nextDeliveryDate)
-                        ? `The cut-off for your next delivery on ${formatDeliveryDate(
-                            nextDeliveryDate,
-                          )} has passed, so these products are added from the delivery after that. You won't be charged now — the new amount of ${formatMoney(
-                            currentPerDelivery + selectedPerDeliveryTotal,
-                          )} is taken on each delivery going forward.`
-                        : `The cut-off for your next delivery has passed, so these products apply from the following delivery. You won't be charged now.`
-                    : isMultiDayWeekly
-                      ? `These products are added to your next deliveries on ${formatDayList(
-                          deliveryDays,
-                        )}. The extra ${formatMoney(
-                          selectedChargeTotal,
-                        )} is charged to your card now, and ${formatMoney(
-                          currentPerDelivery + selectedPerDeliveryTotal,
-                        )} is taken on each delivery going forward.`
-                      : formatDeliveryDate(nextDeliveryDate)
-                        ? `These products are added to your next delivery on ${formatDeliveryDate(
-                            nextDeliveryDate,
-                          )}. The extra ${formatMoney(
-                            selectedChargeTotal,
-                          )} is charged to your card now, and ${formatMoney(
-                            currentPerDelivery + selectedPerDeliveryTotal,
-                          )} is taken on each delivery going forward.`
-                        : `These products are added to your next delivery. The extra ${formatMoney(
-                            selectedChargeTotal,
-                          )} is charged to your card now, and ${formatMoney(
-                            currentPerDelivery + selectedPerDeliveryTotal,
-                          )} is taken on each delivery going forward.`}
+                  <span className="block">These products change your recurring subscription.</span>
+                  {!isMultiDayWeekly && formatDeliveryDate(nextDeliveryDate) && (
+                    <span className="mt-1 block">Next scheduled delivery: {formatDeliveryDate(nextDeliveryDate)}.</span>
+                  )}
+                  {(isMultiDayWeekly
+                    ? deliveryDays.filter(day => selectedList.some(item => selectedAddDays[item.variantId]?.includes(day)))
+                    : deliveryDays.slice(0, 1)
+                  ).map(dayName => {
+                    const dayCutoff = cutoff ? getDeliveryDayCutoff(cutoff, dayNameToIndex(dayName)) : undefined;
+                    const locked = isPastCutoffInstant(dayCutoff?.cutoffAt, dayCutoff?.isPastCutoff ?? cutoff?.isPastCutoff ?? false);
+                    const extra = isMultiDayWeekly
+                      ? selectedList.filter(item => selectedAddDays[item.variantId]?.includes(dayName))
+                        .reduce((sum, item) => sum + item.unitPrice * item.quantity, 0)
+                      : selectedChargeTotal;
+                    return (
+                      <span key={`payment-${dayName}`} className="mt-1 block">
+                        {isMultiDayWeekly && <strong>{dayName}: </strong>}
+                        {recurringItemPaymentMessage(dayCutoff?.paymentState, locked, formatMoney(extra))}
+                      </span>
+                    );
+                  })}
+                  <span className="mt-1 block">Product totals above exclude delivery fees.</span>
                 </p>
               )}
 
@@ -889,3 +871,4 @@ const SubscriptionAddProductsPage: React.FC = () => {
 };
 
 export default SubscriptionAddProductsPage;
+

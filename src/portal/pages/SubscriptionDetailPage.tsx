@@ -15,6 +15,7 @@ import {
   ChevronDown,
 } from "lucide-react";
 import { canModifySubscription } from "@/portal/utils/subscriptionEditingPolicy";
+import { recurringItemPaymentMessage } from "@/portal/utils/recurringItemPaymentMessage";
 import { needsItemRefundChoice, saveDeliveryDayItemEdits } from "@/api/subscriptionDayItemEdits";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -1715,8 +1716,10 @@ const SubscriptionDetailPage: React.FC = () => {
                   : "the cut-off"}
               </span>
               {cutoff.cutoffTime ? ` at ${cutoff.cutoffTime}` : ""}. Changes
-              apply to your next delivery; adding items charges the difference
-              now.
+              apply to your next delivery. {recurringItemPaymentMessage(
+                getDeliveryDayCutoff(cutoff, subscription.preferredDeliveryDay)?.paymentState,
+                false,
+              )}
             </>
           )}
         </div>
@@ -2991,4 +2994,5 @@ const SubscriptionDetailPage: React.FC = () => {
 };
 
 export default SubscriptionDetailPage;
+
 
