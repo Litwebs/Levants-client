@@ -15,6 +15,7 @@ import {
   ChevronDown,
 } from "lucide-react";
 import { canModifySubscription } from "@/portal/utils/subscriptionEditingPolicy";
+import { needsItemRefundChoice, saveDeliveryDayItemEdits } from "@/api/subscriptionDayItemEdits";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -1273,11 +1274,14 @@ const SubscriptionDetailPage: React.FC = () => {
     if (!id || !subscription || !hasUnsavedProductChanges) return;
 
     if (isMultiDayWeekly) {
-      const baselineTotal = calculateDayPlanTotal(dayPlanBaseline);
-      const draftTotal = calculateDayPlanTotal(dayProductDraft);
-      const hasMultiDayDecrease = draftTotal < baselineTotal;
-
-      if (hasMultiDayDecrease && cutoff && !cutoff.isPastCutoff) {
+      const hasPaidDecrease = getChangedMultiDayIndexes(dayProductDraft, dayPlanBaseline).some(day => {
+        const dayName = toDayName(day);
+        const sum = (items: EditableSubscriptionItem[]) => items.reduce((total, item) => total + item.unitPrice * item.quantity, 0);
+        const dayCutoff = cutoff ? getDeliveryDayCutoff(cutoff, day) : undefined;
+        return needsItemRefundChoice(dayCutoff?.paymentState, cutoff ? isDayPastOwnCutoff(day, cutoff) : true,
+          sum(dayProductDraft[dayName] || []) - sum(dayPlanBaseline[dayName] || []));
+      });
+      if (hasPaidDecrease) {
         setRefundChoiceOpen(true);
         return;
       }
@@ -1318,7 +1322,8 @@ const SubscriptionDetailPage: React.FC = () => {
         );
       });
 
-    if (hasDecrease && cutoff && !cutoff.isPastCutoff) {
+    const itemDay = cutoff ? getDeliveryDayCutoff(cutoff, subscription.preferredDeliveryDay) : undefined;
+    if (hasDecrease && cutoff && needsItemRefundChoice(itemDay?.paymentState, cutoff.isPastCutoff, -1)) {
       setRefundChoiceOpen(true);
       return;
     }
@@ -1354,24 +1359,31 @@ const SubscriptionDetailPage: React.FC = () => {
         setError(null);
         setNotice(null);
 
-        const res = await portalSubscriptionsApi.update(id, {
-          deliveryDayPlans,
-          changedDeliveryDays:
-            changedMultiDayIndexes.length > 0
-              ? changedMultiDayIndexes
-              : getChangedMultiDayIndexes(dayProductDraft, dayPlanBaseline),
-          preferredDeliveryDay: dayNameToIndex(deliveryDays[0] || "Tuesday"),
-          preferredDeliveryDays: normalizeDayIndexes(
-            deliveryDays.map(dayNameToIndex),
-          ),
-          refundMethod,
+        const changedDays = getChangedMultiDayIndexes(dayProductDraft, dayPlanBaseline);
+        const openPaidDays = changedDays.filter(day => cutoff && !isDayPastOwnCutoff(day, cutoff) &&
+          getDeliveryDayCutoff(cutoff, day)?.paymentState === "paid");
+        const openUnpaidDays = changedDays.filter(day => cutoff && !isDayPastOwnCutoff(day, cutoff) &&
+          getDeliveryDayCutoff(cutoff, day)?.paymentState === "unpaid");
+        const splitSettlement = openPaidDays.length > 0 && openUnpaidDays.length > 0;
+        const results = splitSettlement ? await saveDeliveryDayItemEdits({
+          baseline: deliveryDays.map(dayName => ({ day: dayNameToIndex(dayName),
+            items: (dayPlanBaseline[dayName] || []).map(item => ({ variantId: item.variantId, quantity: item.quantity })) })),
+          requested: deliveryDayPlans,
+          changedDays,
+          groups: [changedDays.filter(day => !openPaidDays.includes(day)), openPaidDays],
           expectedVersion: subscription.customerVersion,
-        });
+          send: payload => portalSubscriptionsApi.update(id, { ...payload, refundMethod }),
+          onApplied: response => {
+            if (response.data?.subscription) setSubscription(response.data.subscription);
+          },
+        }) : [await portalSubscriptionsApi.update(id, {
+          deliveryDayPlans, changedDeliveryDays: changedDays, refundMethod, expectedVersion: subscription.customerVersion,
+        })];
 
         await load();
         await refreshCustomer().catch(() => {});
         const message =
-          (res as any)?.message ||
+          results.map(response => response.message).filter(Boolean).join(" ") ||
           (cutoff?.isPastCutoff
             ? "Product changes were scheduled for deliveries after the upcoming one."
             : "Product changes saved.");
@@ -2107,7 +2119,7 @@ const SubscriptionDetailPage: React.FC = () => {
                     {formatMoney(Math.abs(previewDelta))}
                   </span>
                 </div>
-                <p className="mt-2 text-muted-foreground">Delivery fees are shown separately below. Save increases and decreases separately.</p>
+                <p className="mt-2 text-muted-foreground">Delivery fees are shown separately below. Paid and unpaid delivery days are saved separately when needed.</p>
                 <ul className="mt-2 space-y-2" aria-label="Product change preview">
                   {changedPreviewDays.map((dayName) => {
                     const dayIndex = dayNameToIndex(dayName);
@@ -2128,9 +2140,9 @@ const SubscriptionDetailPage: React.FC = () => {
                           : locked
                             ? "The upcoming delivery is locked. This change is scheduled for a later delivery; no payment or refund is made now."
                             : dayDelta > 0
-                              ? `For an eligible prepaid delivery, the extra ${formatMoney(dayDelta)} is charged when you save. Unpaid delivery changes cannot be saved until payment is confirmed.`
+                               ? `For an eligible prepaid delivery, the extra ${formatMoney(dayDelta)} is charged when you save. For an unpaid delivery, its invoice amount is updated without an immediate charge.`
                               : dayDelta < 0
-                                ? `For an eligible prepaid delivery, ${formatMoney(Math.abs(dayDelta))} is returned to your card or store credit using your settlement choice. Unpaid delivery changes cannot be saved until payment is confirmed.`
+                                 ? `For an eligible prepaid delivery, ${formatMoney(Math.abs(dayDelta))} is returned to your card or store credit using your settlement choice. For an unpaid delivery, its invoice amount is reduced without issuing a refund or credit.`
                                 : "No net product price change. Payment eligibility is checked when you save; increases and decreases may need separate saves."}
                       </li>
                     );
@@ -2979,3 +2991,4 @@ const SubscriptionDetailPage: React.FC = () => {
 };
 
 export default SubscriptionDetailPage;
+

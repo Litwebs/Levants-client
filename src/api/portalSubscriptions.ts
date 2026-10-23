@@ -187,6 +187,7 @@ export type PortalSubscriptionCutoff = {
     cutoffAt?: string | null;
     effectiveFrom?: string | null;
     isPastCutoff: boolean;
+    paymentState?: "paid" | "unpaid";
   }>;
 };
 
@@ -416,3 +417,4 @@ export const portalSubscriptionsApi = {
       query,
     ),
 };
+
