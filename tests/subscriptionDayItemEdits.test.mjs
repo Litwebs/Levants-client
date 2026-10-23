@@ -42,3 +42,15 @@ test("unpaid reductions never ask for refunds; paid reductions retain the choice
   assert.equal(needsItemRefundChoice("paid", true, -12), false);
   assert.equal(needsItemRefundChoice("paid", false, 12), false);
 });
+
+test("paid days can retain one aggregate settlement after the unpaid group", async () => {
+  const baseline = [0, 3, 5].map(day => ({ day, items: [{ variantId: "milk", quantity: 1 }] }));
+  const requested = baseline.map(plan => ({ ...plan, items: [{ variantId: "milk", quantity: 2 }] }));
+  const sent = [];
+  await saveDeliveryDayItemEdits({ baseline, requested, changedDays: [0, 3, 5], groups: [[0], [3, 5]], expectedVersion: 1,
+    send: async payload => { sent.push(payload); return { success: true, data: { subscription: { customerVersion: payload.expectedVersion + 1 } } }; },
+    onApplied: () => {} });
+  assert.equal(sent.length, 2);
+  assert.deepEqual(sent[1].changedDeliveryDays, [3, 5]);
+  assert.equal(sent[0].deliveryDayPlans[1].items[0].quantity, 1);
+});

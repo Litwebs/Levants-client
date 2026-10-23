@@ -1359,17 +1359,26 @@ const SubscriptionDetailPage: React.FC = () => {
         setError(null);
         setNotice(null);
 
-        const results = await saveDeliveryDayItemEdits({
+        const changedDays = getChangedMultiDayIndexes(dayProductDraft, dayPlanBaseline);
+        const openPaidDays = changedDays.filter(day => cutoff && !isDayPastOwnCutoff(day, cutoff) &&
+          getDeliveryDayCutoff(cutoff, day)?.paymentState === "paid");
+        const openUnpaidDays = changedDays.filter(day => cutoff && !isDayPastOwnCutoff(day, cutoff) &&
+          getDeliveryDayCutoff(cutoff, day)?.paymentState === "unpaid");
+        const splitSettlement = openPaidDays.length > 0 && openUnpaidDays.length > 0;
+        const results = splitSettlement ? await saveDeliveryDayItemEdits({
           baseline: deliveryDays.map(dayName => ({ day: dayNameToIndex(dayName),
             items: (dayPlanBaseline[dayName] || []).map(item => ({ variantId: item.variantId, quantity: item.quantity })) })),
           requested: deliveryDayPlans,
-          changedDays: getChangedMultiDayIndexes(dayProductDraft, dayPlanBaseline),
+          changedDays,
+          groups: [changedDays.filter(day => !openPaidDays.includes(day)), openPaidDays],
           expectedVersion: subscription.customerVersion,
           send: payload => portalSubscriptionsApi.update(id, { ...payload, refundMethod }),
           onApplied: response => {
             if (response.data?.subscription) setSubscription(response.data.subscription);
           },
-        });
+        }) : [await portalSubscriptionsApi.update(id, {
+          deliveryDayPlans, changedDeliveryDays: changedDays, refundMethod, expectedVersion: subscription.customerVersion,
+        })];
 
         await load();
         await refreshCustomer().catch(() => {});
@@ -2110,7 +2119,7 @@ const SubscriptionDetailPage: React.FC = () => {
                     {formatMoney(Math.abs(previewDelta))}
                   </span>
                 </div>
-                <p className="mt-2 text-muted-foreground">Delivery fees are shown separately below. Each changed delivery day is saved separately.</p>
+                <p className="mt-2 text-muted-foreground">Delivery fees are shown separately below. Paid and unpaid delivery days are saved separately when needed.</p>
                 <ul className="mt-2 space-y-2" aria-label="Product change preview">
                   {changedPreviewDays.map((dayName) => {
                     const dayIndex = dayNameToIndex(dayName);
