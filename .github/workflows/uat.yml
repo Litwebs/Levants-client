@@ -69,6 +69,10 @@ jobs:
     name: Deployed basket persistence acceptance
     needs: deploy
     runs-on: ubuntu-latest
+    # Match the exact Playwright version in package-lock.json.
+    container:
+      image: mcr.microsoft.com/playwright:v1.58.2-noble
+      options: --user 1001
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
@@ -77,7 +81,6 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
-      - run: npx playwright install --with-deps chromium webkit
       - name: Verify the deployed release before testing
         env:
           EXPECTED_UAT_SHA: ${{ github.sha }}
