@@ -48,3 +48,29 @@ test("success clears the retry and explicit operation IDs remain authoritative",
   assert.notEqual(await run("put:sub:items", { quantity: 4 }, send), first);
   assert.equal(await run("put:sub:items", { operationId: "explicit" }, send), "explicit");
 });
+
+test("reload after a partial commit retains the original payload and version", async () => {
+  const storage = new Map();
+  let original;
+  await assert.rejects(load(storage)("put:sub:items", { quantity: 4, expectedVersion: 2 }, async body => {
+    original = body; throw Error("collection restoration pending");
+  }));
+  const recovered = await load(storage)("put:sub:items", { quantity: 4, expectedVersion: 3 }, async body => body);
+  assert.equal(recovered.operationId, original.operationId);
+  assert.equal(recovered.expectedVersion, 2);
+  assert.equal(storage.size, 0);
+});
+
+test("a definitive stale-version rejection allows a new operation after refresh", async () => {
+  const storage = new Map();
+  const run = load(storage);
+  let original;
+  await assert.rejects(run("put:sub:items", { quantity: 4, expectedVersion: 2 }, async body => {
+    original = body.operationId;
+    throw Object.assign(Error("stale"), { body: { data: { staleSubscription: true } } });
+  }));
+  const recovered = await run("put:sub:items", { quantity: 4, expectedVersion: 3 }, async body => body);
+  assert.notEqual(recovered.operationId, original);
+  assert.equal(recovered.expectedVersion, 3);
+});
+
