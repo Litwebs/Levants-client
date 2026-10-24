@@ -34,6 +34,7 @@ export type PortalSubscriptionItem = {
 };
 
 export type PortalSubscription = {
+  introOffer?: { firstChargeMinor: number; discountMinor: number; percentOff: number };
   _id: string;
   subscriptionNumber?: string;
   status: PortalSubscriptionStatus;
@@ -232,6 +233,7 @@ type DeliveryAddOnResponse = {
 
 export type CreateSubscriptionPayload = {
   operationId?: string;
+  pricingQuoteToken?: string;
   frequency: PortalSubscriptionFrequency;
   preferredDeliveryDay?: number;
   preferredDeliveryDays?: number[];
@@ -270,6 +272,8 @@ export const portalSubscriptionsApi = {
 
   get: (subscriptionId: string) =>
     api.get<ApiEnvelope<SubscriptionResponse>>(`${base}/${subscriptionId}`),
+
+  preview: (payload: CreateSubscriptionPayload) => api.post<ApiEnvelope<{ quote: import("@/portal/components/SubscriptionIntroOfferSummary").SubscriptionPricingQuote }>>(`${base}/preview`, payload),
 
   create: async (payload: CreateSubscriptionPayload) => {
     const account = await portalAuthApi.me();

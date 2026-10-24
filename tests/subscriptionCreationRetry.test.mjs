@@ -81,3 +81,20 @@ test("a missing account in the API envelope cannot start payment", async () => {
   await assert.rejects(api.create({ frequency: "weekly", items: [] }), /verify your account/);
   assert.equal(sent, false);
 });
+
+
+test("introductory pricing confirmation survives a lost paid response", async () => {
+  const storage = new Map();let original;
+  await assert.rejects(load(storage)("intro", { quantity: 2, pricingQuoteToken: "first" }, async body => {
+    original = body.operationId;throw Error("paid response lost");
+  }));
+  const result = await load(storage)("intro", { quantity: 2, pricingQuoteToken: "now-ineligible" }, async body => body);
+  assert.equal(result.operationId,original);assert.equal(result.pricingQuoteToken,"first");
+});
+test("a confirmed pre-payment quote change permits a fresh reviewed attempt", async () => {
+  const storage=new Map();
+  await assert.rejects(load(storage)("intro", {quantity:2,pricingQuoteToken:"old"},async()=>{ throw {body:{data:{quoteChanged:true}}}; }));
+  assert.equal(storage.size,0);
+  const result=await load(storage)("intro", {quantity:2,pricingQuoteToken:"new"},async body=>body);
+  assert.equal(result.pricingQuoteToken,"new");
+});

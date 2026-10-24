@@ -1608,6 +1608,9 @@ const SubscriptionDetailPage: React.FC = () => {
             <p className="text-xs sm:text-sm text-muted-foreground">
               Started {formatDate(subscription.startDate)}
             </p>
+            {subscription.introOffer && <p className="mt-2 text-sm text-muted-foreground">
+              First payment: {formatMoney(subscription.introOffer.firstChargeMinor / 100)}, including {formatMoney(subscription.introOffer.discountMinor / 100)} introductory savings ({subscription.introOffer.percentOff}% off products). Future payments use normal recurring prices.
+            </p>}
           </div>
         </div>
         <SubscriptionStatusBadge

@@ -17,6 +17,7 @@ import {
   portalPaymentsApi,
   type PortalPaymentMethod,
 } from "@/api/portalPayments";
+import SubscriptionIntroOfferSummary, { type SubscriptionPricingQuote } from "@/portal/components/SubscriptionIntroOfferSummary";
 import ProductCard from "@/components/products/ProductCard";
 import ShopPage from "@/pages/ShopPage";
 import {
@@ -238,7 +239,8 @@ const SubscriptionPaymentForm: React.FC<{
   onError: (message: string) => void;
   onSetupExpired: () => void;
   submitLoading?: boolean;
-}> = ({ onComplete, onError, onSetupExpired, submitLoading = false }) => {
+  disabled?: boolean;
+}> = ({ onComplete, onError, onSetupExpired, submitLoading = false, disabled = false }) => {
   const stripe = useStripe();
   const elements = useElements();
   const [loading, setLoading] = useState(false);
@@ -384,7 +386,7 @@ const SubscriptionPaymentForm: React.FC<{
           !elementReady ||
           !paymentComplete ||
           loading ||
-          submitLoading
+          submitLoading || disabled
         }
       >
         {loading || submitLoading ? (
@@ -602,6 +604,10 @@ const NewSubscriptionPage: React.FC = () => {
   });
   const [newAddressError, setNewAddressError] = useState<string | null>(null);
   const [newAddressLoading, setNewAddressLoading] = useState(false);
+  const [pricingQuote, setPricingQuote] = useState<SubscriptionPricingQuote | null>(null);
+  const [quoteLoading, setQuoteLoading] = useState(false);
+  const [quoteError, setQuoteError] = useState<string | null>(null);
+  const [quoteRevision, setQuoteRevision] = useState(0);
   const [submitLoading, setSubmitLoading] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
@@ -1270,8 +1276,26 @@ const NewSubscriptionPage: React.FC = () => {
     };
   };
 
+  let previewKey = "";
+  if (step === 4) { try { previewKey = JSON.stringify(buildSubscriptionPayload()); } catch { /* Incomplete drafts have no payable quote. */ } }
+  useEffect(() => {
+    let active = true;
+    setPricingQuote(null); setQuoteError(null);
+    if (!previewKey) { setQuoteLoading(false); return; }
+    setQuoteLoading(true);
+    const timer = setTimeout(() => {
+      void portalSubscriptionsApi.preview(JSON.parse(previewKey)).then(response => {
+        if (!response.success || !response.data?.quote) throw new Error(response.message || "Could not confirm subscription pricing.");
+        if (active) setPricingQuote(response.data.quote);
+      }).catch(error => { if (active) setQuoteError(error instanceof Error ? error.message : "Could not confirm subscription pricing."); })
+        .finally(() => { if (active) setQuoteLoading(false); });
+    }, 150);
+    return () => { active = false; clearTimeout(timer); };
+  }, [previewKey, quoteRevision]);
+
   const completeSubscription = async () => {
-    const payload = buildSubscriptionPayload();
+    if (!pricingQuote || quoteLoading || quoteError) throw new Error("Please wait for a confirmed price before subscribing.");
+    const payload = { ...buildSubscriptionPayload(), pricingQuoteToken: pricingQuote.quoteToken };
     await portalSubscriptionsApi.create(payload);
     clearDraft();
     navigate("/portal/subscriptions");
@@ -2152,9 +2176,12 @@ const NewSubscriptionPage: React.FC = () => {
                       Total charged today
                     </span>
                     <span className="font-semibold text-foreground">
-                      {fmt(reviewTotal)}
+                      {pricingQuote ? fmt(pricingQuote.firstChargeMinor / 100) : "Confirming price…"}
                     </span>
                   </div>
+                  {pricingQuote && <SubscriptionIntroOfferSummary quote={pricingQuote} />}
+                  {quoteLoading && <p role="status">Confirming your first payment and renewal price…</p>}
+                  {quoteError && <div role="alert"><p>{quoteError}</p><Button variant="outline" onClick={() => setQuoteRevision(value => value + 1)}>Retry pricing</Button></div>}
                   <div className="rounded-xl bg-muted/40 px-3 py-3 text-xs leading-5 text-muted-foreground">
                     Charged now to
                     <span className="font-medium text-foreground">
@@ -2296,6 +2323,7 @@ const NewSubscriptionPage: React.FC = () => {
                         onError={setSubmitError}
                         onSetupExpired={refreshPaymentSetup}
                         submitLoading={submitLoading}
+                        disabled={quoteLoading || !pricingQuote || Boolean(quoteError)}
                       />
                     </Elements>
                   ) : null}
@@ -2344,7 +2372,7 @@ const NewSubscriptionPage: React.FC = () => {
               <Button
                 data-tour="builder-confirm"
                 onClick={() => void handleCreateSubscription()}
-                disabled={submitLoading || showNewForm || !selectedMethodId}
+                disabled={submitLoading || showNewForm || !selectedMethodId || quoteLoading || !pricingQuote || Boolean(quoteError)}
               >
                 <Check className="h-4 w-4" />
                 {submitLoading ? "Creating..." : "Create Subscription"}
