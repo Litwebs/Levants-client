@@ -13,6 +13,8 @@ import { Input, Textarea } from "@/components/common/FormControls";
 import PromotionSummary, { PromotionCodeInput } from "@/components/cart/PromotionSummary";
 import AutomaticDealSavings from "@/components/cart/AutomaticDealSavings";
 import { buildBasketOrderItems } from "@/lib/basketDeals";
+import StockShortageAlert from "@/components/cart/StockShortageAlert";
+import { getStockShortages, type StockShortage } from "@/lib/stockShortages";
 
 type CheckoutStep = 1 | 2 | 3;
 
@@ -44,6 +46,7 @@ const CheckoutPage: React.FC = () => {
   const businessInfo = useBusinessInfo();
   const { items, deals, automaticDeals, checkoutDeals, subtotal, checkOffers, promotion, promotionCode: discountCode, setPromotionCode: setDiscountCode, refreshPricing, pricingLoading, pricingError } = useCart();
   const [checkingOffers, setCheckingOffers] = useState(false);
+  const [stockShortages, setStockShortages] = useState<StockShortage[]>([]);
   const placingOrder = useRef(false);
   const {
     customer,
@@ -312,6 +315,7 @@ const CheckoutPage: React.FC = () => {
   const handlePlaceOrder = async () => {
     if (placingOrder.current) return;
     placingOrder.current = true;
+    setStockShortages([]);
     setCheckingOffers(true);
     try {
       try {
@@ -452,6 +456,12 @@ const CheckoutPage: React.FC = () => {
         toast.error("Failed to create order. Please try again.");
       }
     } catch (error) {
+      const shortages = getStockShortages(error);
+      if (shortages.length) {
+        setStockShortages(shortages);
+        toast.error("Please update the unavailable items in your basket.");
+        return;
+      }
       await refreshPricing(customer?._id || loggedInCustomerId || undefined).catch(() => {});
       toast.error(error instanceof Error ? error.message : "Something went wrong. Please try again.");
     } finally {
@@ -525,6 +535,8 @@ const CheckoutPage: React.FC = () => {
 
       <div className="container-custom py-8 lg:py-12">
         <div className="mx-auto w-full max-w-3xl">
+          <StockShortageAlert shortages={stockShortages} />
+          <p className="mb-4 text-sm text-muted-foreground">Items in your basket are not reserved. Availability is checked when you place your order.</p>
           {!loggedInCheckout && (
             <div className="mb-8 lg:mb-12">
               <div className="flex items-center justify-center gap-2 lg:gap-4">
@@ -914,7 +926,7 @@ const CheckoutPage: React.FC = () => {
                     </p>
                   </div>
 
-                  {error && (
+                  {error && !stockShortages.length && (
                     <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-xl text-sm text-destructive">
                       {error}
                     </div>
@@ -997,3 +1009,4 @@ const CheckoutPage: React.FC = () => {
 };
 
 export default CheckoutPage;
+
