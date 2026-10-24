@@ -23,6 +23,7 @@ import {
   initialOrderState,
 } from "./constants";
 import { ApiError } from "@/api/client";
+import { getStockShortages } from "@/lib/stockShortages";
 
 /* ========================
    CONTEXT TYPE
@@ -109,6 +110,10 @@ export const OrdersProvider = ({ children }: { children: ReactNode }) => {
         return res.data;
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : "";
+        if (getStockShortages(err).length) {
+          dispatch({ type: ORDER_FAILURE, payload: message });
+          throw err;
+        }
 
         const isCustomerInstructionsNotAllowed =
           (err instanceof ApiError &&
@@ -242,3 +247,4 @@ export const useOrders = () => {
   if (!ctx) throw new Error("useOrders must be used inside OrdersProvider");
   return ctx;
 };
+
