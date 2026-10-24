@@ -2182,21 +2182,7 @@ const NewSubscriptionPage: React.FC = () => {
                   {pricingQuote && <SubscriptionIntroOfferSummary quote={pricingQuote} />}
                   {quoteLoading && <p role="status">Confirming your first payment and renewal price…</p>}
                   {quoteError && <div role="alert"><p>{quoteError}</p><Button variant="outline" onClick={() => setQuoteRevision(value => value + 1)}>Retry pricing</Button></div>}
-                  <div className="rounded-xl bg-muted/40 px-3 py-3 text-xs leading-5 text-muted-foreground">
-                    Charged now to
-                    <span className="font-medium text-foreground">
-                      {selectedPaymentMethod
-                        ? ` ${fmtMethod(selectedPaymentMethod)}`
-                        : showNewForm
-                          ? " your new payment method"
-                          : " your selected payment method"}
-                    </span>
-                    . Future payments renew at
-                    <span className="font-medium text-foreground">
-                      {fmt(reviewTotal)}
-                    </span>
-                    {` ${reviewCycleLabel}`}.
-                  </div>
+
                 </div>
               </section>
             </div>

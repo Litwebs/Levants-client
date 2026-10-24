@@ -34,7 +34,7 @@ export type PortalSubscriptionItem = {
 };
 
 export type PortalSubscription = {
-  introOffer?: { firstChargeMinor: number; discountMinor: number; percentOff: number };
+  introOffer?: { firstChargeMinor: number; discountMinor: number; percentOff: number; discountType?: "percentage" | "fixed"; amountOff?: number };
   _id: string;
   subscriptionNumber?: string;
   status: PortalSubscriptionStatus;
