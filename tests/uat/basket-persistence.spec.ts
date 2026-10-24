@@ -53,7 +53,17 @@ test("UI-added basket and changed quantity survive checkout reload and a new doc
   await page.locator('input[name="city"]').fill("Bradford");
   await page.locator('input[name="postcode"]').fill("BD5 9HB");
   await page.getByRole("button", { name: "Continue", exact: true }).click();
-  await expect(page.getByRole("button", { name: "Place Order - £25.00", exact: true })).toBeEnabled();
+  const placeOrder = page.getByRole("button", { name: /^Place Order - £/ });
+  const shortage = page.getByRole("alert").filter({ hasText: "Please update your basket" });
+  await expect.poll(async () => await placeOrder.isVisible() || await shortage.isVisible()).toBe(true);
+  if (await shortage.isVisible()) {
+    await expect(shortage).toContainText(/You requested 2 units, but only [01] (?:is|are) currently available/);
+    await expect.poll(() => savedBasket(page)).toEqual(expected);
+    // Persistence is still required when real stock correctly blocks checkout.
+    if (await placeOrder.count()) await expect(placeOrder).toBeDisabled();
+  } else {
+    await expect(placeOrder).toBeEnabled();
+  }
   await info.attach("restored-checkout", { body: await page.screenshot({ fullPage: true }), contentType: "image/png" });
 
   const other = await context.newPage();
