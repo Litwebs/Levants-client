@@ -14,6 +14,7 @@ import PromotionSummary, { PromotionCodeInput } from "@/components/cart/Promotio
 import AutomaticDealSavings from "@/components/cart/AutomaticDealSavings";
 import { buildBasketOrderItems } from "@/lib/basketDeals";
 import StockShortageAlert from "@/components/cart/StockShortageAlert";
+import CartDrawer from "@/components/cart/CartDrawer";
 import { getStockShortages, type StockShortage } from "@/lib/stockShortages";
 
 type CheckoutStep = 1 | 2 | 3;
@@ -47,6 +48,7 @@ const CheckoutPage: React.FC = () => {
   const { items, deals, automaticDeals, checkoutDeals, subtotal, checkOffers, promotion, promotionCode: discountCode, setPromotionCode: setDiscountCode, refreshPricing, pricingLoading, pricingError } = useCart();
   const [checkingOffers, setCheckingOffers] = useState(false);
   const [stockShortages, setStockShortages] = useState<StockShortage[]>([]);
+  useEffect(() => { setStockShortages([]); }, [items, deals]);
   const placingOrder = useRef(false);
   const {
     customer,
@@ -510,6 +512,7 @@ const CheckoutPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      <CartDrawer />
       {/* Header */}
       <div className="bg-card border-b border-border">
         <div className="container-custom py-4">

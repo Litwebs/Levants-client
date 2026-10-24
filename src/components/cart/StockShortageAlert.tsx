@@ -1,9 +1,10 @@
-import { Link } from "react-router-dom";
 import { useEffect, useRef } from "react";
+import { useCart } from "@/context/CartContext";
 import { Button } from "@/components/ui/button";
 import type { StockShortage } from "@/lib/stockShortages";
 
 export default function StockShortageAlert({ shortages }: { shortages: StockShortage[] }) {
+  const { openCart } = useCart();
   const alertRef = useRef<HTMLElement>(null);
   useEffect(() => { if (shortages.length) alertRef.current?.focus(); }, [shortages]);
   if (!shortages.length) return null;
@@ -17,6 +18,6 @@ export default function StockShortageAlert({ shortages }: { shortages: StockShor
       </li>)}
     </ul>
     <p className="mt-3 text-sm text-muted-foreground">Your basket has been kept. Stock can change until checkout reserves it.</p>
-    <Button asChild className="mt-3"><Link to="/cart">Review basket</Link></Button>
+    <Button onClick={openCart} className="mt-3">Review basket</Button>
   </section>;
 }
