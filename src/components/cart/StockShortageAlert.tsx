@@ -6,7 +6,8 @@ import type { StockShortage } from "@/lib/stockShortages";
 export default function StockShortageAlert({ shortages }: { shortages: StockShortage[] }) {
   const { openCart } = useCart();
   const alertRef = useRef<HTMLElement>(null);
-  useEffect(() => { if (shortages.length) alertRef.current?.focus(); }, [shortages]);
+  const shortageKey = JSON.stringify(shortages);
+  useEffect(() => { if (shortageKey !== "[]") alertRef.current?.focus(); }, [shortageKey]);
   if (!shortages.length) return null;
   return <section ref={alertRef} tabIndex={-1} role="alert" aria-atomic="true" className="mb-6 rounded-xl border border-destructive/30 bg-destructive/5 p-4">
     <h2 className="font-semibold">Please update your basket</h2>

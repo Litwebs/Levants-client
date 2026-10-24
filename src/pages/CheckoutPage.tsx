@@ -45,7 +45,7 @@ type CheckoutProfile = {
 const CheckoutPage: React.FC = () => {
   const navigate = useNavigate();
   const businessInfo = useBusinessInfo();
-  const { items, deals, automaticDeals, checkoutDeals, subtotal, checkOffers, promotion, promotionCode: discountCode, setPromotionCode: setDiscountCode, refreshPricing, pricingLoading, pricingError } = useCart();
+  const { items, deals, automaticDeals, checkoutDeals, subtotal, checkOffers, promotion, promotionCode: discountCode, setPromotionCode: setDiscountCode, refreshPricing, pricingLoading, pricingError, pricingShortages } = useCart();
   const [checkingOffers, setCheckingOffers] = useState(false);
   const [stockShortages, setStockShortages] = useState<StockShortage[]>([]);
   useEffect(() => { setStockShortages([]); }, [items, deals]);
@@ -538,7 +538,7 @@ const CheckoutPage: React.FC = () => {
 
       <div className="container-custom py-8 lg:py-12">
         <div className="mx-auto w-full max-w-3xl">
-          <StockShortageAlert shortages={stockShortages} />
+          <StockShortageAlert shortages={stockShortages.length ? stockShortages : pricingShortages} />
           <p className="mb-4 text-sm text-muted-foreground">Items in your basket are not reserved. Availability is checked when you place your order.</p>
           {!loggedInCheckout && (
             <div className="mb-8 lg:mb-12">
