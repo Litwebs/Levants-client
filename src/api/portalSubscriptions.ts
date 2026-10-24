@@ -34,6 +34,12 @@ export type PortalSubscriptionItem = {
 };
 
 export type PortalSubscription = {
+  recurringPriceChange?: {
+    status: "queued" | "provider_pending" | "applied";
+    previousAmountMinor: number;
+    nextAmountMinor: number;
+    effectiveFrom?: string | null;
+  } | null;
   introOffer?: { firstChargeMinor: number; discountMinor: number; percentOff: number; discountType?: "percentage" | "fixed"; amountOff?: number };
   _id: string;
   subscriptionNumber?: string;
@@ -421,4 +427,5 @@ export const portalSubscriptionsApi = {
       query,
     ),
 };
+
 
