@@ -15,9 +15,10 @@ interface DealCardProps {
   showContents?: boolean;
   imageAspectClassName?: string;
   compactAction?: boolean;
+  smallFeatured?: boolean;
   layout?: 'stacked' | 'horizontal';
 }
-export default function DealCard({ deal, variant = 'card', imageAspectClassName, compactAction = false, layout = 'stacked' }: DealCardProps) {
+export default function DealCard({ deal, variant = 'card', imageAspectClassName, compactAction = false, smallFeatured = false, layout = 'stacked' }: DealCardProps) {
   const titleId = useId();
   const { addDeal, deals, openCart } = useCart();
   const value = dealPresentation(deal);
@@ -31,6 +32,84 @@ export default function DealCard({ deal, variant = 'card', imageAspectClassName,
     addDeal(deal, 1);
     toast.success(deal.name + ' added to your basket', { description: value.saving ? `Package deal · save ${value.saving}` : 'Package deal' });
   };
+  if (variant === 'featured') {
+    return (
+      <article
+        aria-labelledby={titleId}
+        className={cn(
+          "deal-card flex h-full min-w-0 flex-col overflow-hidden bg-transparent text-white",
+          "rounded-2xl",
+        )}
+      >
+        <div className={cn("relative isolate overflow-hidden rounded-2xl bg-forest-dark", imageAspectClassName ?? "aspect-[4/5] sm:aspect-[4/3]")}>
+          <Link
+            to={"/deals/" + deal.slug}
+            tabIndex={-1}
+            aria-hidden="true"
+            className="absolute inset-0"
+          >
+            <DealImage
+              src={deal.imageUrl}
+              className="h-full w-full object-cover"
+            />
+          </Link>
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/85 via-black/10 to-black/10" />
+          {value.saving && !soldOut && (
+            <SavingsTag overlay className={compactAction ? "absolute left-4 top-4 sm:left-5 sm:top-5" : "absolute left-5 top-5 sm:left-8 sm:top-6"}>
+              Save {value.percent !== null ? `${value.percent}%` : value.saving}
+            </SavingsTag>
+          )}
+          <div className={cn("absolute inset-x-0 bottom-0 flex flex-col text-white", smallFeatured ? "gap-2 p-4" : "gap-4 p-5 sm:p-7")}>
+            <div className="min-w-0">
+              <h3 id={titleId} className={cn("font-heading font-semibold leading-tight", smallFeatured ? "text-xl sm:text-2xl" : "text-2xl sm:text-3xl xl:text-4xl")}>
+                <Link
+                  to={"/deals/" + deal.slug}
+                  className="line-clamp-2 break-words rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+                  title={deal.name}
+                >
+                  {deal.name}
+                </Link>
+              </h3>
+            </div>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex flex-wrap items-baseline gap-3">
+                <span className={cn("font-semibold tracking-tight", smallFeatured ? "text-xl sm:text-2xl" : "text-2xl sm:text-3xl")}>{value.price}</span>
+                {value.original && (
+                  <span className="text-sm text-white/80">
+                    <span className="sr-only">Original value </span>
+                    <del>{value.original}</del>
+                  </span>
+                )}
+              </div>
+              <div className="shrink-0">
+                <BasketButton
+                  compact={compactAction}
+                  disabled={soldOut || !value.validPrice}
+                  onClick={add}
+                  icon={quantity > 0 ? <Check aria-hidden="true" className="h-4 w-4 shrink-0" /> : undefined}
+                  className={cn("motion-reduce:transition-none", smallFeatured && "h-8 min-h-0 rounded-lg px-3 text-sm")}
+                >
+                  {soldOut
+                    ? "Currently unavailable"
+                    : !value.validPrice
+                      ? "Price unavailable"
+                      : atLimit
+                        ? "View basket"
+                        : quantity > 0
+                          ? "Add another package"
+                          : "Add package to basket"}
+                </BasketButton>
+                <p aria-live="polite" className={cn("text-center text-xs text-white/90", quantity > 0 ? "mt-2" : "sr-only")}>
+                  {quantity > 0 ? `${quantity} in your basket${atLimit ? " · maximum available" : ""}` : ""}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </article>
+    );
+  }
+
   return <article aria-labelledby={titleId} className={cn('deal-card flex h-full min-w-0 flex-col overflow-hidden rounded-2xl border border-border/70 bg-card text-foreground shadow-soft', variant === 'card' && 'mx-auto w-full max-w-sm sm:mx-0', layout === 'horizontal' && 'md:flex-row')}>
     <div className={cn('relative shrink-0 overflow-hidden bg-secondary/60', imageAspectClassName ?? 'aspect-[4/3]', layout === 'horizontal' && 'md:aspect-auto md:min-h-72 md:w-1/2')}>
       <Link to={'/deals/' + deal.slug} tabIndex={-1} aria-hidden="true" className="absolute inset-0 block"><DealImage src={deal.imageUrl} className="h-full w-full object-contain p-4 sm:p-5" /></Link>
@@ -39,7 +118,7 @@ export default function DealCard({ deal, variant = 'card', imageAspectClassName,
     </div>
     <div className="flex min-w-0 flex-1 flex-col p-4 sm:p-5">
       <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-primary">{deal.isFeatured ? 'Featured package' : 'Package deal'}</p>
-      <h3 id={titleId} className={cn('font-heading font-semibold leading-tight', variant === 'featured' ? 'text-xl sm:text-2xl' : 'text-lg')}><Link to={'/deals/' + deal.slug} title={deal.name} className="line-clamp-2 min-h-12 break-words rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">{deal.name}</Link></h3>
+      <h3 id={titleId} className={cn('font-heading font-semibold leading-tight', 'text-lg')}><Link to={'/deals/' + deal.slug} title={deal.name} className="line-clamp-2 min-h-12 break-words rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">{deal.name}</Link></h3>
       <p className="mt-2 line-clamp-2 min-h-10 break-words text-sm leading-5 text-muted-foreground">{deal.description}</p>
       <div className="mt-auto pt-4">
         <div className="flex flex-wrap items-baseline gap-2"><span className="text-2xl font-semibold tracking-tight text-primary">{value.price}</span>{value.original && <span className="text-sm text-muted-foreground"><span className="sr-only">Original value </span><del>{value.original}</del></span>}</div>

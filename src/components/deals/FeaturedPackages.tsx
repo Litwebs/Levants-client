@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { Deal } from "@/api/deals";
 import { Button } from "@/components/ui/button";
-import { Carousel, CarouselContent, CarouselItem, type CarouselApi } from "@/components/ui/carousel";
 import { Skeleton } from "@/components/ui/skeleton";
 import DealCard from "./DealCard";
 
@@ -11,7 +10,8 @@ interface FeaturedPackagesProps {
   loading: boolean;
 }
 
-const arrowButtonClass = "relative h-9 w-9 rounded-full bg-transparent p-0 text-muted-foreground hover:bg-transparent hover:text-foreground before:absolute before:inset-1 before:rounded-full before:border before:border-border/70 before:bg-background hover:before:bg-secondary [&_svg]:relative [&_svg]:size-3.5";
+const arrowButtonClass = "h-8 w-8 rounded-lg border border-border bg-transparent p-0 text-muted-foreground hover:border-muted-foreground/50 hover:bg-muted hover:text-foreground focus-visible:ring-primary [&_svg]:size-4";
+const SCROLL_SPEED = 32; // pixels per second
 
 export default function FeaturedPackages({ deals, loading }: FeaturedPackagesProps) {
   const distinctImages = new Set<string>();
@@ -26,88 +26,101 @@ export default function FeaturedPackages({ deals, loading }: FeaturedPackagesPro
     }
   });
   const featured = [...distinct, ...repeated];
-  const root = useRef<HTMLElement>(null);
-  const [api, setApi] = useState<CarouselApi>();
-  const [canScroll, setCanScroll] = useState(false);
+  const viewport = useRef<HTMLDivElement>(null);
+  const group = useRef<HTMLDivElement>(null);
   const [reducedMotion, setReducedMotion] = useState(true);
+  const canScroll = featured.length > 1;
+  const copies = featured.length < 4 ? 7 : 5;
+  const middleCopy = Math.floor(copies / 2);
 
   useEffect(() => {
-    if (!api || !root.current) return;
-    const element = root.current;
+    if (!window.matchMedia) return;
     const media = window.matchMedia("(prefers-reduced-motion: reduce)");
-    const hoverCapable = window.matchMedia("(hover: hover) and (pointer: fine)");
-    let visible = false;
-    let timer: number | undefined;
-    const schedule = () => {
-      window.clearTimeout(timer);
-      setReducedMotion(media.matches);
-      const scrollable = api.canScrollNext() || api.canScrollPrev();
-      setCanScroll(scrollable);
-      if (!visible || !scrollable || media.matches || document.hidden ||
-          (hoverCapable.matches && element.matches(":hover")) ||
-          element.querySelector(":focus-visible")) return;
-      timer = window.setTimeout(() => api.scrollNext(), 6000);
+    const update = () => setReducedMotion(media.matches);
+    update();
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, []);
+
+  useEffect(() => {
+    const element = viewport.current;
+    const firstGroup = group.current;
+    if (!canScroll || !element || !firstGroup) return;
+    let frame = 0;
+    let previousTime = 0;
+    const groupWidth = () => firstGroup.getBoundingClientRect().width + 16;
+    const normalize = () => {
+      const width = groupWidth();
+      if (!width) return;
+      if (element.scrollLeft >= (middleCopy + 1) * width) element.scrollLeft -= width;
+      if (element.scrollLeft < middleCopy * width) element.scrollLeft += width;
     };
-    const onFocusOut = () => queueMicrotask(schedule);
-    const observer = new IntersectionObserver(([entry]) => {
-      visible = entry.isIntersecting;
-      schedule();
-    }, { threshold: 0.25 });
-    observer.observe(element);
-    media.addEventListener("change", schedule);
-    hoverCapable.addEventListener("change", schedule);
-    document.addEventListener("visibilitychange", schedule);
-    element.addEventListener("mouseenter", schedule);
-    element.addEventListener("mouseleave", schedule);
-    element.addEventListener("focusin", schedule);
-    element.addEventListener("focusout", onFocusOut);
-    api.on("select", schedule);
-    api.on("reInit", schedule);
-    schedule();
-    return () => {
-      window.clearTimeout(timer);
-      observer.disconnect();
-      media.removeEventListener("change", schedule);
-      hoverCapable.removeEventListener("change", schedule);
-      document.removeEventListener("visibilitychange", schedule);
-      element.removeEventListener("mouseenter", schedule);
-      element.removeEventListener("mouseleave", schedule);
-      element.removeEventListener("focusin", schedule);
-      element.removeEventListener("focusout", onFocusOut);
-      api.off("select", schedule);
-      api.off("reInit", schedule);
+    const position = () => { element.scrollLeft = middleCopy * groupWidth(); };
+    position();
+    const observer = typeof ResizeObserver !== "undefined" ? new ResizeObserver(position) : null;
+    observer?.observe(firstGroup);
+    const tick = (time: number) => {
+      if (previousTime && !reducedMotion && !document.hidden) {
+        element.scrollLeft += SCROLL_SPEED * Math.min(time - previousTime, 50) / 1000;
+        normalize();
+      }
+      previousTime = time;
+      frame = window.requestAnimationFrame(tick);
     };
-  }, [api, featured.length]);
+    if (!reducedMotion) frame = window.requestAnimationFrame(tick);
+    return () => { window.cancelAnimationFrame(frame); observer?.disconnect(); };
+  }, [canScroll, copies, middleCopy, reducedMotion, featured.length]);
+
+  const move = (direction: -1 | 1) => {
+    const element = viewport.current;
+    const firstCard = group.current?.firstElementChild;
+    if (!element || !(firstCard instanceof HTMLElement)) return;
+    element.scrollLeft += direction * (firstCard.getBoundingClientRect().width + 16);
+    const width = group.current ? group.current.getBoundingClientRect().width + 16 : 0;
+    if (width && element.scrollLeft >= (middleCopy + 1) * width) element.scrollLeft -= width;
+    if (width && element.scrollLeft < middleCopy * width) element.scrollLeft += width;
+  };
 
   if (!loading && featured.length === 0) return null;
 
   return (
-    <section ref={root} aria-labelledby="featured-packages-heading" className="mb-9 min-w-0">
+    <section aria-labelledby="featured-packages-heading" className="mb-9 min-w-0">
       <div className="mb-4 flex min-h-9 items-center justify-between gap-4">
         <h2 id="featured-packages-heading" className="font-heading text-xl font-semibold sm:text-2xl">Featured packages</h2>
         {canScroll && !loading && (
           <div className="flex shrink-0 items-center">
-            <Button type="button" variant="ghost" size="icon" className={arrowButtonClass} onClick={() => api?.scrollPrev()} aria-label="Previous featured packages"><ChevronLeft className="h-4 w-4" aria-hidden="true" /></Button>
-            <Button type="button" variant="ghost" size="icon" className={arrowButtonClass} onClick={() => api?.scrollNext()} aria-label="Next featured packages"><ChevronRight className="h-4 w-4" aria-hidden="true" /></Button>
+            <Button type="button" variant="ghost" size="icon" className={arrowButtonClass} onClick={() => move(-1)} aria-label="Previous featured packages"><ChevronLeft className="h-4 w-4" aria-hidden="true" /></Button>
+            <Button type="button" variant="ghost" size="icon" className={arrowButtonClass} onClick={() => move(1)} aria-label="Next featured packages"><ChevronRight className="h-4 w-4" aria-hidden="true" /></Button>
           </div>
         )}
       </div>
       {loading ? (
-        <div role="status" aria-label="Loading featured packages" className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          {[0, 1].map((index) => <Skeleton key={index} className={`h-[17rem] rounded-2xl motion-reduce:animate-none sm:h-[21rem] ${index === 1 ? "hidden lg:block" : ""}`} />)}
+        <div role="status" aria-label="Loading featured packages" className="flex gap-4 overflow-hidden">
+          {[0, 1, 2, 3].map((index) => <Skeleton key={index} className="aspect-[4/3] w-[78vw] max-w-[22rem] shrink-0 rounded-2xl motion-reduce:animate-none" />)}
+        </div>
+      ) : canScroll ? (
+        <div ref={viewport} role="region" aria-label="Featured packages carousel" className="overflow-hidden rounded-2xl" onKeyDown={(event) => {
+          if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+            event.preventDefault();
+            move(event.key === "ArrowLeft" ? -1 : 1);
+          }
+        }}>
+          <div className="flex w-max gap-4">
+            {Array.from({ length: copies }, (_, copy) => (
+              <div key={copy} ref={copy === 0 ? group : undefined} className="flex shrink-0 gap-4">
+                {featured.map((deal) => (
+                  <div key={deal.id} className="w-[78vw] shrink-0 sm:w-80 lg:w-[22rem]">
+                    <DealCard deal={deal} variant="featured" showContents={false} compactAction smallFeatured imageAspectClassName="aspect-[4/3]" />
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
         </div>
       ) : (
-        <Carousel setApi={setApi} opts={{ align: "start", loop: true, duration: reducedMotion ? 0 : 35 }} aria-label="Featured packages" className="min-w-0">
-          <CarouselContent>
-            {featured.map((deal, index) => (
-              <CarouselItem key={deal.id} className={featured.length === 1 ? "basis-full" : "basis-full lg:basis-1/2"} aria-label={`${index + 1} of ${featured.length}`}>
-                <div className="overflow-hidden rounded-2xl bg-forest-dark">
-                  <DealCard deal={deal} variant="featured" layout={featured.length === 1 ? "horizontal" : "stacked"} showContents={false} compactAction imageAspectClassName="aspect-[4/3] sm:aspect-[7/4]" />
-                </div>
-              </CarouselItem>
-            ))}
-          </CarouselContent>
-        </Carousel>
+        <div className="w-[78vw] sm:w-80 lg:w-[22rem]">
+          <DealCard deal={featured[0]} variant="featured" showContents={false} compactAction smallFeatured imageAspectClassName="aspect-[4/3]" />
+        </div>
       )}
     </section>
   );

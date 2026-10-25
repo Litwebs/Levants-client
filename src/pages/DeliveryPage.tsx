@@ -312,12 +312,12 @@ const DeliveryPage: React.FC = () => {
               <input
                 type="text"
                 placeholder="Enter your postcode"
-                className="flex-1 input-field"
+                className="input-field h-10 flex-1"
                 value={postcode}
                 onChange={(e) => setPostcode(e.target.value)}
                 disabled={checking}
               />
-              <button className="btn-primary" type="submit" disabled={checking}>
+              <button className="inline-flex h-10 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60" type="submit" disabled={checking}>
                 {checking ? "Checking..." : "Check"}
               </button>
             </form>
@@ -381,7 +381,7 @@ const DeliveryPage: React.FC = () => {
                 </p>
                 <Link
                   to={subscriptionHref}
-                  className="btn-primary mt-7 inline-flex w-full items-center justify-center gap-2 sm:w-auto"
+                  className="mt-7 inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:w-auto"
                 >
                   Set Up Your Subscription
                   <ArrowRight className="h-4 w-4" aria-hidden="true" />
@@ -563,7 +563,7 @@ const DeliveryPage: React.FC = () => {
             </p>
             <a
               href="/contact"
-              className="btn-primary inline-flex items-center gap-2"
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               Contact Us
             </a>

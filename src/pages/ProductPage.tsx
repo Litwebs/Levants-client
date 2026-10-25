@@ -21,7 +21,6 @@ import {
 import { useProducts } from "@/context/Products/ProductsContext";
 import { resolveImageUrl } from "@/api/client";
 import { useCart } from "@/context/CartContext";
-import QuantityStepper from "@/components/ui/QuantityStepper";
 import ProductCard from "@/components/products/ProductCard";
 import OrderTypeChoice, {
   type OrderType,
@@ -37,7 +36,6 @@ const ProductPage: React.FC = () => {
     useProducts();
   const { addItem } = useCart();
 
-  const [quantity, setQuantity] = useState(1);
   const [activeImage, setActiveImage] = useState(0);
   const [showVariantImage, setShowVariantImage] = useState(true);
   const [orderType, setOrderType] = useState<OrderType>(() =>
@@ -120,22 +118,6 @@ const ProductPage: React.FC = () => {
     setActiveImage(0);
     setShowVariantImage(true);
   }, [selectedVariant?.id]);
-
-  const maxAvailableQuantity = useMemo(() => {
-    if (!selectedVariant) return undefined;
-    const stock = (selectedVariant as any).stockQuantity;
-    if (typeof stock !== "number") return undefined;
-    return Math.max(0, stock);
-  }, [selectedVariant]);
-
-  useEffect(() => {
-    if (typeof maxAvailableQuantity !== "number") return;
-    if (maxAvailableQuantity <= 0) {
-      setQuantity(1);
-      return;
-    }
-    setQuantity((q) => Math.min(q, maxAvailableQuantity));
-  }, [maxAvailableQuantity]);
 
   const relatedProducts = useMemo(() => {
     if (!product) return [];
@@ -231,11 +213,7 @@ const ProductPage: React.FC = () => {
     if (!selectedVariant) return;
     if (selectedVariant.stockQuantity <= 0) return;
 
-    const safeQty =
-      typeof selectedVariant.stockQuantity === "number" &&
-      selectedVariant.stockQuantity > 0
-        ? Math.min(quantity, selectedVariant.stockQuantity)
-        : quantity;
+    const safeQty = 1;
     // Map to CartContext expected shape
     const cartProduct = {
       id: product.id,
@@ -440,32 +418,8 @@ const ProductPage: React.FC = () => {
             )}
 
             {orderType === "one-time" || selectedVariant?.isSubscriptionEligible === false ? (
-              <div className="mb-6 flex flex-wrap items-center gap-3">
-                <div className="shrink-0">
-                  <QuantityStepper
-                    quantity={quantity}
-                    onQuantityChange={(q) => {
-                      if (
-                        typeof maxAvailableQuantity === "number" &&
-                        maxAvailableQuantity > 0
-                      ) {
-                        setQuantity(
-                          Math.min(Math.max(1, q), maxAvailableQuantity),
-                        );
-                        return;
-                      }
-                      setQuantity(Math.max(1, q));
-                    }}
-                    max={
-                      typeof maxAvailableQuantity === "number" &&
-                      maxAvailableQuantity > 0
-                        ? maxAvailableQuantity
-                        : 99
-                    }
-                    size="sm"
-                  />
-                </div>
-                <BasketButton onClick={handleAddToCart} disabled={isOutOfStock} className="min-w-[9rem] flex-1">Add to basket</BasketButton>
+              <div className="mb-6">
+                <BasketButton onClick={handleAddToCart} disabled={isOutOfStock} compact className="h-8 min-h-0 w-full rounded-lg px-3 text-sm">Add to basket</BasketButton>
               </div>
             ) : (
               <div className="mb-6 rounded-xl border border-primary/20 bg-primary/[0.04] p-4">

@@ -1,11 +1,12 @@
 import { Button } from "@/components/ui/button";
 import QuantityStepper from "@/components/ui/QuantityStepper";
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { X, Plus, Minus, ShoppingBag, Trash2 } from "lucide-react";
 import { useCart } from "@/context/CartContext";
 import PromotionSummary from "@/components/cart/PromotionSummary";
 import AutomaticDealSavings from "./AutomaticDealSavings";
+import { cn } from "@/lib/utils";
 
 const CartDrawer: React.FC = () => {
   const {
@@ -23,19 +24,38 @@ const CartDrawer: React.FC = () => {
     total,
     promotion,
   } = useCart();
+  const [present, setPresent] = useState(isOpen);
+  const [visible, setVisible] = useState(false);
 
-  if (!isOpen) return null;
+  useEffect(() => {
+    if (isOpen) {
+      setPresent(true);
+      let revealFrame = 0;
+      const mountFrame = window.requestAnimationFrame(() => {
+        revealFrame = window.requestAnimationFrame(() => setVisible(true));
+      });
+      return () => {
+        window.cancelAnimationFrame(mountFrame);
+        window.cancelAnimationFrame(revealFrame);
+      };
+    }
+    setVisible(false);
+    const timer = window.setTimeout(() => setPresent(false), 300);
+    return () => window.clearTimeout(timer);
+  }, [isOpen]);
+
+  if (!present) return null;
 
   return (
     <>
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-foreground/50 z-50 animate-fade-in"
+        className={cn("fixed inset-0 z-50 bg-foreground/50 transition-opacity duration-300 motion-reduce:transition-none", visible ? "opacity-100" : "pointer-events-none opacity-0")}
         onClick={closeCart}
       />
 
       {/* Drawer */}
-      <div className="fixed right-0 top-0 h-full w-full max-w-md bg-card z-50 shadow-2xl animate-slide-in-right flex flex-col">
+      <div className={cn("fixed right-0 top-0 z-50 flex h-full w-full max-w-md flex-col bg-card shadow-2xl transition-transform duration-300 ease-in-out motion-reduce:transition-none", visible ? "translate-x-0" : "pointer-events-none translate-x-full")}>
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-border">
           <div className="flex items-center gap-3">
@@ -43,7 +63,7 @@ const CartDrawer: React.FC = () => {
             <h2 className="font-heading text-xl font-semibold">Your Cart</h2>
             <span className="badge-fresh">{itemCount} items</span>
           </div>
-          <Button type="button" variant="ghost" size="quantity"
+          <Button type="button" variant="ghost" size="icon"
             onClick={closeCart}
             className="p-2 -mr-2 text-muted-foreground hover:text-foreground transition-colors"
             aria-label="Close cart"
@@ -63,7 +83,7 @@ const CartDrawer: React.FC = () => {
               <p className="text-muted-foreground text-sm mb-6">
                 Add some farm-fresh products to get started.
               </p>
-              <Button type="button" size="touch" onClick={closeCart}>
+              <Button type="button" size="default" onClick={closeCart}>
                 <Link to="/shop">Start Shopping</Link>
               </Button>
             </div>
@@ -99,7 +119,7 @@ const CartDrawer: React.FC = () => {
                             {deal.name}
                           </h4>
                         </div>
-                        <Button type="button" variant="ghost" size="quantity"
+                        <Button type="button" variant="ghost" size="icon"
                           onClick={() => removeDeal(deal.id)}
                           className="shrink-0 p-1 text-muted-foreground transition-colors hover:text-destructive"
                           aria-label={"Remove " + deal.name}
@@ -162,7 +182,7 @@ const CartDrawer: React.FC = () => {
                       <div className="flex items-center justify-between mt-3">
                         <QuantityStepper quantity={item.quantity} onQuantityChange={q => updateQuantity(item.product.id, q, item.variant?.id)} min={0} max={typeof maxStock === "number" ? maxStock : 99} size="sm" label={`Quantity for ${item.product.name}`} />
 
-                        <Button type="button" variant="ghost" size="quantity"
+                        <Button type="button" variant="ghost" size="icon"
                           onClick={() =>
                             removeItem(item.product.id, item.variant?.id)
                           }
@@ -211,7 +231,7 @@ const CartDrawer: React.FC = () => {
             </div>
 
             {/* Checkout Button */}
-            <Button asChild size="touch" className="w-full"><Link
+            <Button asChild size="default" className="w-full"><Link
               to="/checkout"
               onClick={closeCart}
             >
@@ -219,9 +239,9 @@ const CartDrawer: React.FC = () => {
             </Link></Button>
 
             {/* Continue Shopping */}
-            <Button type="button" variant="ghost" size="touch"
+            <Button type="button" variant="ghost" size="default"
               onClick={closeCart}
-              className="h-auto w-full text-center text-sm text-muted-foreground hover:text-foreground"
+              className="w-full text-center text-sm text-muted-foreground hover:text-foreground"
             >
               Continue Shopping
             </Button>

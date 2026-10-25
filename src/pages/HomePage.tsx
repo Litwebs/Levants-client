@@ -368,6 +368,10 @@ const HomePage: React.FC = () => {
                   <ProductCard
                     product={product}
                     actionLabel="Add to basket"
+                    compactControls
+                    stackControls
+                    controlSize="md"
+                    actionClassName="h-10 min-h-0 rounded-lg px-4 text-sm"
                     onAction={({ product, variant, quantity }) => {
                       addItem(product, variant, quantity);
                       toast.success(`${product.name} added to your basket`, {
@@ -469,14 +473,14 @@ const HomePage: React.FC = () => {
                   <input
                     type="text"
                     placeholder="Enter your postcode"
-                    className="w-full h-12 pl-10 pr-4 bg-transparent text-primary-foreground placeholder:text-primary-foreground/70 focus:outline-none"
+                    className="h-10 w-full bg-transparent pl-10 pr-4 text-primary-foreground placeholder:text-primary-foreground/70 focus:outline-none"
                     value={postcode}
                     onChange={(e) => setPostcode(e.target.value)}
                     disabled={checkingPostcode}
                   />
                 </div>
                 <button
-                  className="btn-gold whitespace-nowrap rounded-none"
+                  className="inline-flex h-10 items-center justify-center whitespace-nowrap bg-white px-4 text-sm font-medium text-primary transition-colors hover:bg-white/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-primary disabled:opacity-60"
                   type="submit"
                   disabled={checkingPostcode}
                 >
@@ -550,7 +554,7 @@ const HomePage: React.FC = () => {
             </p>
             <Link
               to="/reviews"
-              className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-6 py-2.5 rounded-xl font-medium hover:bg-primary/90 transition-colors"
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               Leave a Review
             </Link>
@@ -571,7 +575,7 @@ const HomePage: React.FC = () => {
             </p>
             <Link
               to="/shop"
-              className="btn-primary inline-flex items-center gap-2"
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               Start Shopping <ArrowRight className="w-4 h-4" />
             </Link>

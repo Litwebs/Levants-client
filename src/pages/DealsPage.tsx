@@ -71,7 +71,8 @@ const DealsPage = () => {
         originalPriceLabel: value.original ?? undefined,
         maxQuantity: Math.max(1, available - inBasket),
         actionDisabled: !value.validPrice,
-        imageFit: "contain",
+        imageFit: "cover",
+        stackControls: true,
       },
     };
   }), [basketDeals, deals]);
@@ -91,18 +92,6 @@ const DealsPage = () => {
       catalog={catalog}
       catalogId="all-deals"
       beforeCatalog={<FeaturedPackages deals={error ? [] : deals} loading={loading} />}
-      cardAfterActionContent={({ product }) => {
-        const deal = deals.find((entry) => entry.id === product.id);
-        if (!deal) return null;
-        const value = dealPresentation(deal);
-        const quantity = basketDeals.find((entry) => entry.deal.id === deal.id)?.quantity ?? 0;
-        return (
-          <div className="space-y-2 text-xs text-muted-foreground">
-            {value.saving && <p className="font-medium text-primary">Save {value.saving}</p>}
-            {quantity > 0 && <p aria-live="polite">{quantity} in your basket</p>}
-          </div>
-        );
-      }}
       cardActionLabel={({ product }) => {
         const deal = deals.find((entry) => entry.id === product.id);
         const inBasket = basketDeals.find((entry) => entry.deal.id === product.id)?.quantity ?? 0;
@@ -110,6 +99,7 @@ const DealsPage = () => {
         if (deal && !dealPresentation(deal).validPrice) return "Price unavailable";
         return deal && inBasket >= Math.min(99, deal.maxPackages) ? "View basket" : "Add to basket";
       }}
+      cardActionClassName={() => "h-8 min-h-0 rounded-lg px-3 text-sm"}
       onCardAction={({ product, quantity }) => {
         const deal = deals.find((entry) => entry.id === product.id);
         if (!deal || !dealPresentation(deal).validPrice || product.stockStatus === "out-of-stock") return;

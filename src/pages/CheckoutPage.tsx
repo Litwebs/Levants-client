@@ -503,7 +503,7 @@ const CheckoutPage: React.FC = () => {
           <h1 className="font-heading text-2xl font-semibold mb-4">
             Your cart is empty
           </h1>
-          <Button asChild size="touch"><Link to="/shop">Start Shopping</Link></Button>
+          <Button asChild size="default"><Link to="/shop">Start Shopping</Link></Button>
         </div>
       </div>
     );
@@ -934,7 +934,7 @@ const CheckoutPage: React.FC = () => {
               {currentStep === firstVisibleStepId ? (
                 <Link
                   to="/"
-                  className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
+                  className="inline-flex h-10 items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
                 >
                   <ChevronLeft className="w-4 h-4" />
                   Cancel
@@ -942,7 +942,7 @@ const CheckoutPage: React.FC = () => {
               ) : currentStep > 1 ? (
                 <Button type="button"
                   onClick={handleBack}
-                  variant="ghost" size="touch" className="text-muted-foreground"
+                  variant="ghost" size="default" className="text-muted-foreground"
                   disabled={loading || portalCheckoutLoading || checkingPostcode || checkingOffers}
                 >
                   <ChevronLeft className="w-4 h-4" />
@@ -955,7 +955,7 @@ const CheckoutPage: React.FC = () => {
               {currentStep < 3 ? (
                 <Button type="button"
                   onClick={handleNext}
-                  size="touch"
+                  size="default"
                   disabled={loading || portalCheckoutLoading || checkingPostcode || checkingOffers}
                 >
                   {checkingPostcode ? (
@@ -970,7 +970,7 @@ const CheckoutPage: React.FC = () => {
               ) : (
                 <Button type="button"
                   onClick={handlePlaceOrder}
-                  size="touch"
+                  size="default"
                   disabled={loading || portalCheckoutLoading || checkingPostcode || checkingOffers || pricingLoading || !!pricingError}
                 >
                   {loading || portalCheckoutLoading || checkingOffers ? (

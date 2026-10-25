@@ -6,6 +6,7 @@ import React, {
   useRef,
 } from "react";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { CategoryFilterOptions, CatalogSortSelect } from "@/components/products/CatalogFilters";
 import { Sheet, SheetContent, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Link, useSearchParams } from "react-router-dom";
@@ -14,7 +15,6 @@ import {
   SlidersHorizontal,
   X,
   ChevronDown,
-  Loader2,
 } from "lucide-react";
 import { useProducts } from "@/context/Products/ProductsContext";
 import { resolveImageUrl } from "@/api/client";
@@ -54,7 +54,7 @@ export interface ShopCatalogItem {
   product: Product;
   categories?: string[];
   lockedVariantId?: string;
-  cardProps?: Pick<ProductCardProps, "linkTo" | "priceLabel" | "originalPriceLabel" | "maxQuantity" | "actionDisabled" | "imageFit">;
+  cardProps?: Pick<ProductCardProps, "linkTo" | "priceLabel" | "originalPriceLabel" | "maxQuantity" | "actionDisabled" | "imageFit" | "stackControls">;
 }
 
 interface ShopPageProps {
@@ -501,9 +501,7 @@ const ShopPage: React.FC<ShopPageProps> = ({
 
             {/* Desktop Sort Bar */}
             <div className="hidden lg:flex items-center justify-between mb-8">
-              <p className="text-muted-foreground">
-                Showing {productVariantCards.length} items
-              </p>
+              {loading ? <Skeleton aria-hidden="true" className="h-5 w-32 motion-reduce:animate-none" /> : <p className="text-muted-foreground">Showing {productVariantCards.length} items</p>}
               <div className="flex items-center gap-3">
                 <span className="shrink-0 whitespace-nowrap text-sm text-muted-foreground">
                   Sort by:
@@ -514,8 +512,18 @@ const ShopPage: React.FC<ShopPageProps> = ({
 
             {/* Loading */}
             {loading && (
-              <div role="status" aria-label={catalog ? "Loading deals" : "Loading products"} className="flex items-center justify-center py-16">
-                <Loader2 className="w-8 h-8 animate-spin text-primary" />
+              <div role="status" aria-label={catalog ? "Loading deals" : "Loading products"} className={productGridClassName || "grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3"}>
+                {Array.from({ length: 6 }, (_, index) => (
+                  <div key={index} aria-hidden="true" className="overflow-hidden rounded-2xl bg-card shadow-soft">
+                    <Skeleton className="aspect-square w-full rounded-none motion-reduce:animate-none" />
+                    <div className="space-y-3 p-4">
+                      <Skeleton className="h-3 w-20 motion-reduce:animate-none" />
+                      <Skeleton className="h-6 w-4/5 motion-reduce:animate-none" />
+                      <Skeleton className="h-6 w-24 motion-reduce:animate-none" />
+                      <Skeleton className="h-8 w-full rounded-lg motion-reduce:animate-none" />
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
 
@@ -555,6 +563,7 @@ const ShopPage: React.FC<ShopPageProps> = ({
                           hideVariantSelector
                           hideQuantityStepper={hideCardQuantityStepper}
                           compactControls={!embedded}
+                          stackControls={!embedded}
                           actionLabel={
                             cardActionLabel?.({
                               product,
@@ -565,7 +574,7 @@ const ShopPage: React.FC<ShopPageProps> = ({
                           actionClassName={cardActionClassName?.({
                             product,
                             lockedVariantId,
-                          })}
+                          }) ?? (!embedded ? "h-8 min-h-0 rounded-lg px-3 text-sm" : undefined)}
                           onAction={({ product, variant, quantity }) => {
                             if (onCardAction) {
                               onCardAction({

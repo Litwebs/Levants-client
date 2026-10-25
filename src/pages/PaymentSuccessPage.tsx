@@ -146,11 +146,11 @@ const PaymentSuccessPage: React.FC = () => {
             </p>
             <div className="flex flex-wrap justify-center gap-3">
               {portalCustomer ? (
-                <Link to="/portal/orders" className="btn-primary">
+                <Link to="/portal/orders" className="btn-primary checkout-button-md">
                   Check My Orders
                 </Link>
               ) : null}
-              <Link to="/contact" className="btn-outline">
+              <Link to="/contact" className="btn-outline checkout-button-md">
                 Contact us
               </Link>
             </div>
@@ -236,7 +236,7 @@ const PaymentSuccessPage: React.FC = () => {
             {portalCustomer ? (
               <Link
                 to={`/portal/orders/${confirmation.orderId}`}
-                className="btn-primary inline-flex items-center justify-center gap-2"
+                className="btn-primary checkout-button-md"
               >
                 <ClipboardList className="w-4 h-4" />
                 View Order
@@ -244,7 +244,7 @@ const PaymentSuccessPage: React.FC = () => {
             ) : null}
             <Link
               to="/shop"
-              className={`${portalCustomer ? "btn-outline" : "btn-primary"} inline-flex items-center justify-center gap-2`}
+              className={`${portalCustomer ? "btn-outline" : "btn-primary"} checkout-button-md`}
             >
               Continue Shopping
               <ArrowRight className="w-4 h-4" />

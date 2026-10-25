@@ -36,7 +36,7 @@ const CartPage: React.FC = () => {
             </p>
             <Link
               to="/shop"
-              className="btn-primary inline-flex items-center gap-2"
+              className="btn-primary checkout-button-md"
             >
               Start Shopping
               <ArrowRight className="w-4 h-4" />
@@ -75,7 +75,7 @@ const CartPage: React.FC = () => {
                   </div>
                   <div className="flex items-center justify-between mt-4">
                     <QuantityStepper quantity={quantity} onQuantityChange={(value) => updateDealQuantity(deal.id, value)} max={Math.min(99, deal.maxPackages)} size="sm" />
-                    <button onClick={() => removeDeal(deal.id)} aria-label={`Remove ${deal.name}`} className="p-2 text-muted-foreground hover:text-destructive"><Trash2 className="w-5 h-5" /></button>
+                    <button onClick={() => removeDeal(deal.id)} aria-label={`Remove ${deal.name}`} className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-muted-foreground hover:text-destructive"><Trash2 className="w-5 h-5" /></button>
                   </div>
                 </div>
               </div>
@@ -145,7 +145,7 @@ const CartPage: React.FC = () => {
                         onClick={() =>
                           removeItem(item.product.id, item.variant?.id)
                         }
-                        className="p-2 text-muted-foreground hover:text-destructive transition-colors"
+                        className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:text-destructive"
                         aria-label="Remove item"
                       >
                         <Trash2 className="w-5 h-5" />
@@ -159,7 +159,7 @@ const CartPage: React.FC = () => {
             {/* Clear Cart */}
             <button
               onClick={clearCart}
-              className="text-sm text-muted-foreground hover:text-destructive transition-colors"
+              className="inline-flex h-10 items-center text-sm text-muted-foreground transition-colors hover:text-destructive"
             >
               Clear Cart
             </button>
@@ -181,9 +181,9 @@ const CartPage: React.FC = () => {
                   <input
                     type="text"
                     placeholder="Enter code"
-                    className="flex-1 input-field py-2.5"
+                    className="input-field h-10 flex-1"
                   />
-                  <button className="btn-outline py-2.5 px-4">
+                  <button className="btn-outline checkout-button-md" aria-label="Apply promo code">
                     <Tag className="w-4 h-4" />
                   </button>
                 </div>
@@ -215,7 +215,7 @@ const CartPage: React.FC = () => {
               {/* Checkout Button */}
               <Link
                 to="/checkout"
-                className="btn-primary w-full flex items-center justify-center gap-2 py-3.5"
+                className="btn-primary checkout-button-md w-full"
               >
                 Proceed to Checkout
                 <ArrowRight className="w-4 h-4" />
@@ -224,7 +224,7 @@ const CartPage: React.FC = () => {
               {/* Continue Shopping */}
               <Link
                 to="/shop"
-                className="block text-center text-sm text-muted-foreground hover:text-foreground mt-4 transition-colors"
+                className="mt-4 inline-flex h-10 w-full items-center justify-center text-center text-sm text-muted-foreground transition-colors hover:text-foreground"
               >
                 Continue Shopping
               </Link>
