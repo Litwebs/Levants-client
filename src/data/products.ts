@@ -25,6 +25,7 @@ export interface Product {
 }
 
 export interface ProductVariant {
+  isSubscriptionEligible?: boolean;
   id: string;
   name: string;
   description?: string | null;

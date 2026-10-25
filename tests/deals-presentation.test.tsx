@@ -1,0 +1,215 @@
+vi.mock("@/api/catalogProducts", () => ({ getProductPresentation: vi.fn(async () => null) }));
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
+import { MemoryRouter, useLocation } from "react-router-dom";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import type { Deal } from "@/api/deals";
+import DealCard from "@/components/deals/DealCard";
+import FeaturedDeals from "@/components/deals/FeaturedDeals";
+import DealsPage from "@/pages/DealsPage";
+import { CartProvider } from "@/context/CartContext";
+import { dealPresentation } from "@/components/deals/dealPresentation";
+
+const { listDeals } = vi.hoisted(() => ({ listDeals: vi.fn() }));
+vi.mock("@/api/deals", () => ({ listDeals }));
+// Layout, gestures and rotation are exercised with real Embla in the browser suite.
+vi.mock("@/components/deals/DealsCarousel", () => ({
+  default: () => <div>Deal collection</div>,
+}));
+vi.mock("@/context/Products/ProductsContext", () => ({
+  useProducts: () => ({ products: [], meta: null, loading: false, error: "", fetchProducts: vi.fn() }),
+}));
+vi.mock("sonner", () => ({ toast: { success: vi.fn() } }));
+const deal: Deal = {
+  id: "package",
+  slug: "breakfast",
+  name: "Breakfast collection",
+  description: "Fresh favourites.",
+  packagePrice: 8,
+  originalValue: 10,
+  savings: 2,
+  savingsPercent: 20,
+  currency: "GBP",
+  maxPackages: 1,
+  isFeatured: false,
+  items: [],
+};
+function mount(child: React.ReactNode) {
+  return render(
+    <MemoryRouter>
+      <CartProvider>{child}</CartProvider>
+    </MemoryRouter>,
+  );
+}
+beforeEach(() => {
+  localStorage.clear();
+  vi.clearAllMocks();
+  vi.stubGlobal("Image", class { complete = true; src = ""; onload = null; onerror = null; });
+});
+afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
+
+describe("honest deal pricing", () => {
+  test.each([
+    { originalValue: 0 },
+    { originalValue: undefined },
+    { originalValue: 8 },
+    { originalValue: Number.NaN },
+    { savings: -1 },
+    { savings: 5 },
+    { packagePrice: -1 },
+    { packagePrice: Number.NaN },
+    { packagePrice: Infinity },
+  ])("does not advertise invalid savings: %j", (changes) => {
+    expect(dealPresentation({ ...deal, ...changes }).saving).toBeNull();
+  });
+  test("uses supplied savings and the actual currency", () => {
+    expect(dealPresentation({ ...deal, currency: "EUR" })).toMatchObject({
+      price: "€8.00",
+      saving: "€2.00",
+      percent: 20,
+    });
+    expect(
+      dealPresentation({ ...deal, savingsPercent: 70 }).percent,
+    ).toBeNull();
+    expect(dealPresentation({ ...deal, currency: "invalid" }).validPrice).toBe(
+      false,
+    );
+  });
+  test("shows basket state and opens it at the inventory limit", () => {
+    mount(<DealCard deal={deal} />);
+    fireEvent.click(
+      screen.getByRole("button", { name: "Add package to basket" }),
+    );
+    expect(
+      screen.getByText("1 in your basket · maximum available"),
+    ).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "View basket" }));
+    expect(
+      JSON.parse(localStorage.getItem("levants-dairy-cart")!).deals[0].quantity,
+    ).toBe(1);
+  });
+  test("unavailable and invalid-price cards cannot be added", () => {
+    const view = mount(<DealCard deal={{ ...deal, maxPackages: 0 }} />);
+    expect(screen.getByRole("button").hasAttribute("disabled")).toBe(true);
+    view.unmount();
+    mount(<DealCard deal={{ ...deal, packagePrice: Number.NaN }} />);
+    expect(screen.getByRole("button").hasAttribute("disabled")).toBe(true);
+    expect(screen.queryByText(/NaN/)).toBeNull();
+  });
+  test("broken images fall back without losing package content", () => {
+    const { container } = mount(
+      <DealCard deal={{ ...deal, imageUrl: "broken.jpg" }} />,
+    );
+    fireEvent.error(container.querySelector("img")!);
+    expect(container.querySelector("img")).toBeNull();
+    expect(screen.getByRole("heading", { name: deal.name })).toBeTruthy();
+  });
+});
+
+describe("featured package contents", () => {
+  test("keeps individual product contents off the featured panel", () => {
+    const items = Array.from({ length: 6 }, (_, index) => ({
+      variantId: `variant-${index}`,
+      quantity: index + 1,
+      variant: {
+        id: `variant-${index}`,
+        name: "250 g",
+        sku: `SKU-${index}`,
+        price: 1,
+        stockQuantity: 20,
+        availableStock: 20,
+        thumbnailImage: index === 0 ? { url: "variant.jpg" } : null,
+      },
+      product: {
+        id: `product-${index}`,
+        name: `Product ${index}`,
+        category: "Dairy",
+        thumbnailImage: { url: "product.jpg" },
+      },
+    }));
+    const view = mount(
+      <DealCard deal={{ ...deal, items }} variant="featured" />,
+    );
+    expect(screen.queryAllByRole("listitem")).toHaveLength(0);
+    expect(screen.queryByText("Product 5")).toBeNull();
+    expect(screen.queryByText("What’s included")).toBeNull();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Add package to basket" }),
+    );
+    expect(
+      screen.getByText("1 in your basket · maximum available"),
+    ).toBeTruthy();
+  });
+});
+
+describe("deal collection states", () => {
+  test("loading is accessible and resolves to the real response", async () => {
+    let finish!: (result: { deals: Deal[] }) => void;
+    listDeals.mockReturnValueOnce(
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+    );
+    mount(<DealsPage />);
+    expect(screen.getByRole("status", { name: "Loading deals" })).toBeTruthy();
+    await act(async () => finish({ deals: [deal] }));
+    expect(screen.getByRole("heading", { name: deal.name })).toBeTruthy();
+    expect(screen.queryByRole("status")).toBeNull();
+  });
+  test("errors are customer-safe and retry recovers", async () => {
+    listDeals.mockRejectedValue(new Error("private database failure"));
+    mount(<DealsPage />);
+    await screen.findByRole("alert");
+    expect(screen.queryByText(/private database/)).toBeNull();
+    listDeals.mockResolvedValue({ deals: [deal] });
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    await screen.findByRole("heading", { name: deal.name });
+  });
+  test("empty Deals links to the shop", async () => {
+    listDeals.mockResolvedValue({ deals: [] });
+    mount(<DealsPage />);
+    await screen.findByText(/No deals available right now/);
+    expect(
+      screen
+        .getByRole("link", { name: "Browse all products" })
+        .getAttribute("href"),
+    ).toBe("/shop");
+  });
+  test.each(["empty", "error"])(
+    "Home hides the %s collection",
+    async (state) => {
+      if (state === "empty") listDeals.mockResolvedValue({ deals: [] });
+      else listDeals.mockRejectedValue(new Error("Offline"));
+      const view = mount(<FeaturedDeals />);
+      await waitFor(() => expect(view.container.querySelector("section")).toBeNull());
+    },
+  );
+  test("Home fetches enough offers to rotate and links to Deals", async () => {
+    listDeals.mockResolvedValue({ deals: [{ ...deal, isFeatured: true }] });
+    mount(<FeaturedDeals />);
+    await screen.findByText("Deal collection");
+    expect(listDeals).toHaveBeenCalledWith({ page: 1, pageSize: 12, featured: true });
+    expect(
+      screen.getByRole("link", { name: "View all deals" }).getAttribute("href"),
+    ).toBe("/deals");
+  });
+});
+
+function CatalogLocation() { const location = useLocation(); return <output data-testid="catalog-location">{location.search}</output>; }
+test("shared catalog writes category and sort changes to its URL and clears them", async () => {
+  listDeals.mockResolvedValue({deals:[{...deal,items:[{variantId:"v",quantity:1,variant:{id:"v",name:"1L",sku:"v",price:5,stockQuantity:10,availableStock:10},product:{id:"p",name:"Milk",category:"Dairy"}}]}]});
+  mount(<><DealsPage/><CatalogLocation/></>);
+  await screen.findByRole("heading", {name:deal.name});
+  fireEvent.click(screen.getByRole("checkbox",{name:"Dairy"}));
+  await waitFor(()=>expect(screen.getByTestId("catalog-location").textContent).toContain("category=dairy"));
+  fireEvent.change(screen.getAllByRole("combobox",{name:"Sort by"})[0],{target:{value:"price-high"}});
+  await waitFor(()=>expect(screen.getByTestId("catalog-location").textContent).toContain("sort=price-high"));
+  fireEvent.click(screen.getByRole("button",{name:"Clear all filters"}));
+  await waitFor(()=>expect(screen.getByTestId("catalog-location").textContent).toBe(""));
+});

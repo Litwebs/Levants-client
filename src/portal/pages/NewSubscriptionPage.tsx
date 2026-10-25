@@ -17,6 +17,7 @@ import {
   portalPaymentsApi,
   type PortalPaymentMethod,
 } from "@/api/portalPayments";
+import SubscriptionIntroOfferSummary, { type SubscriptionPricingQuote } from "@/portal/components/SubscriptionIntroOfferSummary";
 import ProductCard from "@/components/products/ProductCard";
 import ShopPage from "@/pages/ShopPage";
 import {
@@ -30,6 +31,7 @@ import { loadStorefrontStripe as loadStripe } from "@/lib/stripe";
 
 // ── API types ────────────────────────────────────────────────────────────────
 interface ApiVariant {
+  isSubscriptionEligible?: boolean;
   id: string;
   name: string;
   price: number;
@@ -237,7 +239,8 @@ const SubscriptionPaymentForm: React.FC<{
   onError: (message: string) => void;
   onSetupExpired: () => void;
   submitLoading?: boolean;
-}> = ({ onComplete, onError, onSetupExpired, submitLoading = false }) => {
+  disabled?: boolean;
+}> = ({ onComplete, onError, onSetupExpired, submitLoading = false, disabled = false }) => {
   const stripe = useStripe();
   const elements = useElements();
   const [loading, setLoading] = useState(false);
@@ -383,7 +386,7 @@ const SubscriptionPaymentForm: React.FC<{
           !elementReady ||
           !paymentComplete ||
           loading ||
-          submitLoading
+          submitLoading || disabled
         }
       >
         {loading || submitLoading ? (
@@ -477,9 +480,11 @@ const NewSubscriptionPage: React.FC = () => {
     try {
       const json = await api.get<{ data: { items: ApiProduct[] } }>(
         "/products",
-        { page: 1, pageSize: 50, sort: "category_order" },
+        { page: 1, pageSize: 50, sort: "category_order", subscriptionEligible: true },
       );
-      setProducts(json?.data?.items ?? []);
+      setProducts((json?.data?.items ?? []).map(product => ({
+        ...product, variants: product.variants.filter(variant => variant.isSubscriptionEligible !== false),
+      })).filter(product => product.variants.length > 0));
     } catch {
       setProductError("Could not load products. Please try again.");
     } finally {
@@ -599,6 +604,11 @@ const NewSubscriptionPage: React.FC = () => {
   });
   const [newAddressError, setNewAddressError] = useState<string | null>(null);
   const [newAddressLoading, setNewAddressLoading] = useState(false);
+  const [pricingQuote, setPricingQuote] = useState<SubscriptionPricingQuote | null>(null);
+  const [deferUnavailable, setDeferUnavailable] = useState(false);
+  const [quoteLoading, setQuoteLoading] = useState(false);
+  const [quoteError, setQuoteError] = useState<string | null>(null);
+  const [quoteRevision, setQuoteRevision] = useState(0);
   const [submitLoading, setSubmitLoading] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
@@ -822,6 +832,7 @@ const NewSubscriptionPage: React.FC = () => {
               ? err.message
               : "Failed to initialize payment options.";
           setSubmitError(msg);
+      if (err instanceof ApiError && /stock|availab|quote|refresh/i.test(msg)) setQuoteRevision(value => value + 1);
           setSetupClientSecret(null);
         }
       } finally {
@@ -1267,8 +1278,27 @@ const NewSubscriptionPage: React.FC = () => {
     };
   };
 
+  let previewKey = "";
+  if (step === 4) { try { previewKey = JSON.stringify(buildSubscriptionPayload()); } catch { /* Incomplete drafts have no payable quote. */ } }
+  useEffect(() => {
+    let active = true;
+    setPricingQuote(null); setQuoteError(null); setDeferUnavailable(false);
+    if (!previewKey) { setQuoteLoading(false); return; }
+    setQuoteLoading(true);
+    const timer = setTimeout(() => {
+      void portalSubscriptionsApi.preview(JSON.parse(previewKey)).then(response => {
+        if (!response.success || !response.data?.quote) throw new Error(response.message || "Could not confirm subscription pricing.");
+        if (active) setPricingQuote(response.data.quote);
+      }).catch(error => { if (active) setQuoteError(error instanceof Error ? error.message : "Could not confirm subscription pricing."); })
+        .finally(() => { if (active) setQuoteLoading(false); });
+    }, 150);
+    return () => { active = false; clearTimeout(timer); };
+  }, [previewKey, quoteRevision]);
+
   const completeSubscription = async () => {
-    const payload = buildSubscriptionPayload();
+    if (!pricingQuote || quoteLoading || quoteError) throw new Error("Please wait for a confirmed price before subscribing.");
+    if (pricingQuote.canCreate === false || (pricingQuote.stockDeferralAvailable && !deferUnavailable)) throw new Error("Review availability and confirm the stock-deferral policy before subscribing.");
+    const payload = { ...buildSubscriptionPayload(), pricingQuoteToken: pricingQuote.quoteToken, ...(pricingQuote.stockDeferralAvailable ? {deferUnavailable} : {}) };
     await portalSubscriptionsApi.create(payload);
     clearDraft();
     navigate("/portal/subscriptions");
@@ -1295,6 +1325,7 @@ const NewSubscriptionPage: React.FC = () => {
             ? err.message
             : "Failed to create subscription.";
       setSubmitError(msg);
+      if (err instanceof ApiError && /stock|availab|quote|refresh/i.test(msg)) setQuoteRevision(value => value + 1);
     } finally {
       setSubmitLoading(false);
     }
@@ -1321,6 +1352,7 @@ const NewSubscriptionPage: React.FC = () => {
             ? "Your card was saved, but we could not create the subscription. Please try again using the saved card."
             : "We could not save your payment method. Please check the card details and try again.";
       setSubmitError(msg);
+      if (err instanceof ApiError && /stock|availab|quote|refresh/i.test(msg)) setQuoteRevision(value => value + 1);
     } finally {
       setSubmitLoading(false);
     }
@@ -1334,10 +1366,13 @@ const NewSubscriptionPage: React.FC = () => {
   return (
     <div
       className="w-full flex min-h-screen flex-col"
+      data-tour-page={["new-days", "new-frequency", "new-products", "new-address", "new-review"][step]}
+      data-tour-ready={!loadingProducts && availableDays !== null && !deliveryDaysError && (step !== 3 || !addressesLoading) && (step !== 4 || !methodsLoading)}
       style={{ minHeight: `calc(100dvh - ${siteHeaderHeight}px)` }}
     >
       <div
         ref={subHeaderRef}
+        data-tour="builder-progress"
         className="sticky z-30 mb-5 -mx-4 bg-background/95 pt-4 pb-4 backdrop-blur-sm sm:-mx-6 lg:-mx-8"
         style={{ top: subHeaderTopOffset }}
       >
@@ -1417,7 +1452,7 @@ const NewSubscriptionPage: React.FC = () => {
       >
         {/* Step 0: Delivery days */}
         {step === 0 && (
-          <div>
+          <div data-tour="builder-days">
             <h2 className="font-semibold text-foreground mb-1">
               Which days would you like delivery?
             </h2>
@@ -1466,7 +1501,7 @@ const NewSubscriptionPage: React.FC = () => {
 
         {/* Step 1: Frequency */}
         {step === 1 && (
-          <div>
+          <div data-tour="builder-frequency">
             <h2 className="font-semibold text-foreground mb-1">
               How often would you like delivery?
             </h2>
@@ -1534,7 +1569,7 @@ const NewSubscriptionPage: React.FC = () => {
               </p>
             </div>
 
-            <div className="mb-5 flex flex-wrap gap-2" role="tablist">
+            <div className="mb-5 flex flex-wrap gap-2" role="tablist" data-tour="builder-product-days">
               {deliveryDays.map((day) => {
                 const itemCount = Object.values(
                   dayQuantities[day] || {},
@@ -1559,7 +1594,7 @@ const NewSubscriptionPage: React.FC = () => {
               })}
             </div>
 
-            <section className="mb-6 rounded-xl border border-border bg-muted/20 p-4">
+            <section data-tour="builder-selected-products" className="mb-6 rounded-xl border border-border bg-muted/20 p-4">
               <h3 className="text-sm font-semibold text-foreground">
                 {activeProductDay} delivery
               </h3>
@@ -1648,6 +1683,8 @@ const NewSubscriptionPage: React.FC = () => {
             </section>
 
             <ShopPage
+              tourTarget="builder-products"
+              subscriptionOnly
               embedded
               contentGapClassName="flex flex-col lg:flex-row gap-4"
               productGridClassName="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6"
@@ -1665,6 +1702,7 @@ const NewSubscriptionPage: React.FC = () => {
                   : undefined
               }
               onCardAction={({ variant, quantity, lockedVariantId }) => {
+                if (variant?.isSubscriptionEligible === false) return;
                 const variantId = variant?.id ?? lockedVariantId;
                 if (!variantId) return;
                 const isSelected =
@@ -1681,7 +1719,7 @@ const NewSubscriptionPage: React.FC = () => {
 
         {/* Step 3: Address and delivery instructions */}
         {step === 3 && (
-          <div>
+          <div data-tour="builder-address">
             <h2 className="font-semibold text-foreground mb-1">
               Delivery details
             </h2>
@@ -1928,6 +1966,7 @@ const NewSubscriptionPage: React.FC = () => {
               </label>
               <textarea
                 id="subscription-delivery-instructions"
+                data-tour="builder-instructions"
                 value={deliveryInstructions}
                 onChange={(event) =>
                   setDeliveryInstructions(event.target.value.slice(0, 500))
@@ -1946,7 +1985,7 @@ const NewSubscriptionPage: React.FC = () => {
 
         {/* Step 4: Review and payment */}
         {step === 4 && (
-          <div>
+          <div data-tour="builder-review">
             {isPreparedSubscription && (
               <div className="mb-5 rounded-xl border border-forest/20 bg-forest/5 p-4">
                 <p className="text-sm font-semibold text-forest">
@@ -2142,30 +2181,22 @@ const NewSubscriptionPage: React.FC = () => {
                       Total charged today
                     </span>
                     <span className="font-semibold text-foreground">
-                      {fmt(reviewTotal)}
+                      {pricingQuote ? fmt(pricingQuote.firstChargeMinor / 100) : "Confirming price…"}
                     </span>
                   </div>
-                  <div className="rounded-xl bg-muted/40 px-3 py-3 text-xs leading-5 text-muted-foreground">
-                    Charged now to
-                    <span className="font-medium text-foreground">
-                      {selectedPaymentMethod
-                        ? ` ${fmtMethod(selectedPaymentMethod)}`
-                        : showNewForm
-                          ? " your new payment method"
-                          : " your selected payment method"}
-                    </span>
-                    . Future payments renew at
-                    <span className="font-medium text-foreground">
-                      {fmt(reviewTotal)}
-                    </span>
-                    {` ${reviewCycleLabel}`}.
-                  </div>
+                  {pricingQuote && <SubscriptionIntroOfferSummary quote={pricingQuote} />}
+                  {pricingQuote?.stockDeferralAvailable && <label className="flex gap-3 py-3 text-sm"><input type="checkbox" checked={deferUnavailable} onChange={event => setDeferUnavailable(event.target.checked)} className="h-5 w-5 shrink-0" />
+                    I agree to receive and pay for available products only. Unavailable items stay on my recurring plan for future consideration, without catch-up quantities. I will be notified of delivery changes.
+                  </label>}
+                  {quoteLoading && <p role="status">Confirming your first payment and renewal price…</p>}
+                  {quoteError && <div role="alert"><p>{quoteError}</p><Button variant="outline" onClick={() => setQuoteRevision(value => value + 1)}>Retry pricing</Button></div>}
+
                 </div>
               </section>
             </div>
 
             {/* ── Payment method ───────────────────────────────────────── */}
-            <div className="mt-5 rounded-2xl border border-border bg-background/70 p-4 space-y-3">
+            <div data-tour="builder-payment" className="mt-5 rounded-2xl border border-border bg-background/70 p-4 space-y-3">
               <h3 className="font-semibold text-foreground">Payment method</h3>
 
               {methodsLoading ? (
@@ -2286,6 +2317,7 @@ const NewSubscriptionPage: React.FC = () => {
                         onError={setSubmitError}
                         onSetupExpired={refreshPaymentSetup}
                         submitLoading={submitLoading}
+                        disabled={quoteLoading || !pricingQuote || Boolean(quoteError) || pricingQuote.canCreate === false || (!!pricingQuote.stockDeferralAvailable && !deferUnavailable)}
                       />
                     </Elements>
                   ) : null}
@@ -2326,14 +2358,15 @@ const NewSubscriptionPage: React.FC = () => {
               {step === 0 || isPreparedSubscription ? "Cancel" : "Back"}
             </Button>
             {step < steps.length - 1 ? (
-              <Button onClick={handleNext} disabled={!canContinue}>
+              <Button data-tour="builder-next" onClick={handleNext} disabled={!canContinue}>
                 Next
                 <ArrowRight className="h-4 w-4" />
               </Button>
             ) : (
               <Button
+                data-tour="builder-confirm"
                 onClick={() => void handleCreateSubscription()}
-                disabled={submitLoading || showNewForm || !selectedMethodId}
+                disabled={submitLoading || showNewForm || !selectedMethodId || quoteLoading || !pricingQuote || Boolean(quoteError) || pricingQuote.canCreate === false || (!!pricingQuote.stockDeferralAvailable && !deferUnavailable)}
               >
                 <Check className="h-4 w-4" />
                 {submitLoading ? "Creating..." : "Create Subscription"}

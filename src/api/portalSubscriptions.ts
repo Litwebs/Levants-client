@@ -34,6 +34,15 @@ export type PortalSubscriptionItem = {
 };
 
 export type PortalSubscription = {
+  stockDeferralEnabled?: boolean;
+  stockDeferralAvailable?: boolean;
+  recurringPriceChange?: {
+    status: "queued" | "provider_pending" | "applied";
+    previousAmountMinor: number;
+    nextAmountMinor: number;
+    effectiveFrom?: string | null;
+  } | null;
+  introOffer?: { firstChargeMinor: number; discountMinor: number; percentOff: number; discountType?: "percentage" | "fixed"; amountOff?: number };
   _id: string;
   subscriptionNumber?: string;
   status: PortalSubscriptionStatus;
@@ -92,18 +101,23 @@ export type PortalSubscription = {
 };
 
 export type PortalSubscriptionDelivery = {
+  stockAvailability?: { deferred: Array<{name: string; quantity: number}>; notChargedMinor: number; amountMinor: number } | null;
   _id: string;
   scheduledDate: string;
   status: string;
   cutoffAt?: string | null;
   isPastCutoff?: boolean;
   generatedAt?: string | null;
+  canChangeThisDelivery?: boolean;
+  recurringItems?: DeliveryReductionItem[];
+  oneTimeChanges?: DeliveryReductionChange[];
   order?: {
     _id: string;
     orderId?: string;
     status?: string;
     deliveryStatus?: string;
     total?: number;
+    deliveryFee?: number;
   } | null;
   addOns?: Array<{
     operationId: string;
@@ -120,6 +134,43 @@ export type PortalSubscriptionDelivery = {
       subtotal: number;
     }>;
   }>;
+};
+
+export type DeliveryReductionItem = Omit<PortalSubscriptionItem, "_id"> & { _id?: string };
+export type DeliveryReductionSelection = Array<{ variant: string; quantity: number }>;
+export type DeliveryReductionQuote = {
+  deliveryId: string;
+  scheduledDate: string;
+  cutoffAt: string;
+  expectedVersion: number;
+  quoteToken: string;
+  before: DeliveryReductionItem[];
+  after: DeliveryReductionItem[];
+  originalTotalMinor: number;
+  revisedTotalMinor: number;
+  creditedMinor: number;
+  deliveryFeeMinor: number;
+  cancelsDelivery: boolean;
+  hasChanges: boolean;
+};
+export type DeliveryReductionChange = Pick<DeliveryReductionQuote,
+  "before" | "after" | "originalTotalMinor" | "revisedTotalMinor" | "creditedMinor" | "cancelsDelivery"> & {
+    operationId: string;
+    createdAt: string;
+    creditTransaction: string | null;
+  };
+export type DeliveryReductionRequest = {
+  items: DeliveryReductionSelection;
+  quoteToken: string;
+  expectedVersion: number;
+  operationId: string;
+};
+export type DeliveryReductionResult = {
+  deliveryId: string;
+  adjustment: DeliveryReductionChange;
+  creditedMinor: number;
+  revisedTotalMinor: number;
+  customerVersion: number;
 };
 
 export type PaginationMeta = {
@@ -146,6 +197,7 @@ export type PortalSubscriptionCutoff = {
     cutoffAt?: string | null;
     effectiveFrom?: string | null;
     isPastCutoff: boolean;
+    paymentState?: "paid" | "unpaid";
   }>;
 };
 
@@ -190,6 +242,8 @@ type DeliveryAddOnResponse = {
 
 export type CreateSubscriptionPayload = {
   operationId?: string;
+  pricingQuoteToken?: string;
+  deferUnavailable?: boolean;
   frequency: PortalSubscriptionFrequency;
   preferredDeliveryDay?: number;
   preferredDeliveryDays?: number[];
@@ -206,6 +260,16 @@ export type CreateSubscriptionPayload = {
 const base = "/portal/subscriptions";
 
 export const portalSubscriptionsApi = {
+  enableStockDeferral: (id: string) => api.post<ApiEnvelope<{subscription: PortalSubscription}>>(`${base}/${id}/stock-deferral`, {accept: true, operationId: crypto.randomUUID()}),
+  getDeliveryReduction: (subscriptionId: string, deliveryId: string) =>
+    api.get<ApiEnvelope<DeliveryReductionQuote>>(`${base}/${subscriptionId}/deliveries/${deliveryId}/one-time-change`),
+
+  previewDeliveryReduction: (subscriptionId: string, deliveryId: string, items: DeliveryReductionSelection) =>
+    api.post<ApiEnvelope<DeliveryReductionQuote>>(`${base}/${subscriptionId}/deliveries/${deliveryId}/one-time-change/preview`, { items }),
+
+  confirmDeliveryReduction: (subscriptionId: string, deliveryId: string, payload: DeliveryReductionRequest) =>
+    api.post<ApiEnvelope<DeliveryReductionResult>>(`${base}/${subscriptionId}/deliveries/${deliveryId}/one-time-change/confirm`, payload),
+
   list: (query: { status?: PortalSubscriptionStatus; page?: number; pageSize?: number } = {}) =>
     api.get<ApiEnvelope<ListSubscriptionsResponse>>(base, query),
 
@@ -219,6 +283,8 @@ export const portalSubscriptionsApi = {
 
   get: (subscriptionId: string) =>
     api.get<ApiEnvelope<SubscriptionResponse>>(`${base}/${subscriptionId}`),
+
+  preview: (payload: CreateSubscriptionPayload) => api.post<ApiEnvelope<{ quote: import("@/portal/components/SubscriptionIntroOfferSummary").SubscriptionPricingQuote }>>(`${base}/preview`, payload),
 
   create: async (payload: CreateSubscriptionPayload) => {
     const account = await portalAuthApi.me();
@@ -366,3 +432,5 @@ export const portalSubscriptionsApi = {
       query,
     ),
 };
+
+

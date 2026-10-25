@@ -1,3 +1,5 @@
+import { Button } from "@/components/ui/button";
+import { BasketButton } from "@/components/products/CatalogCardControls";
 import React, { useState, useEffect, useMemo } from "react";
 import {
   useParams,
@@ -316,12 +318,12 @@ const ProductPage: React.FC = () => {
       </div>
 
       <div className="container-custom py-8 lg:py-12">
-        <button
+        <Button type="button" variant="ghost"
           onClick={() => navigate(-1)}
           className="lg:hidden flex items-center gap-2 text-muted-foreground hover:text-foreground mb-6 transition-colors"
         >
           <ChevronLeft className="w-4 h-4" /> Back
-        </button>
+        </Button>
 
         <div className="grid lg:grid-cols-2 gap-8 lg:gap-12 mb-16">
           {/* Images */}
@@ -336,20 +338,20 @@ const ProductPage: React.FC = () => {
             {images.length > 1 && (
               <div className="w-full flex flex-wrap sm:flex-nowrap gap-2 sm:gap-3 sm:overflow-x-auto pb-1 max-w-full">
                 {images.map((image, index) => (
-                  <button
+                  <Button type="button" variant="ghost"
                     key={index}
                     onClick={() => {
                       setShowVariantImage(false);
                       setActiveImage(index);
                     }}
-                    className={`w-14 h-14 sm:w-20 sm:h-20 shrink-0 rounded-lg overflow-hidden border-2 transition-colors ${activeImage === index ? "border-primary" : "border-transparent hover:border-border"}`}
+                    className={`w-14 h-14 sm:w-20 sm:h-20 shrink-0 p-0 rounded-lg overflow-hidden border-2 transition-colors ${activeImage === index ? "border-primary" : "border-transparent hover:border-border"}`}
                   >
                     <img
                       src={image}
                       alt={`${product.name} ${index + 1}`}
                       className="w-full h-full object-cover"
                     />
-                  </button>
+                  </Button>
                 ))}
               </div>
             )}
@@ -393,12 +395,16 @@ const ProductPage: React.FC = () => {
             </div>
 
             <div className="mb-6">
-              <OrderTypeChoice
-                selected={orderType}
-                onChange={setOrderType}
-                compact
-                showHeading={false}
-              />
+              {selectedVariant?.isSubscriptionEligible === false ? (
+                <p className="text-sm text-muted-foreground">Available for one-time purchases only.</p>
+              ) : (
+                <OrderTypeChoice
+                  selected={orderType}
+                  onChange={setOrderType}
+                  compact
+                  showHeading={false}
+                />
+              )}
             </div>
 
             {/* Variants */}
@@ -409,7 +415,8 @@ const ProductPage: React.FC = () => {
                 </label>
                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                   {variants.map((variant) => (
-                    <button
+                    <Button type="button" variant="outline" size="touch"
+                      aria-pressed={selectedVariant?.id === variant.id}
                       key={variant.id}
                       title={`${variant.name} – £${variant.price.toFixed(2)}`}
                       onClick={() => setSelectedVariant(variant)}
@@ -426,15 +433,15 @@ const ProductPage: React.FC = () => {
                           (Low stock)
                         </span>
                       )}
-                    </button>
+                    </Button>
                   ))}
                 </div>
               </div>
             )}
 
-            {orderType === "one-time" ? (
-              <div className="mb-6 flex items-center gap-3">
-                <div className="shrink-0 [&>div]:h-10">
+            {orderType === "one-time" || selectedVariant?.isSubscriptionEligible === false ? (
+              <div className="mb-6 flex flex-wrap items-center gap-3">
+                <div className="shrink-0">
                   <QuantityStepper
                     quantity={quantity}
                     onQuantityChange={(q) => {
@@ -458,16 +465,7 @@ const ProductPage: React.FC = () => {
                     size="sm"
                   />
                 </div>
-                <button
-                  onClick={handleAddToCart}
-                  disabled={isOutOfStock}
-                  className="btn-primary flex h-10 min-w-0 flex-1 items-center justify-center gap-2 whitespace-nowrap px-3 py-0 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  <ShoppingBag className="h-4 w-4 shrink-0" />
-                  <span className="whitespace-nowrap text-sm">
-                    Add to basket
-                  </span>
-                </button>
+                <BasketButton onClick={handleAddToCart} disabled={isOutOfStock} className="min-w-[9rem] flex-1">Add to basket</BasketButton>
               </div>
             ) : (
               <div className="mb-6 rounded-xl border border-primary/20 bg-primary/[0.04] p-4">
@@ -491,13 +489,13 @@ const ProductPage: React.FC = () => {
 
             {/* Share */}
             <div className="flex items-center gap-4 mb-8">
-              <button
+              <Button type="button" variant="ghost"
                 onClick={handleShare}
                 className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
               >
                 <Share2 className="w-5 h-5" />
                 <span className="text-sm">Share</span>
-              </button>
+              </Button>
             </div>
 
             {/* Delivery Info */}

@@ -296,7 +296,7 @@ const SubscriptionDeliveryAddOnPage: React.FC = () => {
   }
 
   return (
-    <div className="mx-auto max-w-7xl">
+    <div data-tour-page="delivery-add-ons" data-tour-ready={true} className="mx-auto max-w-7xl">
       <Button asChild variant="ghost" size="sm" className="mb-2 -ml-2">
         <Link to={`/portal/subscriptions/${id}`}>
           <ArrowLeft className="h-4 w-4" />
@@ -320,7 +320,7 @@ const SubscriptionDeliveryAddOnPage: React.FC = () => {
         </Alert>
       )}
 
-      <div className="mb-5 rounded-xl border border-forest/20 bg-forest/5 p-4 dark:border-emerald-500/30 dark:bg-emerald-500/10">
+      <div data-tour="add-on-delivery" className="mb-5 rounded-xl border border-forest/20 bg-forest/5 p-4 dark:border-emerald-500/30 dark:bg-emerald-500/10">
         <div className="flex items-start gap-3">
           <CalendarDays className="mt-0.5 h-5 w-5 shrink-0 text-forest" />
           <div>
@@ -361,7 +361,7 @@ const SubscriptionDeliveryAddOnPage: React.FC = () => {
       ) : (
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
           <div className="lg:col-span-8">
-            <ShopPage
+            <ShopPage tourTarget="add-on-catalogue"
               embedded
               hideCardQuantityStepper
               contentGapClassName="flex flex-col lg:flex-row gap-4"
@@ -391,7 +391,7 @@ const SubscriptionDeliveryAddOnPage: React.FC = () => {
           </div>
 
           <aside className="sticky bottom-0 z-40 lg:static lg:z-auto lg:col-span-4">
-            <section
+            <section data-tour="add-on-selection"
               className="max-h-[65vh] overflow-y-auto rounded-t-xl border border-border bg-card p-4 shadow-2xl lg:sticky lg:max-h-[calc(100vh-var(--sticky-top)-16px)] lg:rounded-xl lg:shadow-none"
               style={
                 {
@@ -488,7 +488,7 @@ const SubscriptionDeliveryAddOnPage: React.FC = () => {
               )}
 
               <Button
-                className="mt-4 w-full"
+                data-tour="add-on-confirm" className="mt-4 w-full"
                 disabled={saving || selectedItems.length === 0}
                 onClick={() => {
                   if (retryLocked) {

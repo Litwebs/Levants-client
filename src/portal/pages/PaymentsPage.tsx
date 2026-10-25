@@ -209,11 +209,11 @@ const AddCardForm: React.FC<{
         </p>
       </div>
       <Input
-        placeholder="Cardholder name"
+        data-tour="card-name" placeholder="Cardholder name"
         value={billingName}
         onChange={(e) => setBillingName(e.target.value)}
       />
-      <div className="space-y-3">
+      <div data-tour="card-form" className="space-y-3">
         <div className="rounded-xl border border-border bg-background px-3 py-3 transition-colors focus-within:border-forest/60">
           <label className="mb-2 block text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
             Card number
@@ -235,7 +235,7 @@ const AddCardForm: React.FC<{
           </div>
         </div>
       </div>
-      <Button type="submit" size="sm" disabled={!stripe || loading}>
+      <Button data-tour="card-save" type="submit" size="sm" disabled={!stripe || loading}>
         {loading ? (
           <>
             <Loader2 className="h-4 w-4 animate-spin" />
@@ -456,7 +456,7 @@ const PaymentsPage: React.FC = () => {
   const showPagination = total > PAGE_SIZE;
 
   return (
-    <div className="max-w-3xl mx-auto">
+    <div data-tour-page="payments" data-tour-ready={!loading && !methodsLoading && !setupLoading} className="max-w-3xl mx-auto">
       <PageHeader
         title="Payments"
         description="Manage your payment methods and view payment history"
@@ -513,7 +513,7 @@ const PaymentsPage: React.FC = () => {
       {/* Payment Methods */}
       <div className="bg-card border border-border rounded-2xl p-5 mb-5">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="font-semibold text-foreground">Payment Methods</h3>
+          <h3 data-tour="payment-methods" className="font-semibold text-foreground">Payment Methods</h3>
         </div>
 
         {setupLoading ? (
@@ -577,7 +577,7 @@ const PaymentsPage: React.FC = () => {
                       variant="ghost"
                       size="sm"
                       className="h-7 px-2 text-xs"
-                      onClick={() => void handleSetDefaultMethod(pm._id)}
+                      data-tour="card-default" onClick={() => void handleSetDefaultMethod(pm._id)}
                       disabled={actionLoadingId === pm._id}
                     >
                       Set default
@@ -587,7 +587,7 @@ const PaymentsPage: React.FC = () => {
                     variant="ghost"
                     size="icon"
                     className="h-7 w-7 text-destructive hover:bg-destructive/10"
-                    onClick={() => void handleDeleteMethod(pm._id)}
+                    data-tour="card-remove" onClick={() => void handleDeleteMethod(pm._id)}
                     disabled={actionLoadingId === pm._id}
                   >
                     <Trash2 className="h-3.5 w-3.5" />
@@ -601,7 +601,7 @@ const PaymentsPage: React.FC = () => {
 
       {/* Payment History */}
       <div className="bg-card border border-border rounded-2xl p-5">
-        <h3 className="font-semibold text-foreground mb-4">Payment History</h3>
+        <h3 data-tour="payment-history" className="font-semibold text-foreground mb-4">Payment History</h3>
         {loading ? (
           <div className="space-y-3">
             <div className="flex items-center gap-2 text-sm text-muted-foreground">

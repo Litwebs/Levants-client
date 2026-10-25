@@ -1,3 +1,4 @@
+import { freeDeliveryTerms } from "@/lib/promotionCopy";
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { ShoppingBag, Menu, X, Sun, Moon, ChevronRight } from "lucide-react";
@@ -11,7 +12,9 @@ import { useBusinessInfo } from "@/context/BusinessInfoContext";
 
 type ActiveDiscount = {
   code: string;
-  kind: "percent" | "amount";
+  kind: "percent" | "amount" | "free_delivery";
+  minimumBasketValue?: number;
+  endsAt?: string | null;
   percentOff?: number;
   amountOff?: number;
   currency?: string;
@@ -67,34 +70,30 @@ const Header: React.FC<HeaderProps> = ({
 
   useEffect(() => {
     let isMounted = true;
-    (async () => {
+    let generation = 0;
+    const refresh = async () => {
+      const request = ++generation;
       try {
-        const res = await api.get<{
-          success: boolean;
-          data?: { items?: ActiveDiscount[] };
-        }>("/discounts/active");
-
-        if (!isMounted) return;
-        if (!res?.success) return;
-
-        const items = Array.isArray(res.data?.items) ? res.data?.items : [];
-        if (items.length === 0) {
-          setActiveDiscount(null);
-          return;
-        }
-
-        // Prefer sitewide discounts (no variants specified), else use the first one.
-        const sitewide = items.find((d) => !d.variants?.length);
-        setActiveDiscount(sitewide ?? items[0]);
-      } catch {
-        // Ignore banner errors; keep default message.
-      }
-    })();
-
-    return () => {
-      isMounted = false;
+        const res = await api.get<{ success: boolean; data?: { items?: ActiveDiscount[] } }>("/discounts/active");
+        if (!isMounted || request !== generation) return;
+        const items = res.success && Array.isArray(res.data?.items) ? res.data.items : [];
+        const current = items.filter(d => !d.endsAt || new Date(d.endsAt).getTime() > Date.now());
+        setActiveDiscount(current.find(d => !d.variants?.length) ?? current[0] ?? null);
+      } catch { if (isMounted && request === generation) setActiveDiscount(null); }
     };
-  }, []);
+    void refresh();
+    const onFocus = () => { void refresh(); };
+    window.addEventListener("focus", onFocus);
+    const timer = window.setInterval(onFocus, 60_000);
+    return () => { isMounted = false; window.clearInterval(timer); window.removeEventListener("focus", onFocus); };
+  }, [location.pathname]);
+
+  useEffect(() => {
+    if (!activeDiscount?.endsAt) return;
+    const delay = new Date(activeDiscount.endsAt).getTime() - Date.now();
+    const timer = window.setTimeout(() => setActiveDiscount(null), Math.min(Math.max(0, delay), 2_147_483_647));
+    return () => window.clearTimeout(timer);
+  }, [activeDiscount]);
 
   useEffect(() => {
     const syncPortalAuth = () => {
@@ -165,11 +164,13 @@ const Header: React.FC<HeaderProps> = ({
     const scopeText =
       variants.length > 0 ? `Applies to: ${variants.join(", ")}` : "Sitewide";
 
+    if (activeDiscount.kind === "free_delivery") return { code, valueText: freeDeliveryTerms(activeDiscount.minimumBasketValue), scopeText };
+
     if (activeDiscount.kind === "percent") {
       const percent = Number(activeDiscount.percentOff || 0);
       const percentText =
         Number.isFinite(percent) && percent > 0 ? `${percent}%` : "%";
-      return { code, valueText: `${percentText}`, scopeText };
+      return { code, valueText: `${percentText} off`, scopeText };
     }
 
     if (activeDiscount.kind === "amount") {
@@ -178,7 +179,7 @@ const Header: React.FC<HeaderProps> = ({
       const symbol = currency === "GBP" ? "£" : currency === "USD" ? "$" : "";
       const amountText =
         Number.isFinite(amount) && amount > 0 ? `${symbol}${amount}` : "Amount";
-      return { code, valueText: `${amountText}`, scopeText };
+      return { code, valueText: `${amountText} off`, scopeText };
     }
 
     return { code, valueText: "", scopeText };
@@ -187,6 +188,7 @@ const Header: React.FC<HeaderProps> = ({
   const navLinks = [
     { name: "Home", path: "/" },
     { name: "Shop", path: "/shop" },
+    { name: "Deals", path: "/deals" },
     { name: "Reviews", path: "/reviews" },
     { name: "About", path: "/about" },
     { name: "Delivery & FAQs", path: "/delivery" },
@@ -219,7 +221,7 @@ const Header: React.FC<HeaderProps> = ({
               {discountAnnouncement.valueText ? (
                 <>
                   {" • "}
-                  <span>{discountAnnouncement.valueText} off</span>
+                  <span>{discountAnnouncement.valueText}</span>
                 </>
               ) : null}
               {" • "}
@@ -261,7 +263,7 @@ const Header: React.FC<HeaderProps> = ({
               </Link>
             </div>
 
-            <nav className="hidden lg:flex items-center gap-8">
+            <nav className="hidden lg:flex items-center gap-4 xl:gap-8">
               {navLinks.map((link) => (
                 <Link
                   key={link.path}

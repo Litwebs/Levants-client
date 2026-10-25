@@ -1,0 +1,33 @@
+name: Subscription variant eligibility checks
+on:
+  pull_request:
+    branches: [uat]
+    paths:
+      - 'src/context/Products/**'
+      - 'src/data/products.ts'
+      - 'src/pages/ShopPage.tsx'
+      - 'src/pages/ProductPage.tsx'
+      - 'src/portal/pages/**'
+      - 'tests/subscription-eligibility.test.tsx'
+      - '.github/workflows/subscription-eligibility.yml'
+permissions:
+  contents: read
+concurrency:
+  group: eligibility-client-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run test:deals
+      - run: npm run build
+        env:
+          VITE_API_BASE_URL: /api

@@ -11,6 +11,8 @@ const source = ts.transpileModule(readFileSync(new URL("../src/api/subscriptionM
 function load(storage = new Map(), disabled = false) {
   const exports = {};
   vm.runInNewContext(source, { exports, crypto: { randomUUID }, sessionStorage: {
+    get length() { return storage.size; },
+    key: index => [...storage.keys()][index],
     getItem: key => { if (disabled) throw Error("restricted"); return storage.get(key); },
     setItem: (key, value) => { if (disabled) throw Error("restricted"); storage.set(key, value); },
     removeItem: key => storage.delete(key),
@@ -48,3 +50,46 @@ test("success clears the retry and explicit operation IDs remain authoritative",
   assert.notEqual(await run("put:sub:items", { quantity: 4 }, send), first);
   assert.equal(await run("put:sub:items", { operationId: "explicit" }, send), "explicit");
 });
+
+test("reload after a partial commit retains the original payload and version", async () => {
+  const storage = new Map();
+  let original;
+  await assert.rejects(load(storage)("put:sub:items", { quantity: 4, expectedVersion: 2 }, async body => {
+    original = body; throw Error("collection restoration pending");
+  }));
+  const recovered = await load(storage)("put:sub:items", { quantity: 4, expectedVersion: 3 }, async body => body);
+  assert.equal(recovered.operationId, original.operationId);
+  assert.equal(recovered.expectedVersion, 2);
+  assert.equal(storage.size, 0);
+});
+
+test("a definitive stale-version rejection allows a new operation after refresh", async () => {
+  const storage = new Map();
+  const run = load(storage);
+  let original;
+  await assert.rejects(run("put:sub:items", { quantity: 4, expectedVersion: 2 }, async body => {
+    original = body.operationId;
+    throw Object.assign(Error("stale"), { body: { data: { staleSubscription: true } } });
+  }));
+  const recovered = await run("put:sub:items", { quantity: 4, expectedVersion: 3 }, async body => body);
+  assert.notEqual(recovered.operationId, original);
+  assert.equal(recovered.expectedVersion, 3);
+});
+
+test("operations saved by the previous portal retain their ID and version", async () => {
+  const storage = new Map();
+  storage.set('portal:subscription-mutation:put:sub:items:{"expectedVersion":2,"quantity":4}', "legacy-operation");
+  const recovered = await load(storage)("put:sub:items", { quantity: 4, expectedVersion: 3 }, async body => body);
+  assert.equal(recovered.operationId, "legacy-operation");
+  assert.equal(recovered.expectedVersion, 2);
+  assert.equal(storage.size, 0);
+});
+
+test("corrupt saved state cannot silently create a different financial operation", async () => {
+  const storage = new Map();
+  storage.set('portal:subscription-mutation:v2:put:sub:items:{"quantity":4}', "corrupt");
+  let sent = false;
+  await assert.rejects(load(storage)("put:sub:items", { quantity: 4 }, async () => { sent = true; }), /needs confirmation/);
+  assert.equal(sent, false);
+});
+

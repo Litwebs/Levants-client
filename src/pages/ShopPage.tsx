@@ -5,7 +5,10 @@ import React, {
   useCallback,
   useRef,
 } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { CategoryFilterOptions, CatalogSortSelect } from "@/components/products/CatalogFilters";
+import { Sheet, SheetContent, SheetTitle, SheetDescription } from "@/components/ui/sheet";
+import { Link, useSearchParams } from "react-router-dom";
 import {
   Filter,
   SlidersHorizontal,
@@ -15,7 +18,7 @@ import {
 } from "lucide-react";
 import { useProducts } from "@/context/Products/ProductsContext";
 import { resolveImageUrl } from "@/api/client";
-import ProductCard from "@/components/products/ProductCard";
+import ProductCard, { type ProductCardProps } from "@/components/products/ProductCard";
 import { Product, ProductVariant } from "@/data/products";
 import { cn } from "@/lib/utils";
 import { sortByStorefrontCategoryOrder } from "@/lib/categoryOrder";
@@ -47,7 +50,27 @@ const guessCategoryNameFromSlug = (slug: string) =>
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(" ");
 
+export interface ShopCatalogItem {
+  product: Product;
+  categories?: string[];
+  lockedVariantId?: string;
+  cardProps?: Pick<ProductCardProps, "linkTo" | "priceLabel" | "originalPriceLabel" | "maxQuantity" | "actionDisabled" | "imageFit">;
+}
+
 interface ShopPageProps {
+  tourTarget?: string;
+  subscriptionOnly?: boolean;
+  beforeCatalog?: React.ReactNode;
+  catalogId?: string;
+  catalog?: {
+    title: string;
+    description: string;
+    items: ShopCatalogItem[];
+    loading: boolean;
+    error: string;
+    retry: () => void;
+    emptyMessage: string;
+  };
   cardActionLabel?: (params: {
     product: Product;
     lockedVariantId?: string;
@@ -75,6 +98,11 @@ interface ShopPageProps {
 }
 
 const ShopPage: React.FC<ShopPageProps> = ({
+  subscriptionOnly = false,
+  tourTarget,
+  catalog,
+  beforeCatalog,
+  catalogId,
   cardActionLabel,
   cardActionClassName,
   onCardAction,
@@ -88,7 +116,10 @@ const ShopPage: React.FC<ShopPageProps> = ({
 }) => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [isFilterOpen, setIsFilterOpen] = useState(false);
-  const { products, meta, loading, error, fetchProducts } = useProducts();
+  const filterTrigger = useRef<HTMLButtonElement>(null);
+  const { products, meta, loading: productsLoading, error: productsError, fetchProducts } = useProducts();
+  const loading = catalog?.loading ?? productsLoading;
+  const error = catalog?.error ?? productsError;
   const { addItem } = useCart();
 
   const backendCategoriesRef = useRef<string[]>([]);
@@ -100,22 +131,12 @@ const ShopPage: React.FC<ShopPageProps> = ({
 
   const PAGE_SIZE = 12;
 
-  const categoryParams = searchParams.getAll("category").filter(Boolean);
-  const categoryParam = searchParams.get("category") || "";
+  const selectedCategories = useMemo(() => searchParams.getAll("category").filter(Boolean).map(slugifyCategory), [searchParams]);
   const sortParam = searchParams.get("sort") || "featured";
+  const sortBy = ["featured", "price-low", "price-high", "name"].includes(sortParam) ? sortParam : "featured";
   const searchQuery = searchParams.get("q") || "";
   const pageParam = Number(searchParams.get("page") || "1");
-  const currentPage =
-    Number.isFinite(pageParam) && pageParam > 0 ? pageParam : 1;
-
-  const [selectedCategories, setSelectedCategories] = useState<string[]>(
-    categoryParams.length
-      ? categoryParams.map(slugifyCategory)
-      : categoryParam
-        ? [slugifyCategory(categoryParam)]
-        : [],
-  );
-  const [sortBy, setSortBy] = useState(sortParam);
+  const currentPage = Number.isFinite(pageParam) && pageParam > 0 ? pageParam : 1;
 
   const setPage = useCallback(
     (nextPage: number, opts?: { replace?: boolean }) => {
@@ -153,6 +174,7 @@ const ShopPage: React.FC<ShopPageProps> = ({
   };
 
   useEffect(() => {
+    if (catalog) return;
     const backendCategories = backendCategoriesRef.current;
     const categoryBySlug = new Map(
       backendCategories.map((name) => [slugifyCategory(name), name]),
@@ -178,6 +200,7 @@ const ShopPage: React.FC<ShopPageProps> = ({
       : undefined;
 
     fetchProducts({
+      subscriptionEligible: subscriptionOnly || undefined,
       page: currentPage,
       pageSize: PAGE_SIZE,
       category: categoryFilter,
@@ -193,7 +216,7 @@ const ShopPage: React.FC<ShopPageProps> = ({
               ? "name_asc"
               : undefined,
     });
-  }, [currentPage, fetchProducts, searchQuery, selectedCategories, sortBy]);
+  }, [catalog, currentPage, fetchProducts, searchQuery, selectedCategories, sortBy, subscriptionOnly]);
 
   const prevSearchQueryRef = useRef(searchQuery);
   useEffect(() => {
@@ -205,6 +228,18 @@ const ShopPage: React.FC<ShopPageProps> = ({
 
   // Categories should be stable across pages (backend provides full list)
   const categories = useMemo(() => {
+    if (catalog) {
+      const names = new Map<string, string>();
+      catalog.items.forEach(({ product, categories: itemCategories }) => {
+        (itemCategories ?? [product.category]).filter(Boolean).forEach((name) => {
+          names.set(slugifyCategory(name), name);
+        });
+      });
+      return sortByStorefrontCategoryOrder(
+        Array.from(names, ([slug, name]) => ({ slug, name })),
+        (category) => category.name,
+      );
+    }
     const backendCategories = Array.isArray(meta?.categories)
       ? meta.categories.map((c) => c.title)
       : [];
@@ -232,10 +267,27 @@ const ShopPage: React.FC<ShopPageProps> = ({
       })),
       (category) => category.name,
     );
-  }, [meta?.categories, products]);
+  }, [catalog, meta?.categories, products]);
 
-  const totalAvailable = meta?.total ?? products.length;
-  const totalPages = meta?.totalPages;
+  const catalogItems = useMemo(() => {
+    if (!catalog) return [];
+    const query = searchQuery.trim().toLowerCase();
+    const filtered = catalog.items.filter(({ product, categories: itemCategories }) => {
+      const matchesCategory = selectedCategories.length === 0 ||
+        (itemCategories ?? [product.category]).some((name) => selectedCategories.includes(slugifyCategory(name)));
+      const matchesSearch = !query || `${product.name} ${product.shortDescription} ${product.longDescription}`.toLowerCase().includes(query);
+      return matchesCategory && matchesSearch;
+    });
+    if (sortBy === "price-low") return filtered.sort((a, b) => a.product.price - b.product.price);
+    if (sortBy === "price-high") return filtered.sort((a, b) => b.product.price - a.product.price);
+    if (sortBy === "name") return filtered.sort((a, b) => a.product.name.localeCompare(b.product.name));
+    return sortByStorefrontCategoryOrder(filtered, ({ product }) => product.category);
+  }, [catalog, searchQuery, selectedCategories, sortBy]);
+
+  const totalAvailable = catalog ? catalog.items.length : meta?.total ?? products.length;
+  const totalPages = catalog
+    ? catalog.loading ? undefined : Math.max(1, Math.ceil(catalogItems.length / PAGE_SIZE))
+    : meta?.totalPages;
   const clampedPage = totalPages
     ? Math.min(currentPage, totalPages)
     : currentPage;
@@ -247,7 +299,8 @@ const ShopPage: React.FC<ShopPageProps> = ({
 
   // Map backend products to ProductCard-compatible shape
   const mappedProducts = useMemo(() => {
-    const mapped = products.map((p) => ({
+    const mapped = products.map(p => ({ ...p, variants: p.variants.filter(v => !subscriptionOnly || v.isSubscriptionEligible !== false) }))
+      .filter(p => !subscriptionOnly || p.variants.length > 0).map((p) => ({
       id: p.id,
       name: p.name,
       category: p.category,
@@ -261,6 +314,7 @@ const ShopPage: React.FC<ShopPageProps> = ({
         ...p.galleryImages.map(resolveImageUrl),
       ].filter((u): u is string => Boolean(u)),
       variants: p.variants.map((v) => ({
+        isSubscriptionEligible: v.isSubscriptionEligible,
         id: v.id,
         name: v.name,
         description: v.description,
@@ -290,9 +344,10 @@ const ShopPage: React.FC<ShopPageProps> = ({
     return sortBy === "featured"
       ? sortByStorefrontCategoryOrder(mapped, (product) => product.category)
       : mapped;
-  }, [products, sortBy]);
+  }, [products, sortBy, subscriptionOnly]);
 
-  const productVariantCards = useMemo(() => {
+  const productVariantCards = useMemo<ShopCatalogItem[]>(() => {
+    if (catalog) return catalogItems.slice((clampedPage - 1) * PAGE_SIZE, clampedPage * PAGE_SIZE);
     return mappedProducts.flatMap((product) => {
       const variants = product.variants ?? [];
       if (variants.length === 0) {
@@ -333,28 +388,26 @@ const ShopPage: React.FC<ShopPageProps> = ({
         };
       });
     });
-  }, [mappedProducts]);
+  }, [catalog, catalogItems, clampedPage, mappedProducts]);
 
   const toggleCategory = (slug: string) => {
-    if (currentPage !== 1) setPage(1);
-    setSelectedCategories((prev) =>
-      prev.includes(slug) ? prev.filter((c) => c !== slug) : [...prev, slug],
-    );
+    setSearchParams(previous => {
+      const next = new URLSearchParams(previous);
+      const selected = next.getAll("category").filter(Boolean).map(slugifyCategory);
+      const categories = selected.includes(slug) ? selected.filter(value => value !== slug) : [...selected, slug];
+      next.delete("category");next.delete("page");
+      categories.forEach(value => next.append("category", value));
+      return next;
+    });
   };
-
-  const handleSortChange = useCallback(
-    (value: string) => {
-      if (currentPage !== 1) setPage(1);
-      setSortBy(value);
-    },
-    [currentPage, setPage],
-  );
-
-  const clearFilters = () => {
-    setSelectedCategories([]);
-    setSortBy("featured");
-    setSearchParams({});
-  };
+  const handleSortChange = useCallback((value: string) => {
+    setSearchParams(previous => {
+      const next = new URLSearchParams(previous);
+      if (value === "featured") next.delete("sort");else next.set("sort", value);
+      next.delete("page");return next;
+    });
+  }, [setSearchParams]);
+  const clearFilters = () => { setSearchParams({}); };
 
   const handleStorefrontProductAction = ({
     product,
@@ -372,24 +425,25 @@ const ShopPage: React.FC<ShopPageProps> = ({
   };
 
   return (
-    <div className={embedded ? "bg-background" : "min-h-screen bg-background"}>
+    <div data-tour={tourTarget} className={embedded ? "bg-background" : "min-h-screen bg-background"}>
       {!embedded && (
         <div className="bg-secondary/30 py-12 lg:py-16">
           <div className="container-custom">
             <h1 className="font-heading text-3xl lg:text-4xl font-semibold mb-2">
-              Shop All Products
+              {catalog?.title ?? "Shop All Products"}
             </h1>
             <p className="text-muted-foreground">
-              Fresh dairy delivered to your door. {totalAvailable} products
-              available.
+              {catalog ? `${catalog.description} ${totalAvailable} deals available.` : `Fresh dairy delivered to your door. ${totalAvailable} products available.`}
             </p>
           </div>
         </div>
       )}
 
       <div className={embedded ? "py-0" : "container-custom py-8 lg:py-12"}>
+        {beforeCatalog}
         <div
-          className={contentGapClassName || "flex flex-col lg:flex-row gap-8"}
+          id={catalogId}
+          className={cn(contentGapClassName || "flex flex-col lg:flex-row gap-8", catalogId && "scroll-mt-28")}
         >
           {/* Desktop Sidebar */}
           <aside className="hidden lg:block w-64 flex-shrink-0">
@@ -410,44 +464,28 @@ const ShopPage: React.FC<ShopPageProps> = ({
                 <h3 className="font-medium mb-4 flex items-center gap-2">
                   <Filter className="w-4 h-4" /> Categories
                 </h3>
-                <div className="space-y-2">
-                  {categories.map((category) => (
-                    <label
-                      key={category.slug}
-                      className="flex items-center gap-3 cursor-pointer group"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={selectedCategories.includes(category.slug)}
-                        onChange={() => toggleCategory(category.slug)}
-                        className="w-4 h-4 rounded border-border text-primary focus:ring-primary"
-                      />
-                      <span className="text-sm group-hover:text-primary transition-colors capitalize">
-                        {category.name}
-                      </span>
-                    </label>
-                  ))}
-                </div>
+                <CategoryFilterOptions categories={categories} selected={selectedCategories} onToggle={toggleCategory} />
               </div>
 
               {(selectedCategories.length > 0 || sortBy !== "featured") && (
-                <button
+                <Button
                   onClick={clearFilters}
-                  className="text-sm text-primary hover:underline flex items-center gap-1"
+                  variant="ghost" size="touch" className="text-primary"
                 >
                   <X className="w-4 h-4" /> Clear all filters
-                </button>
+                </Button>
               )}
             </div>
           </aside>
 
           {/* Main Content */}
-          <div className="flex-1">
+          <div className="min-w-0 flex-1">
             {/* Mobile Filter Bar */}
             <div className="lg:hidden flex items-center gap-3 mb-6">
-              <button
+              <Button
+                ref={filterTrigger}
                 onClick={() => setIsFilterOpen(true)}
-                className="flex-1 btn-outline flex items-center justify-center gap-2 py-2.5"
+                variant="outline" size="touch" className="flex-1"
               >
                 <SlidersHorizontal className="w-4 h-4" /> Filters
                 {selectedCategories.length > 0 && (
@@ -455,19 +493,9 @@ const ShopPage: React.FC<ShopPageProps> = ({
                     {selectedCategories.length}
                   </span>
                 )}
-              </button>
-              <div className="relative flex-1">
-                <select
-                  value={sortBy}
-                  onChange={(e) => handleSortChange(e.target.value)}
-                  className="w-full input-field py-2.5 pr-10 appearance-none cursor-pointer"
-                >
-                  <option value="featured">Category order</option>
-                  <option value="price-low">Price: Low to High</option>
-                  <option value="price-high">Price: High to Low</option>
-                  <option value="name">Name A-Z</option>
-                </select>
-                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+              </Button>
+              <div className="relative min-w-0 flex-1">
+                <CatalogSortSelect value={sortBy} onChange={handleSortChange} />
               </div>
             </div>
 
@@ -480,36 +508,27 @@ const ShopPage: React.FC<ShopPageProps> = ({
                 <span className="shrink-0 whitespace-nowrap text-sm text-muted-foreground">
                   Sort by:
                 </span>
-                <select
-                  value={sortBy}
-                  onChange={(e) => handleSortChange(e.target.value)}
-                  className="input-field py-2 pr-10 appearance-none cursor-pointer min-w-[180px]"
-                >
-                  <option value="featured">Category order</option>
-                  <option value="price-low">Price: Low to High</option>
-                  <option value="price-high">Price: High to Low</option>
-                  <option value="name">Name A-Z</option>
-                </select>
+                <CatalogSortSelect value={sortBy} onChange={handleSortChange} />
               </div>
             </div>
 
             {/* Loading */}
             {loading && (
-              <div className="flex items-center justify-center py-16">
+              <div role="status" aria-label={catalog ? "Loading deals" : "Loading products"} className="flex items-center justify-center py-16">
                 <Loader2 className="w-8 h-8 animate-spin text-primary" />
               </div>
             )}
 
             {/* Error */}
             {error && !loading && (
-              <div className="text-center py-16">
+              <div role="alert" className="text-center py-16">
                 <p className="text-destructive mb-4">{error}</p>
-                <button
-                  onClick={() => fetchProducts({})}
-                  className="btn-outline"
+                <Button
+                  onClick={() => catalog ? catalog.retry() : fetchProducts({})}
+                  variant="outline" size="touch"
                 >
                   Retry
-                </button>
+                </Button>
               </div>
             )}
 
@@ -523,17 +542,19 @@ const ShopPage: React.FC<ShopPageProps> = ({
                   }
                 >
                   {productVariantCards.map(
-                    ({ product, lockedVariantId }, index) => (
+                    ({ product, lockedVariantId, cardProps }, index) => (
                       <div
                         key={lockedVariantId ?? product.id}
                         className="h-full opacity-0 animate-fade-in-up"
                         style={{ animationDelay: `${index * 0.05}s` }}
                       >
                         <ProductCard
+                          {...cardProps}
                           product={product}
                           lockedVariantId={lockedVariantId}
                           hideVariantSelector
                           hideQuantityStepper={hideCardQuantityStepper}
+                          compactControls={!embedded}
                           actionLabel={
                             cardActionLabel?.({
                               product,
@@ -644,70 +665,28 @@ const ShopPage: React.FC<ShopPageProps> = ({
             {!loading && !error && productVariantCards.length === 0 && (
               <div className="text-center py-16">
                 <p className="text-muted-foreground text-lg mb-4">
-                  No products found matching your filters.
+                  {catalog?.emptyMessage ?? "No products found matching your filters."}
                 </p>
-                <button onClick={clearFilters} className="btn-outline">
+                <Button onClick={clearFilters} variant="outline" size="touch">
                   Clear Filters
-                </button>
+                </Button>
+                {catalog && (
+                  <Button asChild variant="outline" size="touch" className="ml-3"><Link to="/shop">Browse all products</Link></Button>
+                )}
               </div>
             )}
           </div>
         </div>
       </div>
 
-      {/* Mobile Filter Drawer */}
-      {isFilterOpen && (
-        <>
-          <div
-            className="fixed inset-0 bg-foreground/50 z-50 lg:hidden"
-            onClick={() => setIsFilterOpen(false)}
-          />
-          <div className="fixed left-0 top-0 h-full w-80 bg-card z-50 lg:hidden animate-slide-in-right p-6 overflow-y-auto">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="font-heading text-xl font-semibold">Filters</h2>
-              <button
-                onClick={() => setIsFilterOpen(false)}
-                className="p-2 -mr-2 text-muted-foreground hover:text-foreground"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <div className="mb-8">
-              <h3 className="font-medium mb-4">Categories</h3>
-              <div className="space-y-3">
-                {categories.map((category) => (
-                  <label
-                    key={category.slug}
-                    className="flex items-center gap-3 cursor-pointer"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={selectedCategories.includes(category.slug)}
-                      onChange={() => toggleCategory(category.slug)}
-                      className="w-5 h-5 rounded border-border text-primary focus:ring-primary"
-                    />
-                    <span className="capitalize">{category.name}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-            <div className="flex gap-3">
-              <button
-                onClick={clearFilters}
-                className="flex-1 btn-outline py-3"
-              >
-                Clear All
-              </button>
-              <button
-                onClick={() => setIsFilterOpen(false)}
-                className="flex-1 btn-primary py-3"
-              >
-                Apply
-              </button>
-            </div>
-          </div>
-        </>
-      )}
+      <Sheet open={isFilterOpen} onOpenChange={setIsFilterOpen}>
+        <SheetContent side="left" onCloseAutoFocus={event => { event.preventDefault();filterTrigger.current?.focus(); }} className="w-[min(22rem,100vw)] overflow-y-auto">
+          <SheetTitle className="font-heading text-xl">Filters</SheetTitle>
+          <SheetDescription className="mt-1">Choose the categories you want to browse.</SheetDescription>
+          <div className="my-6"><h3 className="mb-3 font-medium">Categories</h3><CategoryFilterOptions categories={categories} selected={selectedCategories} onToggle={toggleCategory} /></div>
+          <div className="flex gap-3"><Button type="button" variant="outline" size="touch" className="flex-1" onClick={clearFilters}>Clear All</Button><Button type="button" size="touch" className="flex-1" onClick={() => setIsFilterOpen(false)}>Apply</Button></div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 };

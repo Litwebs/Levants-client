@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from "react";
+import { Button } from "@/components/ui/button";
+import React, { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Check, ChevronLeft, Lock, Truck, Loader2 } from "lucide-react";
 import { useCart } from "@/context/CartContext";
@@ -9,6 +10,13 @@ import { portalAuthApi } from "@/api/portalAuth";
 import { portalOrdersApi } from "@/api/portalOrders";
 import { isPortalLoggedIn } from "@/lib/portalAuth";
 import { useBusinessInfo } from "@/context/BusinessInfoContext";
+import { Input, Textarea, Select } from "@/components/common/FormControls";
+import PromotionSummary, { PromotionCodeInput } from "@/components/cart/PromotionSummary";
+import AutomaticDealSavings from "@/components/cart/AutomaticDealSavings";
+import { buildBasketOrderItems } from "@/lib/basketDeals";
+import StockShortageAlert from "@/components/cart/StockShortageAlert";
+import CartDrawer from "@/components/cart/CartDrawer";
+import { getStockShortages, type StockShortage } from "@/lib/stockShortages";
 
 type CheckoutStep = 1 | 2 | 3;
 
@@ -24,15 +32,29 @@ type SavedAddress = {
   isDefault?: boolean;
 };
 
+type CheckoutProfile = {
+  _id?: string;
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  phone?: string;
+  addresses?: Array<Partial<SavedAddress> & { _id?: string }>;
+  storeCreditBalanceMinor?: number;
+  creditBalance?: number;
+};
+
 const CheckoutPage: React.FC = () => {
   const navigate = useNavigate();
   const businessInfo = useBusinessInfo();
-  const { items, subtotal } = useCart();
+  const { items, deals, automaticDeals, checkoutDeals, subtotal, checkOffers, promotion, promotionCode: discountCode, setPromotionCode: setDiscountCode, refreshPricing, pricingLoading, pricingError, pricingShortages } = useCart();
+  const [checkingOffers, setCheckingOffers] = useState(false);
+  const [stockShortages, setStockShortages] = useState<StockShortage[]>([]);
+  useEffect(() => { setStockShortages([]); }, [items, deals]);
+  const placingOrder = useRef(false);
   const {
     customer,
     createGuestCustomer,
     createOrder,
-    validateDiscount,
     loading,
     error,
   } = useOrders();
@@ -50,13 +72,6 @@ const CheckoutPage: React.FC = () => {
   const [selectedSavedAddressId, setSelectedSavedAddressId] = useState<
     string | null
   >(null);
-
-  const [discountCode, setDiscountCode] = useState("");
-  const [validatedDiscount, setValidatedDiscount] = useState<{
-    code: string;
-    discountAmount: number;
-    eligibleSubtotal: number;
-  } | null>(null);
 
   const [formData, setFormData] = useState({
     firstName: "",
@@ -101,11 +116,11 @@ const CheckoutPage: React.FC = () => {
     (async () => {
       try {
         const res = await portalAuthApi.me();
-        const profile = (res?.data as { customer?: any } | undefined)?.customer;
+        const profile = (res?.data as { customer?: CheckoutProfile } | undefined)?.customer;
         if (!active || !profile) return;
 
         const addresses: SavedAddress[] = Array.isArray(profile.addresses)
-          ? profile.addresses.map((a: any, idx: number) => ({
+          ? profile.addresses.map((a, idx: number) => ({
               id: String(a?._id || a?.id || `addr-${idx}`),
               label: a?.label,
               line1: String(a?.line1 || ""),
@@ -217,45 +232,11 @@ const CheckoutPage: React.FC = () => {
     return true;
   };
 
+  const buildOrderItems = () => buildBasketOrderItems(items, deals);
+
   const ensureDiscountValidatedIfNeeded = async (customerId: string) => {
-    const code = discountCode.trim();
-    if (!code) {
-      setValidatedDiscount(null);
-      return true;
-    }
-
-    if (
-      validatedDiscount &&
-      validatedDiscount.code.toUpperCase() === code.toUpperCase()
-    ) {
-      return true;
-    }
-
-    const orderItems = items.map((item) => ({
-      variantId: item.variant?.id || item.product.id,
-      quantity: item.quantity,
-    }));
-
-    const res = await validateDiscount({
-      customerId,
-      discountCode: code,
-      items: orderItems,
-    });
-
-    if (!res) {
-      toast.error("Invalid discount code");
-      return false;
-    }
-
-    setValidatedDiscount({
-      code: res.discountCode,
-      discountAmount: res.discountAmount,
-      eligibleSubtotal: res.eligibleSubtotal,
-    });
-    toast.success("Discount code applied", {
-      description: `-£${Number(res.discountAmount || 0).toFixed(2)}`,
-    });
-    return true;
+    try { await refreshPricing(customerId); return true; }
+    catch (error) { toast.error(error instanceof Error ? error.message : "Could not check promotions"); return false; }
   };
 
   const handleNext = async () => {
@@ -335,7 +316,23 @@ const CheckoutPage: React.FC = () => {
   };
 
   const handlePlaceOrder = async () => {
+    if (placingOrder.current) return;
+    placingOrder.current = true;
+    setStockShortages([]);
+    setCheckingOffers(true);
     try {
+      try {
+        const changed = await checkOffers();
+        if (changed) {
+          toast.info("Your offers have been updated. Review your basket total, then place your order.");
+          return;
+        }
+      } catch {
+        toast.error("Could not check current offers. Please try again.");
+        return;
+      } finally {
+        setCheckingOffers(false);
+      }
       if (
         isBlank(formData.address1) ||
         isBlank(formData.city) ||
@@ -387,24 +384,30 @@ const CheckoutPage: React.FC = () => {
 
       // If a code is entered, require it to be validated before sending to order creation.
       const usingCredit = applyCredit && canUseCredit && creditAppliedMinor > 0;
-      if (!usingCredit) {
-        const ok = await ensureDiscountValidatedIfNeeded(activeCustomerId);
-        if (!ok) {
-          toast.error(
-            "Please fix your discount code before placing the order.",
-          );
-          return;
-        }
+      const freshPricing = await refreshPricing(activeCustomerId);
+      const freshTotal = Math.round((freshPricing?.total ?? (subtotal + 1)) * 100);
+      if (freshTotal !== Math.round(displayTotal * 100)) {
+        toast.info("Your promotions have changed. Review the updated total, then place your order.");
+        return;
       }
 
-      // 2. Create order → get Stripe checkout URL
-      const orderItems = items.map((item) => ({
-        variantId: item.variant?.id || item.product.id,
-        quantity: item.quantity,
-      }));
+      // 2. Create order → get Stripe checkout URL.
+      // Package lines are expanded to their component variants for stock and
+      // fulfilment, while the deal claims are sent separately for server-side
+      // price validation.
+      const orderItems = buildOrderItems();
 
       const checkoutPayload = {
         items: orderItems,
+        deals:
+          checkoutDeals.length > 0
+            ? checkoutDeals.map((entry) => ({
+                dealId: entry.deal.id,
+                quantity: entry.quantity,
+                expectedPackagePrice: entry.deal.packagePrice,
+                expectedContents: entry.deal.items.map(({variantId,quantity}) => ({variantId,quantity})),
+              }))
+            : undefined,
         deliveryAddress: {
           line1: formData.address1,
           line2: formData.address2 || undefined,
@@ -413,10 +416,12 @@ const CheckoutPage: React.FC = () => {
           country: "UK",
         },
         customerInstructions: formData.customerInstructions || undefined,
-        discountCode: usingCredit
-          ? undefined
-          : validatedDiscount?.code || discountCode.trim() || undefined,
+        discountCode:
+          usingCredit || checkoutDeals.length > 0
+            ? undefined
+            : discountCode.trim() || undefined,
         creditToApplyMinor: usingCredit ? creditAppliedMinor : undefined,
+        expectedTotalMinor: freshTotal,
       };
 
       let result;
@@ -453,14 +458,24 @@ const CheckoutPage: React.FC = () => {
       } else {
         toast.error("Failed to create order. Please try again.");
       }
-    } catch {
-      toast.error("Something went wrong. Please try again.");
+    } catch (error) {
+      const shortages = getStockShortages(error);
+      if (shortages.length) {
+        setStockShortages(shortages);
+        toast.error("Please update the unavailable items in your basket.");
+        return;
+      }
+      await refreshPricing(customer?._id || loggedInCustomerId || undefined).catch(() => {});
+      toast.error(error instanceof Error ? error.message : "Something went wrong. Please try again.");
+    } finally {
+      placingOrder.current = false;
+      setCheckingOffers(false);
     }
   };
 
-  const discountAmount = Number(validatedDiscount?.discountAmount || 0);
+  const discountAmount = Number(promotion?.discountAmount || 0);
   const displaySubtotal = Math.max(0, subtotal - discountAmount);
-  const deliveryFee = 1;
+  const deliveryFee = promotion?.deliveryFee ?? 1;
   const displayTotal = displaySubtotal + deliveryFee;
 
   // Store credit (in MINOR units / pence). Cannot be combined with a discount.
@@ -481,16 +496,14 @@ const CheckoutPage: React.FC = () => {
   const creditApplied = creditAppliedMinor / 100;
   const amountDueTotal = Math.max(0, displayTotal - creditApplied);
 
-  if (items.length === 0) {
+  if (items.length === 0 && deals.length === 0) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
           <h1 className="font-heading text-2xl font-semibold mb-4">
             Your cart is empty
           </h1>
-          <Link to="/shop" className="btn-primary">
-            Start Shopping
-          </Link>
+          <Button asChild size="touch"><Link to="/shop">Start Shopping</Link></Button>
         </div>
       </div>
     );
@@ -498,6 +511,7 @@ const CheckoutPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      <CartDrawer />
       {/* Header */}
       <div className="bg-card border-b border-border">
         <div className="container-custom py-4">
@@ -523,6 +537,8 @@ const CheckoutPage: React.FC = () => {
 
       <div className="container-custom py-8 lg:py-12">
         <div className="mx-auto w-full max-w-3xl">
+          <StockShortageAlert shortages={stockShortages.length ? stockShortages : pricingShortages} />
+          <p className="mb-4 text-sm text-muted-foreground">Items in your basket are not reserved. Availability is checked when you place your order.</p>
           {!loggedInCheckout && (
             <div className="mb-8 lg:mb-12">
               <div className="flex items-center justify-center gap-2 lg:gap-4">
@@ -576,54 +592,42 @@ const CheckoutPage: React.FC = () => {
                 </h2>
                 <div className="grid sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium mb-2">
-                      First Name
-                    </label>
-                    <input
+                    <Input
+                      label="First Name"
                       type="text"
                       name="firstName"
                       value={formData.firstName}
                       onChange={handleInputChange}
-                      className="input-field"
                       placeholder="John"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium mb-2">
-                      Last Name
-                    </label>
-                    <input
+                    <Input
+                      label="Last Name"
                       type="text"
                       name="lastName"
                       value={formData.lastName}
                       onChange={handleInputChange}
-                      className="input-field"
                       placeholder="Smith"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium mb-2">
-                      Email
-                    </label>
-                    <input
+                    <Input
+                      label="Email"
                       type="email"
                       name="email"
                       value={formData.email}
                       onChange={handleInputChange}
-                      className="input-field"
                       placeholder="john@example.com"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium mb-2">
-                      Phone
-                    </label>
-                    <input
+                    <Input
+                      label="Phone"
                       type="tel"
                       name="phone"
                       value={formData.phone}
                       onChange={handleInputChange}
-                      className="input-field"
                       placeholder="+44 7123 456789"
                     />
                   </div>
@@ -639,68 +643,53 @@ const CheckoutPage: React.FC = () => {
                 </h2>
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium mb-2">
-                      Address Line 1
-                    </label>
-                    <input
+                    <Input
+                      label="Address Line 1"
                       type="text"
                       name="address1"
                       value={formData.address1}
                       onChange={handleInputChange}
-                      className="input-field"
                       placeholder="123 Farm Lane"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium mb-2">
-                      Address Line 2 (Optional)
-                    </label>
-                    <input
+                    <Input
+                      label="Address Line 2 (Optional)"
                       type="text"
                       name="address2"
                       value={formData.address2}
                       onChange={handleInputChange}
-                      className="input-field"
                       placeholder="Apartment, suite, etc."
                     />
                   </div>
                   <div className="grid sm:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium mb-2">
-                        City
-                      </label>
-                      <input
+                      <Input
+                        label="City"
                         type="text"
                         name="city"
                         value={formData.city}
                         onChange={handleInputChange}
-                        className="input-field"
                         placeholder="Cambridge"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium mb-2">
-                        Postcode
-                      </label>
-                      <input
+                      <Input
+                        label="Postcode"
                         type="text"
                         name="postcode"
                         value={formData.postcode}
                         onChange={handleInputChange}
-                        className="input-field"
                         placeholder="CB1 2AB"
                       />
                     </div>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium mb-2">
-                      Delivery Instructions (Optional)
-                    </label>
-                    <textarea
+                    <Textarea
+                      label="Delivery Instructions (Optional)"
                       name="customerInstructions"
                       value={formData.customerInstructions}
                       onChange={handleInputChange}
-                      className="input-field min-h-[100px]"
                       placeholder="Leave at door, ring bell, etc."
                     />
                   </div>
@@ -757,25 +746,7 @@ const CheckoutPage: React.FC = () => {
                     <h3 className="font-medium mb-2">
                       Delivery Address Bookmarks
                     </h3>
-                    <select
-                      value={selectedSavedAddressId || ""}
-                      onChange={(e) => {
-                        const id = e.target.value;
-                        setSelectedSavedAddressId(id);
-                        const selected = savedAddresses.find(
-                          (a) => a.id === id,
-                        );
-                        if (selected) applySavedAddress(selected);
-                      }}
-                      className="w-full rounded-md border border-input bg-background pl-3 pr-10 py-2 text-sm"
-                    >
-                      {savedAddresses.map((addr) => (
-                        <option key={addr.id} value={addr.id}>
-                          {(addr.label ? `${addr.label} - ` : "") +
-                            `${addr.line1}, ${addr.city}, ${addr.postcode}`}
-                        </option>
-                      ))}
-                    </select>
+                    <Select aria-label="Saved delivery address" value={selectedSavedAddressId || ""} onChange={id => { setSelectedSavedAddressId(id);const selected = savedAddresses.find(a => a.id === id);if (selected) applySavedAddress(selected); }} options={savedAddresses.map(addr => ({value: addr.id, label: (addr.label ? `${addr.label} - ` : "") + `${addr.line1}, ${addr.city}, ${addr.postcode}`}))} />
                     <p className="text-xs text-muted-foreground mt-2">
                       Select one of your saved addresses to update delivery
                       details.
@@ -786,7 +757,38 @@ const CheckoutPage: React.FC = () => {
                 <div className="mb-4 p-4 rounded-xl border border-border">
                   <h3 className="font-medium mb-3">Order Summary</h3>
 
-                  <div className="space-y-3 mb-4 max-h-64 overflow-y-auto">
+                  <div className="space-y-3 mb-4 max-h-72 overflow-y-auto">
+                    {deals.map((entry) => (
+                      <div
+                        key={"deal-" + entry.deal.id}
+                        className="flex gap-3 rounded-lg bg-primary/5 p-2"
+                      >
+                        <div className="w-12 h-12 rounded-lg overflow-hidden bg-muted flex-shrink-0">
+                          {entry.deal.imageUrl ? (
+                            <img
+                              src={entry.deal.imageUrl}
+                              alt={entry.deal.name}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : null}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-semibold uppercase tracking-wide text-primary">
+                            Package deal
+                          </p>
+                          <p className="text-sm font-medium truncate">
+                            {entry.deal.name}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {entry.deal.items.length} product{entry.deal.items.length === 1 ? "" : "s"} × {entry.quantity}
+                          </p>
+                        </div>
+                        <p className="text-sm font-medium">
+                          £{(entry.deal.packagePrice * entry.quantity).toFixed(2)}
+                        </p>
+                      </div>
+                    ))}
+
                     {items.map((item) => {
                       const price = item.variant?.price ?? item.product.price;
                       return (
@@ -821,49 +823,19 @@ const CheckoutPage: React.FC = () => {
                     })}
                   </div>
 
-                  {!applyCredit && (
-                    <div className="mb-4">
-                      <label className="block text-sm font-medium mb-2">
-                        Discount Code
-                      </label>
-                      <div className="flex gap-2">
-                        <input
-                          type="text"
-                          placeholder="Enter code"
-                          className="flex-1 input-field py-2.5"
-                          value={discountCode}
-                          onChange={(e) => {
-                            setDiscountCode(e.target.value);
-                            setValidatedDiscount(null);
-                          }}
-                        />
-                        <button
-                          type="button"
-                          className="btn-outline py-2.5 px-4"
-                          disabled={loading}
-                          onClick={async () => {
-                            if (!discountCode.trim()) {
-                              toast.error("Enter a discount code first.");
-                              return;
-                            }
-                            const activeCustomerId =
-                              customer?._id || loggedInCustomerId;
-                            if (!activeCustomerId) {
-                              toast.error(
-                                "Complete checkout details first, then apply the code.",
-                              );
-                              return;
-                            }
-                            await ensureDiscountValidatedIfNeeded(
-                              activeCustomerId,
-                            );
-                          }}
-                        >
-                          Apply
-                        </button>
-                      </div>
+                  <AutomaticDealSavings showDiscountNote />
+                  {checkoutDeals.length > 0 ? (
+                    automaticDeals.length === 0 && <div className="mb-4 rounded-xl border border-primary/20 bg-primary/5 p-4 text-sm">
+                      <p className="font-medium text-primary">
+                        Package savings applied
+                      </p>
+                      <p className="mt-1 text-muted-foreground">
+                        Eligible deal savings are already included,
+                        so discount codes cannot be combined with them.
+                      </p>
                     </div>
-                  )}
+                  ) : !applyCredit ? <PromotionCodeInput /> : null}
+                  <PromotionSummary />
 
                   {canUseCredit && (
                     <div className="mb-4 p-4 rounded-xl border border-border bg-secondary/20">
@@ -878,7 +850,6 @@ const CheckoutPage: React.FC = () => {
                             if (checked) {
                               // Store credit can't be combined with a discount.
                               setDiscountCode("");
-                              setValidatedDiscount(null);
                             }
                           }}
                         />
@@ -938,7 +909,7 @@ const CheckoutPage: React.FC = () => {
                     </p>
                   </div>
 
-                  {error && (
+                  {error && !stockShortages.length && (
                     <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-xl text-sm text-destructive">
                       {error}
                     </div>
@@ -969,23 +940,23 @@ const CheckoutPage: React.FC = () => {
                   Cancel
                 </Link>
               ) : currentStep > 1 ? (
-                <button
+                <Button type="button"
                   onClick={handleBack}
-                  className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
-                  disabled={loading || portalCheckoutLoading || checkingPostcode}
+                  variant="ghost" size="touch" className="text-muted-foreground"
+                  disabled={loading || portalCheckoutLoading || checkingPostcode || checkingOffers}
                 >
                   <ChevronLeft className="w-4 h-4" />
                   Back
-                </button>
+                </Button>
               ) : (
                 <div />
               )}
 
               {currentStep < 3 ? (
-                <button
+                <Button type="button"
                   onClick={handleNext}
-                  className="btn-primary"
-                  disabled={loading || portalCheckoutLoading || checkingPostcode}
+                  size="touch"
+                  disabled={loading || portalCheckoutLoading || checkingPostcode || checkingOffers}
                 >
                   {checkingPostcode ? (
                     <span className="inline-flex items-center gap-2">
@@ -995,22 +966,22 @@ const CheckoutPage: React.FC = () => {
                   ) : (
                     "Continue"
                   )}
-                </button>
+                </Button>
               ) : (
-                <button
+                <Button type="button"
                   onClick={handlePlaceOrder}
-                  className="btn-primary flex items-center gap-2"
-                  disabled={loading || portalCheckoutLoading || checkingPostcode}
+                  size="touch"
+                  disabled={loading || portalCheckoutLoading || checkingPostcode || checkingOffers || pricingLoading || !!pricingError}
                 >
-                  {loading || portalCheckoutLoading ? (
+                  {loading || portalCheckoutLoading || checkingOffers ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin" />
-                      Processing...
+                      {checkingOffers ? "Checking offers…" : "Processing…"}
                     </>
                   ) : (
                     `Place Order - £${amountDueTotal.toFixed(2)}`
                   )}
-                </button>
+                </Button>
               )}
             </div>
           </div>
@@ -1021,3 +992,4 @@ const CheckoutPage: React.FC = () => {
 };
 
 export default CheckoutPage;
+

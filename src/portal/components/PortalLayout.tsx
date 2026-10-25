@@ -33,6 +33,7 @@ import {
   usePortalCustomer,
 } from "@/portal/context/CustomerContext";
 import { AddressesProvider } from "@/portal/context/AddressesContext";
+import { PortalTourButton, PortalTourProvider } from "@/portal/tours/PortalTour";
 
 const navItems = [
   { label: "Dashboard", href: "/portal/dashboard", icon: LayoutDashboard },
@@ -51,6 +52,7 @@ const navItems = [
 const siteItems = [
   { label: "Home", href: "/", icon: Home },
   { label: "Shop", href: "/shop", icon: ShoppingBag },
+  { label: "Deals", href: "/deals", icon: ShoppingBag },
   { label: "Reviews", href: "/reviews", icon: Star },
   { label: "About", href: "/about", icon: Info },
   { label: "Delivery & FAQs", href: "/delivery", icon: MapPin },
@@ -305,6 +307,7 @@ const PortalLayoutInner: React.FC<PortalLayoutProps> = ({ children }) => {
   );
 
   return (
+    <PortalTourProvider customerId={customer?._id} routeKey={location.pathname}>
     <div className="min-h-screen bg-background flex flex-col">
       <Header
         actions={portalActions}
@@ -360,6 +363,7 @@ const PortalLayoutInner: React.FC<PortalLayoutProps> = ({ children }) => {
 
         {/* Main content */}
         <div className="flex-1 flex flex-col min-w-0">
+          <div className="mb-3 flex justify-end"><PortalTourButton /></div>
           {/* Page content — keyed by pathname so the animation re-triggers on every navigation */}
           <main
             key={location.pathname}
@@ -378,6 +382,7 @@ const PortalLayoutInner: React.FC<PortalLayoutProps> = ({ children }) => {
         </div>
       </div>
     </div>
+    </PortalTourProvider>
   );
 };
 

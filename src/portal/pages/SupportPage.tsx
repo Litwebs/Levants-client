@@ -85,7 +85,7 @@ const SupportPage: React.FC = () => {
   ];
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div data-tour-page="support" data-tour-ready={true} className="max-w-4xl mx-auto">
       <PageHeader
         title="Support"
         description="Get help with your orders, deliveries, and subscriptions"
@@ -124,7 +124,7 @@ const SupportPage: React.FC = () => {
                 <div className="space-y-1.5">
                   <Label>Issue type</Label>
                   <Select value={issueType} onValueChange={setIssueType}>
-                    <SelectTrigger>
+                    <SelectTrigger data-tour="support-type">
                       <SelectValue placeholder="Select issue type" />
                     </SelectTrigger>
                     <SelectContent>
@@ -157,7 +157,7 @@ const SupportPage: React.FC = () => {
                 <div className="space-y-1.5">
                   <Label>Subject</Label>
                   <Input
-                    placeholder="Brief description of your issue"
+                    data-tour="support-subject" placeholder="Brief description of your issue"
                     value={subject}
                     onChange={(e) => setSubject(e.target.value)}
                     required
@@ -166,7 +166,7 @@ const SupportPage: React.FC = () => {
                 <div className="space-y-1.5">
                   <Label>Message</Label>
                   <Textarea
-                    placeholder="Describe your issue in detail…"
+                    data-tour="support-message" placeholder="Describe your issue in detail…"
                     value={message}
                     onChange={(e) => setMessage(e.target.value)}
                     rows={4}
@@ -179,7 +179,7 @@ const SupportPage: React.FC = () => {
                     Click to upload or drag a file here
                   </div>
                 </div>
-                <Button type="submit" className="w-full">
+                <Button data-tour="support-send" type="submit" className="w-full">
                   Submit Support Request
                 </Button>
               </form>
@@ -198,7 +198,7 @@ const SupportPage: React.FC = () => {
         {/* Right: My requests */}
         <div>
           <div className="bg-card border border-border rounded-2xl p-5">
-            <h3 className="font-semibold text-foreground mb-4">My Requests</h3>
+            <h3 data-tour="support-requests" className="font-semibold text-foreground mb-4">My Requests</h3>
             {mockSupportRequests.length === 0 ? (
               <EmptyState
                 icon={<HeadphonesIcon className="h-10 w-10" />}

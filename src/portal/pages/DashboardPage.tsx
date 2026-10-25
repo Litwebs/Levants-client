@@ -195,7 +195,7 @@ const DashboardPage: React.FC = () => {
   }
 
   return (
-    <div className="max-w-5xl mx-auto space-y-6">
+    <div data-tour-page="dashboard" data-tour-ready={!error} className="max-w-5xl mx-auto space-y-6">
       {error && (
         <div className="p-3 bg-destructive/10 text-destructive rounded-lg text-sm">
           {error}
@@ -213,7 +213,7 @@ const DashboardPage: React.FC = () => {
           </p>
         </div>
         <Button asChild size="sm">
-          <Link to="/portal/subscriptions/new">
+          <Link data-tour="new-subscription" to="/portal/subscriptions/new">
             <Plus className="h-4 w-4" />
             New Subscription
           </Link>
@@ -221,7 +221,7 @@ const DashboardPage: React.FC = () => {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div data-tour="dashboard-summary" className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {summaryCards.map((card) => (
           <DashboardSummaryCard
             key={card.title}
@@ -239,7 +239,7 @@ const DashboardPage: React.FC = () => {
       <div className="grid lg:grid-cols-3 gap-4">
         {/* Active subscriptions list */}
         <div className="lg:col-span-2 space-y-4">
-          <Card>
+          <Card data-tour="dashboard-subscriptions">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-base font-semibold flex items-center gap-2">

@@ -270,6 +270,18 @@ const OrderDetailPage: React.FC = () => {
     );
   }
 
+  const dealSnapshots = Array.isArray(order.metadata?.deals)
+    ? (order.metadata.deals as Array<{
+        dealId?: string;
+        name?: string;
+        slug?: string;
+        quantity?: number;
+        packagePrice?: number;
+        originalValue?: number;
+        saving?: number;
+      }>)
+    : [];
+
   const deliveryProofUrl = resolveImageUrl(
     order.metadata?.deliveryProofUrl as string | undefined,
   );
@@ -376,7 +388,7 @@ const OrderDetailPage: React.FC = () => {
   };
 
   return (
-    <div className="max-w-2xl mx-auto">
+    <div data-tour-page="order-detail" data-tour-ready={true} className="max-w-2xl mx-auto">
       <div className="flex items-center gap-3 mb-6">
         <Button asChild variant="ghost" size="icon" className="h-8 w-8">
           <Link to="/portal/orders">
@@ -477,7 +489,7 @@ const OrderDetailPage: React.FC = () => {
       </div>
 
       <div className="bg-card border border-border rounded-2xl p-5 mb-4 space-y-4">
-        <h3 className="font-semibold text-foreground">Order Details</h3>
+        <h3 data-tour="order-information" className="font-semibold text-foreground">Order Details</h3>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {hasCustomerDetails && (
@@ -534,7 +546,7 @@ const OrderDetailPage: React.FC = () => {
             )}
             {order.deliveryChangeAllowed && (
               <div className="pt-1">
-                <Button
+                <Button data-tour="order-change-delivery"
                   type="button"
                   variant="outline"
                   size="sm"
@@ -594,7 +606,7 @@ const OrderDetailPage: React.FC = () => {
                 <label className="space-y-1.5 text-sm font-medium text-foreground">
                   Saved delivery address
                   <select
-                    value={deliveryAddressId}
+                    data-tour="order-delivery-address" value={deliveryAddressId}
                     onChange={(event) =>
                       setDeliveryAddressId(event.target.value)
                     }
@@ -619,7 +631,7 @@ const OrderDetailPage: React.FC = () => {
               <Button
                 type="button"
                 size="sm"
-                onClick={() => void handleSaveDelivery()}
+                data-tour="order-save-delivery" onClick={() => void handleSaveDelivery()}
                 disabled={deliverySaving || !hasDeliveryChanges}
               >
                 {deliverySaving ? (
@@ -668,7 +680,56 @@ const OrderDetailPage: React.FC = () => {
 
         <Separator />
 
-        <div>
+        {dealSnapshots.length > 0 && (
+          <>
+            <div>
+              <p className="text-xs text-muted-foreground uppercase tracking-wide mb-2">
+                Package Deals
+              </p>
+              <div className="space-y-2">
+                {dealSnapshots.map((deal, index) => (
+                  <div
+                    key={deal.dealId || deal.slug || index}
+                    className="rounded-xl border border-forest/20 bg-forest/5 p-3"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-semibold text-foreground">
+                          {deal.name || "Product package"}
+                        </p>
+                        <p className="mt-0.5 text-xs text-muted-foreground">
+                          Quantity {Number(deal.quantity || 1)}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm font-semibold text-forest">
+                          {formatMoney(
+                            Number(deal.packagePrice || 0) *
+                              Number(deal.quantity || 1),
+                            order.currency || "GBP",
+                          )}
+                        </p>
+                        {Number(deal.saving || 0) > 0 && (
+                          <p className="text-xs text-muted-foreground">
+                            Saved{" "}
+                            {formatMoney(
+                              Number(deal.saving || 0) *
+                                Number(deal.quantity || 1),
+                              order.currency || "GBP",
+                            )}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <Separator />
+          </>
+        )}
+
+        <div data-tour="order-items">
           <p className="text-xs text-muted-foreground uppercase tracking-wide mb-2">
             Items Ordered
           </p>
@@ -677,7 +738,7 @@ const OrderDetailPage: React.FC = () => {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => void handleDownloadReceipt()}
+                data-tour="order-receipt" onClick={() => void handleDownloadReceipt()}
                 disabled={receiptLoading}
               >
                 {receiptLoading ? "Preparing..." : "Download Receipt"}
@@ -712,7 +773,7 @@ const OrderDetailPage: React.FC = () => {
 
       {hasRefunds && (
         <div className="bg-card border border-border rounded-2xl p-5 mb-4 space-y-3">
-          <h3 className="font-semibold text-foreground">Refunds</h3>
+          <h3 data-tour="order-refunds" className="font-semibold text-foreground">Refunds</h3>
           {order.refunds && order.refunds.length > 0 ? (
             <div className="space-y-2">
               {order.refunds.map((refund, idx) => (

@@ -3,6 +3,7 @@
 ======================== */
 
 export interface ProductVariant {
+  isSubscriptionEligible?: boolean;
   id: string;
   name: string;
   description?: string | null;
@@ -82,6 +83,7 @@ export const initialProductsState: ProductsState = {
 ======================== */
 
 export interface ProductsQueryParams {
+  subscriptionEligible?: boolean;
   page?: number;
   pageSize?: number;
   category?: string | string[];

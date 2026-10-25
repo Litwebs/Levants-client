@@ -1,0 +1,47 @@
+name: One-time delivery change UI
+on:
+  pull_request:
+    branches: [uat]
+    paths:
+      - 'src/api/portalSubscriptions.ts'
+      - 'src/api/deliveryReductionRetry.ts'
+      - 'src/api/subscriptionDeliveryPage.ts'
+      - 'src/portal/components/DeliveryReduction*.tsx'
+      - 'src/portal/pages/SubscriptionDetailPage.tsx'
+      - 'src/portal/pages/StoreCreditPage.tsx'
+      - 'src/portal/tours/**'
+      - 'tests/delivery*'
+      - 'tests/subscriptionDeliveryPage.test.mjs'
+      - 'tests/browser/delivery-reduction.spec.ts'
+      - '.github/workflows/delivery-reduction-ui.yml'
+permissions:
+  contents: read
+concurrency:
+  group: delivery-reduction-ui-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+jobs:
+  customer-ui:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npx eslint src/api/portalSubscriptions.ts src/api/deliveryReductionRetry.ts src/api/subscriptionDeliveryPage.ts src/portal/components/DeliveryReduction.tsx src/portal/components/DeliveryReductionHistory.tsx src/portal/components/DeliveryReductionGuide.tsx src/portal/pages/SubscriptionDetailPage.tsx src/portal/pages/StoreCreditPage.tsx tests/delivery-reduction.test.tsx tests/delivery-reduction-guide.test.tsx tests/browser/delivery-reduction.spec.ts
+      - run: npx vitest run tests/delivery-reduction.test.tsx tests/delivery-reduction-guide.test.tsx
+      - run: node --test tests/deliveryReductionRetry.test.mjs tests/subscriptionDeliveryPage.test.mjs
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - run: npx playwright test tests/browser/delivery-reduction.spec.ts
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: delivery-reduction-ui-evidence
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
