@@ -1,3 +1,4 @@
+import { Button } from "@/components/ui/button";
 import React, { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Check, ChevronLeft, Lock, Truck, Loader2 } from "lucide-react";
@@ -9,7 +10,7 @@ import { portalAuthApi } from "@/api/portalAuth";
 import { portalOrdersApi } from "@/api/portalOrders";
 import { isPortalLoggedIn } from "@/lib/portalAuth";
 import { useBusinessInfo } from "@/context/BusinessInfoContext";
-import { Input, Textarea } from "@/components/common/FormControls";
+import { Input, Textarea, Select } from "@/components/common/FormControls";
 import PromotionSummary, { PromotionCodeInput } from "@/components/cart/PromotionSummary";
 import AutomaticDealSavings from "@/components/cart/AutomaticDealSavings";
 import { buildBasketOrderItems } from "@/lib/basketDeals";
@@ -502,9 +503,7 @@ const CheckoutPage: React.FC = () => {
           <h1 className="font-heading text-2xl font-semibold mb-4">
             Your cart is empty
           </h1>
-          <Link to="/shop" className="btn-primary">
-            Start Shopping
-          </Link>
+          <Button asChild size="touch"><Link to="/shop">Start Shopping</Link></Button>
         </div>
       </div>
     );
@@ -747,26 +746,7 @@ const CheckoutPage: React.FC = () => {
                     <h3 className="font-medium mb-2">
                       Delivery Address Bookmarks
                     </h3>
-                    <select
-                      aria-label="Saved delivery address"
-                      value={selectedSavedAddressId || ""}
-                      onChange={(e) => {
-                        const id = e.target.value;
-                        setSelectedSavedAddressId(id);
-                        const selected = savedAddresses.find(
-                          (a) => a.id === id,
-                        );
-                        if (selected) applySavedAddress(selected);
-                      }}
-                      className="form-control"
-                    >
-                      {savedAddresses.map((addr) => (
-                        <option key={addr.id} value={addr.id}>
-                          {(addr.label ? `${addr.label} - ` : "") +
-                            `${addr.line1}, ${addr.city}, ${addr.postcode}`}
-                        </option>
-                      ))}
-                    </select>
+                    <Select aria-label="Saved delivery address" value={selectedSavedAddressId || ""} onChange={id => { setSelectedSavedAddressId(id);const selected = savedAddresses.find(a => a.id === id);if (selected) applySavedAddress(selected); }} options={savedAddresses.map(addr => ({value: addr.id, label: (addr.label ? `${addr.label} - ` : "") + `${addr.line1}, ${addr.city}, ${addr.postcode}`}))} />
                     <p className="text-xs text-muted-foreground mt-2">
                       Select one of your saved addresses to update delivery
                       details.
@@ -960,22 +940,22 @@ const CheckoutPage: React.FC = () => {
                   Cancel
                 </Link>
               ) : currentStep > 1 ? (
-                <button
+                <Button type="button"
                   onClick={handleBack}
-                  className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
+                  variant="ghost" size="touch" className="text-muted-foreground"
                   disabled={loading || portalCheckoutLoading || checkingPostcode || checkingOffers}
                 >
                   <ChevronLeft className="w-4 h-4" />
                   Back
-                </button>
+                </Button>
               ) : (
                 <div />
               )}
 
               {currentStep < 3 ? (
-                <button
+                <Button type="button"
                   onClick={handleNext}
-                  className="btn-primary"
+                  size="touch"
                   disabled={loading || portalCheckoutLoading || checkingPostcode || checkingOffers}
                 >
                   {checkingPostcode ? (
@@ -986,11 +966,11 @@ const CheckoutPage: React.FC = () => {
                   ) : (
                     "Continue"
                   )}
-                </button>
+                </Button>
               ) : (
-                <button
+                <Button type="button"
                   onClick={handlePlaceOrder}
-                  className="btn-primary flex items-center gap-2"
+                  size="touch"
                   disabled={loading || portalCheckoutLoading || checkingPostcode || checkingOffers || pricingLoading || !!pricingError}
                 >
                   {loading || portalCheckoutLoading || checkingOffers ? (
@@ -1001,7 +981,7 @@ const CheckoutPage: React.FC = () => {
                   ) : (
                     `Place Order - £${amountDueTotal.toFixed(2)}`
                   )}
-                </button>
+                </Button>
               )}
             </div>
           </div>

@@ -7,6 +7,7 @@ export type DealItem = {
     id: string;
     name: string;
     sku: string;
+    description?: string | null;
     price: number;
     stockQuantity: number;
     availableStock: number;
@@ -16,6 +17,7 @@ export type DealItem = {
     id: string;
     name: string;
     category: string;
+    description?: string | null;
     thumbnailImage?: { url?: string } | null;
   };
 };

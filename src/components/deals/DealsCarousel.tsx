@@ -3,7 +3,6 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { Deal } from "@/api/deals";
 import { Button } from "@/components/ui/button";
 import DealCard from "./DealCard";
-import DealContents from "./DealContents";
 import { cn } from "@/lib/utils";
 
 const ROTATION_INTERVAL = 6000;
@@ -96,7 +95,7 @@ export default function DealsCarousel({
       }}
     >
       <div
-        className="grid grid-cols-1 grid-rows-[auto_auto] touch-pan-y overflow-hidden rounded-2xl"
+        className="grid grid-cols-1 touch-pan-y overflow-hidden rounded-2xl"
         aria-live="off"
         onTouchStart={(event) => {
           const touch = event.touches[0];
@@ -142,75 +141,14 @@ export default function DealsCarousel({
             <DealCard deal={deal} variant="featured" showContents={false} compactAction imageAspectClassName={imageAspectClassName} />
           </div>
         ))}
-        {/* Blur stays mounted outside every opacity layer, so only the product
-            contents crossfade without changing the backdrop filter. */}
-        <div className="col-start-1 row-start-2 grid min-w-0 grid-cols-1 text-white backdrop-blur-md">
-          {deals.map((deal, slideIndex) => (
-            <div
-              key={deal.id}
-              className={cn(
-                "col-start-1 row-start-1 min-w-0 transition-opacity duration-700 ease-in-out motion-reduce:transition-none",
-                slideIndex === activeIndex
-                  ? "z-10 opacity-100"
-                  : "pointer-events-none opacity-0",
-              )}
-              aria-hidden={slideIndex !== activeIndex}
-              ref={(node) => {
-                if (node) node.inert = slideIndex !== activeIndex;
-              }}
-            >
-              <DealContents items={deal.items} compact blurred={false} />
-            </div>
-          ))}
-        </div>
+
       </div>
-      {canRotate && (
-        <>
-          <div className={cn("pointer-events-none absolute inset-x-0 top-0 z-20", imageAspectClassName ?? "aspect-[4/5] sm:aspect-[4/3]")}>
-            <Button
-              type="button"
-              variant="outline"
-              size="icon"
-              className="pointer-events-auto absolute left-3 top-1/3 h-11 w-11 -translate-y-1/2 rounded-full border-white/30 bg-card/95 text-foreground shadow-soft hover:bg-card sm:left-5 sm:top-[40%]"
-              onClick={() => navigate(-1)}
-              aria-label="Previous deals"
-            >
-              <ChevronLeft aria-hidden="true" className="h-5 w-5" />
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="icon"
-              className="pointer-events-auto absolute right-3 top-1/3 h-11 w-11 -translate-y-1/2 rounded-full border-white/30 bg-card/95 text-foreground shadow-soft hover:bg-card sm:right-5 sm:top-[40%]"
-              onClick={() => navigate(1)}
-              aria-label="Next deals"
-            >
-              <ChevronRight aria-hidden="true" className="h-5 w-5" />
-            </Button>
-          </div>
-          <div className="mt-3 flex items-center justify-end gap-3">
-          {!reducedMotion && (
-            <button
-              type="button"
-              className="min-h-11 rounded-md px-2 text-xs underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              aria-label={paused ? "Start automatic rotation" : "Pause automatic rotation"}
-              onClick={() => setPaused((current) => !current)}
-            >
-              {paused ? "Start rotation" : "Pause rotation"}
-            </button>
-          )}
-          <p
-            aria-live="off"
-            className={cn(
-              "text-right text-xs tabular-nums",
-              onImage ? "text-white/65" : "text-muted-foreground",
-            )}
-          >
-            <span className="sr-only">Deal </span>{activeIndex + 1} / {count}
-          </p>
-          </div>
-        </>
-      )}
+      {canRotate && <div className="mt-3 flex flex-wrap items-center justify-end gap-2">
+        <Button type="button" variant="outline" size="quantity" aria-label="Previous deals" onClick={() => navigate(-1)}><ChevronLeft aria-hidden="true" /></Button>
+        {!reducedMotion && <Button type="button" variant="ghost" size="touch" className={cn("text-xs", onImage && "text-white hover:bg-white/10 hover:text-white")} aria-label={paused ? "Start automatic rotation" : "Pause automatic rotation"} onClick={() => setPaused(current => !current)}>{paused ? "Start rotation" : "Pause rotation"}</Button>}
+        <p aria-live="off" className={cn("px-2 text-xs tabular-nums", onImage ? "text-white/85" : "text-muted-foreground")}><span className="sr-only">Deal </span>{activeIndex + 1} / {count}</p>
+        <Button type="button" variant="outline" size="quantity" aria-label="Next deals" onClick={() => navigate(1)}><ChevronRight aria-hidden="true" /></Button>
+      </div>}
     </div>
   );
 }

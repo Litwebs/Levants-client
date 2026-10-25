@@ -100,9 +100,9 @@ export default function FeaturedPackages({ deals, loading }: FeaturedPackagesPro
         <Carousel setApi={setApi} opts={{ align: "start", loop: true, duration: reducedMotion ? 0 : 35 }} aria-label="Featured packages" className="min-w-0">
           <CarouselContent>
             {featured.map((deal, index) => (
-              <CarouselItem key={deal.id} className="basis-full lg:basis-1/2" aria-label={`${index + 1} of ${featured.length}`}>
+              <CarouselItem key={deal.id} className={featured.length === 1 ? "basis-full" : "basis-full lg:basis-1/2"} aria-label={`${index + 1} of ${featured.length}`}>
                 <div className="overflow-hidden rounded-2xl bg-forest-dark">
-                  <DealCard deal={deal} variant="featured" showContents={false} compactAction imageAspectClassName="aspect-[4/3] sm:aspect-[7/4]" />
+                  <DealCard deal={deal} variant="featured" layout={featured.length === 1 ? "horizontal" : "stacked"} showContents={false} compactAction imageAspectClassName="aspect-[4/3] sm:aspect-[7/4]" />
                 </div>
               </CarouselItem>
             ))}

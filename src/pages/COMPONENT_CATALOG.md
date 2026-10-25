@@ -19,3 +19,10 @@ and keeps labels, hints, and errors connected through `htmlFor`,
 
 When changing a shared control, update its catalog story and inspect the
 contact, checkout, and portal forms at desktop and mobile sizes.
+
+
+## Catalog ordering controls
+
+See [the canonical inventory and migration guide](../../docs/STOREFRONT_COMPONENT_SYSTEM.md) for component sources, props, runtime business-data boundaries and consumer pages.
+
+The Catalog controls & media story previews shared Shop/Deals categories and sorting, bounded quantities, 44px actions, contained imagery and missing-image fallbacks. Its action is a local development preview; it does not create a real basket or API write.
