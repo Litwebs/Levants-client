@@ -1,3 +1,4 @@
+import RecurringPriceNotice from "@/portal/components/RecurringPriceNotice";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import {
@@ -1608,6 +1609,7 @@ const SubscriptionDetailPage: React.FC = () => {
             <p className="text-xs sm:text-sm text-muted-foreground">
               Started {formatDate(subscription.startDate)}
             </p>
+            {subscription.status !== "cancelled" && <RecurringPriceNotice change={subscription.recurringPriceChange} />}
             {subscription.introOffer && <p className="mt-2 text-sm text-muted-foreground">
               First payment: {formatMoney(subscription.introOffer.firstChargeMinor / 100)}, including {formatMoney(subscription.introOffer.discountMinor / 100)} introductory savings. Future payments use normal recurring prices.
             </p>}
@@ -2997,5 +2999,6 @@ const SubscriptionDetailPage: React.FC = () => {
 };
 
 export default SubscriptionDetailPage;
+
 
 
