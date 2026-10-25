@@ -41,7 +41,7 @@ for(const width of [390,1440]){
   await expect(page.getByTestId('home-hero-layout')).not.toHaveClass(/lg:grid-cols-/);await expect(page.getByRole('heading',{name:'Featured Deals',exact:true})).toHaveCount(0);
  });
  test(`configured spend wording stays consistent in cart and checkout ${width}`,async({page})=>{
-  const state:State={offers:[],minimum:10,price:10};await page.setViewportSize({width,height:1000});await setup(page,state);await page.goto('/cart');
+  const state:State={offers:[],minimum:10,price:10};await page.setViewportSize({width,height:1000});await setup(page,state);await page.goto('/shop');await page.getByRole('button',{name:'Cart',exact:true}).click();
   await expect(page.getByText('Free delivery when you spend £10 or more on products',{exact:true})).toBeVisible();await expect(page.getByTestId('promotion-summary')).toContainText('£0.00 delivery');
   await expect(page.getByText(/Add £.*more for free delivery/)).toHaveCount(0);
   await page.goto('/checkout');await expect(page.getByTestId('promotion-summary')).toContainText('£10 or more');
