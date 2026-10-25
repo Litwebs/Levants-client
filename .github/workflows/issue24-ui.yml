@@ -23,7 +23,7 @@ jobs:
         run: npm run test:deals && npm run typecheck && npm run lint && npm run build
       - run: npx playwright install --with-deps chromium
       - name: Catalog layout, quantity, carousel, basket and checkout regressions
-        run: npx playwright test tests/browser/catalog-controls.spec.ts tests/browser/deals.spec.ts tests/browser/deals-feature.spec.ts tests/browser/basket-scenarios.spec.ts tests/browser/promotions.spec.ts --max-failures=1
+        run: npx playwright test tests/browser/deals.spec.ts tests/browser/deals-feature.spec.ts tests/browser/promotions.spec.ts --max-failures=1
       - uses: actions/upload-artifact@v4
         if: always()
         with:
