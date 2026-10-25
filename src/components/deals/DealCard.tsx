@@ -15,8 +15,9 @@ interface DealCardProps {
   showContents?: boolean;
   imageAspectClassName?: string;
   compactAction?: boolean;
+  layout?: 'stacked' | 'horizontal';
 }
-export default function DealCard({ deal, variant = 'card', imageAspectClassName, compactAction = false }: DealCardProps) {
+export default function DealCard({ deal, variant = 'card', imageAspectClassName, compactAction = false, layout = 'stacked' }: DealCardProps) {
   const titleId = useId();
   const { addDeal, deals, openCart } = useCart();
   const value = dealPresentation(deal);
@@ -30,8 +31,8 @@ export default function DealCard({ deal, variant = 'card', imageAspectClassName,
     addDeal(deal, 1);
     toast.success(deal.name + ' added to your basket', { description: value.saving ? `Package deal · save ${value.saving}` : 'Package deal' });
   };
-  return <article aria-labelledby={titleId} className={cn('deal-card flex h-full min-w-0 flex-col overflow-hidden rounded-2xl border border-border/70 bg-card text-foreground shadow-soft', variant === 'card' && 'mx-auto w-full max-w-sm sm:mx-0')}>
-    <div className={cn('relative shrink-0 overflow-hidden bg-secondary/60', imageAspectClassName ?? 'aspect-[4/3]')}>
+  return <article aria-labelledby={titleId} className={cn('deal-card flex h-full min-w-0 flex-col overflow-hidden rounded-2xl border border-border/70 bg-card text-foreground shadow-soft', variant === 'card' && 'mx-auto w-full max-w-sm sm:mx-0', layout === 'horizontal' && 'md:flex-row')}>
+    <div className={cn('relative shrink-0 overflow-hidden bg-secondary/60', imageAspectClassName ?? 'aspect-[4/3]', layout === 'horizontal' && 'md:aspect-auto md:min-h-72 md:w-1/2')}>
       <Link to={'/deals/' + deal.slug} tabIndex={-1} aria-hidden="true" className="absolute inset-0 block"><DealImage src={deal.imageUrl} className="h-full w-full object-contain p-4 sm:p-5" /></Link>
       {value.saving && !soldOut && <SavingsTag className="absolute left-3 top-3">Save {value.percent !== null ? `${value.percent}%` : value.saving}</SavingsTag>}
       {soldOut && <span className="absolute left-3 top-3 rounded-lg bg-card px-3 py-1.5 text-xs font-semibold">Currently unavailable</span>}

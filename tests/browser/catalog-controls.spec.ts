@@ -30,14 +30,17 @@ for(const width of [320,375,768,1024,1440])test(`shared catalog and illustrated 
  expect(await card.locator('img').first().evaluate(el=>getComputedStyle(el).objectFit)).toBe('contain');
  await expect(page.getByRole('combobox',{name:'Sort by'})).toBeVisible();
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
- await page.screenshot({path:info.outputPath(`deals-${width}.png`),fullPage:true});
+ await page.screenshot({path:info.outputPath(`deals-${width}.png`),fullPage:true,animations:'disabled'});
  await card.getByRole('link').first().click();await expect(page.getByRole('heading',{level:1,name:offer.name})).toBeVisible();
  const contents=page.getByRole('region',{name:"What's included"});await expect(contents.getByRole('listitem')).toHaveCount(2);await expect(contents.getByText('A one-litre bottle of whole milk.')).toBeVisible();await expect(contents.getByRole('img').first()).toBeVisible();
+ await page.evaluate(()=>{document.documentElement.style.scrollBehavior='auto';scrollTo(0,0);});
+ await page.screenshot({path:info.outputPath(`detail-${width}.png`),fullPage:true,animations:'disabled'});
  const quantity=page.getByRole('group',{name:'Package quantity'});await quantity.getByRole('button',{name:'Increase quantity'}).click();await quantity.getByRole('button',{name:'Increase quantity'}).click();await expect(quantity.getByRole('button',{name:'Increase quantity'})).toBeDisabled();
  await page.getByRole('button',{name:'Add package to basket',exact:true}).click();
  await expect.poll(()=>page.evaluate(()=>JSON.parse(localStorage.getItem('levants-dairy-cart')||'{}').deals?.[0]?.quantity)).toBe(3);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
- await page.screenshot({path:info.outputPath(`detail-${width}.png`),fullPage:true});
+ await page.getByRole('button',{name:'Close cart',exact:true}).click();await expect(page.getByRole('button',{name:'Close cart',exact:true})).toHaveCount(0);
+ await page.evaluate(()=>{document.documentElement.style.scrollBehavior='auto';scrollTo(0,0);});
 });
 for(const width of [375,1440])test(`shared category, URL, sorting and cart removal controls at ${width}px`,async({page})=>{
  await page.setViewportSize({width,height:1000});await setup(page);await page.goto('/shop');
@@ -47,6 +50,7 @@ for(const width of [375,1440])test(`shared category, URL, sorting and cart remov
  if(width<1024){await page.getByRole('button',{name:'Apply',exact:true}).click();await expect(filters).toBeFocused();}
  await expect(page).toHaveURL(/category=bakery/);await expect(page.getByRole('heading',{name:/Farm bread/}).first()).toBeVisible();
  await page.getByRole('combobox',{name:'Sort by'}).selectOption('price-low');await expect(page).toHaveURL(/sort=price-low/);
+ await page.goBack();await expect(page).toHaveURL(/category=bakery/);await expect(page.getByRole('combobox',{name:'Sort by'})).toHaveValue('featured');
  if(width<1024){await filters.click();await page.keyboard.press('Escape');await expect(filters).toBeFocused();}
  const card=page.locator('.card-product').filter({has:page.getByRole('heading',{name:/Farm bread/})}).first();await card.getByRole('button',{name:'Add to basket',exact:true}).click();
  await page.getByRole('button',{name:'Cart',exact:true}).click();const row=page.getByRole('group',{name:'Quantity for Farm bread'});await row.getByRole('button',{name:'Decrease quantity'}).click();await expect(page.getByText('Your cart is empty',{exact:false})).toBeVisible();

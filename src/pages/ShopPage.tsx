@@ -131,22 +131,12 @@ const ShopPage: React.FC<ShopPageProps> = ({
 
   const PAGE_SIZE = 12;
 
-  const categoryParams = searchParams.getAll("category").filter(Boolean);
-  const categoryParam = searchParams.get("category") || "";
+  const selectedCategories = useMemo(() => searchParams.getAll("category").filter(Boolean).map(slugifyCategory), [searchParams]);
   const sortParam = searchParams.get("sort") || "featured";
+  const sortBy = ["featured", "price-low", "price-high", "name"].includes(sortParam) ? sortParam : "featured";
   const searchQuery = searchParams.get("q") || "";
   const pageParam = Number(searchParams.get("page") || "1");
-  const currentPage =
-    Number.isFinite(pageParam) && pageParam > 0 ? pageParam : 1;
-
-  const [selectedCategories, setSelectedCategories] = useState<string[]>(
-    categoryParams.length
-      ? categoryParams.map(slugifyCategory)
-      : categoryParam
-        ? [slugifyCategory(categoryParam)]
-        : [],
-  );
-  const [sortBy, setSortBy] = useState(sortParam);
+  const currentPage = Number.isFinite(pageParam) && pageParam > 0 ? pageParam : 1;
 
   const setPage = useCallback(
     (nextPage: number, opts?: { replace?: boolean }) => {
@@ -401,25 +391,23 @@ const ShopPage: React.FC<ShopPageProps> = ({
   }, [catalog, catalogItems, clampedPage, mappedProducts]);
 
   const toggleCategory = (slug: string) => {
-    if (currentPage !== 1) setPage(1);
-    setSelectedCategories((prev) =>
-      prev.includes(slug) ? prev.filter((c) => c !== slug) : [...prev, slug],
-    );
+    setSearchParams(previous => {
+      const next = new URLSearchParams(previous);
+      const selected = next.getAll("category").filter(Boolean).map(slugifyCategory);
+      const categories = selected.includes(slug) ? selected.filter(value => value !== slug) : [...selected, slug];
+      next.delete("category");next.delete("page");
+      categories.forEach(value => next.append("category", value));
+      return next;
+    });
   };
-
-  const handleSortChange = useCallback(
-    (value: string) => {
-      if (currentPage !== 1) setPage(1);
-      setSortBy(value);
-    },
-    [currentPage, setPage],
-  );
-
-  const clearFilters = () => {
-    setSelectedCategories([]);
-    setSortBy("featured");
-    setSearchParams({});
-  };
+  const handleSortChange = useCallback((value: string) => {
+    setSearchParams(previous => {
+      const next = new URLSearchParams(previous);
+      if (value === "featured") next.delete("sort");else next.set("sort", value);
+      next.delete("page");return next;
+    });
+  }, [setSearchParams]);
+  const clearFilters = () => { setSearchParams({}); };
 
   const handleStorefrontProductAction = ({
     product,

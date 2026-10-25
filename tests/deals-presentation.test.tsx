@@ -7,7 +7,7 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, useLocation } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import type { Deal } from "@/api/deals";
 import DealCard from "@/components/deals/DealCard";
@@ -199,4 +199,17 @@ describe("deal collection states", () => {
       screen.getByRole("link", { name: "View all deals" }).getAttribute("href"),
     ).toBe("/deals");
   });
+});
+
+function CatalogLocation() { const location = useLocation(); return <output data-testid="catalog-location">{location.search}</output>; }
+test("shared catalog writes category and sort changes to its URL and clears them", async () => {
+  listDeals.mockResolvedValue({deals:[{...deal,items:[{variantId:"v",quantity:1,variant:{id:"v",name:"1L",sku:"v",price:5,stockQuantity:10,availableStock:10},product:{id:"p",name:"Milk",category:"Dairy"}}]}]});
+  mount(<><DealsPage/><CatalogLocation/></>);
+  await screen.findByRole("heading", {name:deal.name});
+  fireEvent.click(screen.getByRole("checkbox",{name:"Dairy"}));
+  await waitFor(()=>expect(screen.getByTestId("catalog-location").textContent).toContain("category=dairy"));
+  fireEvent.change(screen.getAllByRole("combobox",{name:"Sort by"})[0],{target:{value:"price-high"}});
+  await waitFor(()=>expect(screen.getByTestId("catalog-location").textContent).toContain("sort=price-high"));
+  fireEvent.click(screen.getByRole("button",{name:"Clear all filters"}));
+  await waitFor(()=>expect(screen.getByTestId("catalog-location").textContent).toBe(""));
 });
