@@ -3,7 +3,7 @@ import type { Deal } from '../../src/api/deals';
 const deal:Deal={id:'milk',slug:'milk',name:'Featured milk pair',description:'Fresh milk',imageUrl:'/broken-fixture.jpg',packagePrice:8,originalValue:10,savings:2,savingsPercent:20,currency:'GBP',isFeatured:true,maxPackages:5,items:[{variantId:'milk-1',quantity:2,variant:{id:'milk-1',name:'1L',sku:'milk',price:5,stockQuantity:10,availableStock:10},product:{id:'milk',name:'Whole milk',category:'Dairy'}}]};
 type State={offers:Deal[];minimum:number;price:number;offline?:boolean;paused?:boolean;dealError?:boolean};
 async function setup(page:Page,state:State){
- await page.addInitScript(price=>{localStorage.setItem('levants-dairy-cart',JSON.stringify({items:[{quantity:1,product:{id:'milk',name:'Whole milk',price,images:[],category:'Milk',stockStatus:'in-stock'},variant:{id:'milk-1',name:'1L',price,stockQuantity:30}}],deals:[]}));},state.price);
+ await page.addInitScript(price=>{localStorage.setItem('portal-authenticated','true');localStorage.setItem('levants-dairy-cart',JSON.stringify({items:[{quantity:1,product:{id:'milk',name:'Whole milk',price,images:[],category:'Milk',stockStatus:'in-stock'},variant:{id:'milk-1',name:'1L',price,stockQuantity:30}}],deals:[]}));},state.price);
  await page.route('**/api/**',async route=>{
   const path=new URL(route.request().url()).pathname;
   if(!path.startsWith('/api/'))return route.continue();
@@ -16,6 +16,7 @@ async function setup(page:Page,state:State){
    return route.fulfill({json:{success:true,data:{subtotal,discountAmount:0,deliveryFee:eligible?0:1,total:subtotal+(eligible?0:1),items:[{variantId:'milk-1',price:state.price}],campaign:eligible?{id:'free',name:'Delivery offer',kind:'free_delivery',applicationMode:'automatic',code:null,endsAt:null,minimumBasketValue:state.minimum}:null}}});
   }
   if(path==='/api/products')return route.fulfill({json:{success:true,data:{items:[]},meta:{total:0,page:1,totalPages:1,categories:[]}}});
+  if(path==='/api/portal/auth/me')return route.fulfill({json:{success:true,data:{customer:{_id:'customer',firstName:'Test',lastName:'Customer',email:'test@example.com',creditBalance:0,addresses:[{line1:'1 Test Street',city:'Bradford',postcode:'BD1 1AA',country:'GB',isDefault:true}]}}}});
   if(path.includes('/auth/'))return route.fulfill({status:401,json:{success:false}});
   if(path==='/api/delivery/check')return route.fulfill({json:{success:true,data:{deliverable:true,message:'We deliver to your area.'}}});
   return route.fulfill({json:{success:true,data:{}}});
@@ -44,8 +45,8 @@ for(const width of [390,1440]){
   const state:State={offers:[],minimum:10,price:10};await page.setViewportSize({width,height:1000});await setup(page,state);await page.goto('/shop');await page.getByRole('button',{name:'Cart',exact:true}).click();
   await expect(page.getByText('Free delivery when you spend £10 or more on products',{exact:true})).toBeVisible();await expect(page.getByTestId('promotion-summary')).toContainText('£0.00 delivery');
   await expect(page.getByText(/Add £.*more for free delivery/)).toHaveCount(0);
-  await page.goto('/checkout');await expect(page.getByTestId('promotion-summary')).toContainText('£10 or more');
-  state.minimum=15;await page.evaluate(()=>dispatchEvent(new Event('focus')));
+  await page.getByRole('link',{name:'Checkout Securely'}).click();await expect(page.getByTestId('promotion-summary')).toContainText('£10 or more');
+  state.minimum=15;await page.goto('/shop');await page.getByRole('button',{name:'Cart',exact:true}).click();
   await expect(page.getByText('Free delivery when you spend £15 or more on products',{exact:true})).toBeVisible();await expect(page.getByTestId('promotion-summary')).toHaveCount(0);
   state.minimum=0;await page.evaluate(()=>dispatchEvent(new Event('focus')));await expect(page.getByTestId('promotion-summary')).toContainText('£0.00 delivery');await expect(page.getByText('Free delivery',{exact:true})).toBeVisible();
   state.offline=true;await page.evaluate(()=>dispatchEvent(new Event('focus')));await expect(page.getByTestId('promotion-summary')).toHaveCount(0);await expect(page.getByRole('alert')).toContainText('temporarily unavailable');
