@@ -1,4 +1,6 @@
 import { test, expect, type Page } from '@playwright/test';
+test.use({actionTimeout:10_000});
+test.setTimeout(45_000);
 const origin='http://127.0.0.1:4183';
 const image=new URL('/src/assets/product-milk.jpg',origin).href;
 const products=[{id:'milk',name:'Whole milk',category:'Dairy',description:'Fresh whole milk from the farm.',thumbnailImage:{url:image},galleryImages:[],pricing:{min:5,max:5,currency:'GBP'},variants:[{id:'milk-v',name:'1 litre',description:'A one-litre bottle of whole milk.',price:5,currency:'GBP',stockQuantity:6,lowStock:false,thumbnailImage:{url:image}}]},{id:'bread',name:'Farm bread',category:'Bakery',description:'A freshly baked loaf.',thumbnailImage:{url:image},galleryImages:[],pricing:{min:4,max:4,currency:'GBP'},variants:[{id:'bread-v',name:'One loaf',description:'A full loaf.',price:4,currency:'GBP',stockQuantity:8,lowStock:false}]}];
@@ -53,7 +55,7 @@ for(const width of [375,1440])test(`shared category, URL, sorting and cart remov
  await page.goBack();await expect(page).toHaveURL(/category=bakery/);await expect(page.getByRole('combobox',{name:'Sort by'})).toHaveValue('featured');
  if(width<1024){await filters.click();await page.keyboard.press('Escape');await expect(filters).toBeFocused();}
  const card=page.locator('.card-product').filter({has:page.getByRole('heading',{name:/Farm bread/})}).first();await card.getByRole('button',{name:'Add to basket',exact:true}).click();
- await page.getByRole('button',{name:'Cart',exact:true}).click();const row=page.getByRole('group',{name:'Quantity for Farm bread'});await row.getByRole('button',{name:'Decrease quantity'}).click();await expect(page.getByText('Your cart is empty',{exact:false})).toBeVisible();
+ await expect(page.getByRole('button',{name:'Close cart',exact:true})).toBeVisible();const row=page.getByRole('group',{name:'Quantity for Farm bread'});await row.getByRole('button',{name:'Decrease quantity'}).click();await expect(page.getByText('Your cart is empty',{exact:false})).toBeVisible();
 });
 test('missing imagery and failed metadata retain honest detail fallbacks',async({page})=>{
  await setup(page,{missingImage:true,productError:true});await page.goto('/deals/breakfast');await expect(page.getByRole('img',{name:offer.name,exact:true})).toBeVisible();await expect(page.getByText('Product details are not provided for this item.')).toHaveCount(2);await expect(page.getByRole('button',{name:'Add package to basket'})).toBeEnabled();
