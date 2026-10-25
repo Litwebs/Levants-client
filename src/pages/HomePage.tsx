@@ -34,6 +34,7 @@ const HomePage: React.FC = () => {
   const subscriptionHref = isPortalLoggedIn()
     ? subscriptionPath
     : `/login?redirect=${encodeURIComponent(subscriptionPath)}`;
+  const [hasFeaturedDeals, setHasFeaturedDeals] = useState<boolean | null>(null);
   const [postcode, setPostcode] = useState("");
   const [checkingPostcode, setCheckingPostcode] = useState(false);
   const [postcodeResult, setPostcodeResult] = useState<{
@@ -223,7 +224,7 @@ const HomePage: React.FC = () => {
           />
           <div className="absolute inset-0 bg-gradient-to-r from-black/75 via-black/55 to-black/30" />
         </div>
-        <div data-testid="home-hero-layout" className="container-custom grid items-center gap-10 py-10 sm:py-14 lg:gap-10 lg:py-16 lg:grid-cols-[minmax(0,4.5fr)_minmax(0,7.5fr)]">
+        <div data-testid="home-hero-layout" className={cn("container-custom grid items-center gap-10 py-10 sm:py-14 lg:gap-10 lg:py-16", hasFeaturedDeals !== false && "lg:grid-cols-[minmax(0,4.5fr)_minmax(0,7.5fr)]")}>
           <div className="min-w-0 max-w-xl">
             <p className="mb-5 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-white/90">
               <Leaf className="h-4 w-4" aria-hidden="true" /> Fresh from the farm
@@ -308,7 +309,7 @@ const HomePage: React.FC = () => {
               </div>
             </div>
           </div>
-          <FeaturedDeals onImage />
+          <FeaturedDeals onImage onAvailabilityChange={setHasFeaturedDeals} />
         </div>
       </section>
 

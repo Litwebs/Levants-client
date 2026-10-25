@@ -1,3 +1,4 @@
+import { freeDeliveryTerms } from "@/lib/promotionCopy";
 import { useCart } from "@/context/CartContext";
 
 export function PromotionCodeInput() {
@@ -22,6 +23,6 @@ export default function PromotionSummary() {
   if (!promotion?.campaign) return null;
   return <div className="text-sm text-primary mb-3" data-testid="promotion-summary" role="status">
     <p className="font-medium">{promotion.campaign.name}</p>
-    <p>{promotion.campaign.kind === "free_delivery" ? "Free delivery applied — £0.00 delivery" : `Campaign saving −£${promotion.discountAmount.toFixed(2)}`}</p>
+    <p>{promotion.campaign.kind === "free_delivery" ? (promotion.deliveryFee === 0 ? `Free delivery applied — £0.00 delivery. ${freeDeliveryTerms(promotion.campaign.minimumBasketValue)}` : freeDeliveryTerms(promotion.campaign.minimumBasketValue)) : `Campaign saving −£${promotion.discountAmount.toFixed(2)}`}</p>
   </div>;
 }
