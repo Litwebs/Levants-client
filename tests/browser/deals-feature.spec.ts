@@ -65,7 +65,7 @@ test("package detail shows the full offer and one click expands its checkout qua
   await expect(page.getByText(featured.description, { exact: true })).toBeVisible();
   await expect(page.getByText("£10.00", { exact: true })).toBeVisible();
   await expect(page.getByText("£8.00", { exact: true })).toBeVisible();
-  await expect(page.getByText("You save £2.00", { exact: true })).toBeVisible();
+  await expect(page.getByText("You save £2.00 (20%)", { exact: true })).toBeVisible();
   const contents = page.getByRole("region", { name: "What's included" });
   await expect(contents.getByText("1 litre", { exact: true })).toBeVisible();
   await expect(contents.getByText("Qty 2", { exact: true })).toBeVisible();
