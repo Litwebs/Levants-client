@@ -605,6 +605,7 @@ const NewSubscriptionPage: React.FC = () => {
   const [newAddressError, setNewAddressError] = useState<string | null>(null);
   const [newAddressLoading, setNewAddressLoading] = useState(false);
   const [pricingQuote, setPricingQuote] = useState<SubscriptionPricingQuote | null>(null);
+  const [deferUnavailable, setDeferUnavailable] = useState(false);
   const [quoteLoading, setQuoteLoading] = useState(false);
   const [quoteError, setQuoteError] = useState<string | null>(null);
   const [quoteRevision, setQuoteRevision] = useState(0);
@@ -831,6 +832,7 @@ const NewSubscriptionPage: React.FC = () => {
               ? err.message
               : "Failed to initialize payment options.";
           setSubmitError(msg);
+      if (err instanceof ApiError && /stock|availab|quote|refresh/i.test(msg)) setQuoteRevision(value => value + 1);
           setSetupClientSecret(null);
         }
       } finally {
@@ -1280,7 +1282,7 @@ const NewSubscriptionPage: React.FC = () => {
   if (step === 4) { try { previewKey = JSON.stringify(buildSubscriptionPayload()); } catch { /* Incomplete drafts have no payable quote. */ } }
   useEffect(() => {
     let active = true;
-    setPricingQuote(null); setQuoteError(null);
+    setPricingQuote(null); setQuoteError(null); setDeferUnavailable(false);
     if (!previewKey) { setQuoteLoading(false); return; }
     setQuoteLoading(true);
     const timer = setTimeout(() => {
@@ -1295,7 +1297,8 @@ const NewSubscriptionPage: React.FC = () => {
 
   const completeSubscription = async () => {
     if (!pricingQuote || quoteLoading || quoteError) throw new Error("Please wait for a confirmed price before subscribing.");
-    const payload = { ...buildSubscriptionPayload(), pricingQuoteToken: pricingQuote.quoteToken };
+    if (pricingQuote.canCreate === false || (pricingQuote.stockDeferralAvailable && !deferUnavailable)) throw new Error("Review availability and confirm the stock-deferral policy before subscribing.");
+    const payload = { ...buildSubscriptionPayload(), pricingQuoteToken: pricingQuote.quoteToken, ...(pricingQuote.stockDeferralAvailable ? {deferUnavailable} : {}) };
     await portalSubscriptionsApi.create(payload);
     clearDraft();
     navigate("/portal/subscriptions");
@@ -1322,6 +1325,7 @@ const NewSubscriptionPage: React.FC = () => {
             ? err.message
             : "Failed to create subscription.";
       setSubmitError(msg);
+      if (err instanceof ApiError && /stock|availab|quote|refresh/i.test(msg)) setQuoteRevision(value => value + 1);
     } finally {
       setSubmitLoading(false);
     }
@@ -1348,6 +1352,7 @@ const NewSubscriptionPage: React.FC = () => {
             ? "Your card was saved, but we could not create the subscription. Please try again using the saved card."
             : "We could not save your payment method. Please check the card details and try again.";
       setSubmitError(msg);
+      if (err instanceof ApiError && /stock|availab|quote|refresh/i.test(msg)) setQuoteRevision(value => value + 1);
     } finally {
       setSubmitLoading(false);
     }
@@ -2180,6 +2185,9 @@ const NewSubscriptionPage: React.FC = () => {
                     </span>
                   </div>
                   {pricingQuote && <SubscriptionIntroOfferSummary quote={pricingQuote} />}
+                  {pricingQuote?.stockDeferralAvailable && <label className="flex gap-3 py-3 text-sm"><input type="checkbox" checked={deferUnavailable} onChange={event => setDeferUnavailable(event.target.checked)} className="h-5 w-5 shrink-0" />
+                    I agree to receive and pay for available products only. Unavailable items stay on my recurring plan for future consideration, without catch-up quantities. I will be notified of delivery changes.
+                  </label>}
                   {quoteLoading && <p role="status">Confirming your first payment and renewal price…</p>}
                   {quoteError && <div role="alert"><p>{quoteError}</p><Button variant="outline" onClick={() => setQuoteRevision(value => value + 1)}>Retry pricing</Button></div>}
 
@@ -2309,7 +2317,7 @@ const NewSubscriptionPage: React.FC = () => {
                         onError={setSubmitError}
                         onSetupExpired={refreshPaymentSetup}
                         submitLoading={submitLoading}
-                        disabled={quoteLoading || !pricingQuote || Boolean(quoteError)}
+                        disabled={quoteLoading || !pricingQuote || Boolean(quoteError) || pricingQuote.canCreate === false || (!!pricingQuote.stockDeferralAvailable && !deferUnavailable)}
                       />
                     </Elements>
                   ) : null}
@@ -2358,7 +2366,7 @@ const NewSubscriptionPage: React.FC = () => {
               <Button
                 data-tour="builder-confirm"
                 onClick={() => void handleCreateSubscription()}
-                disabled={submitLoading || showNewForm || !selectedMethodId || quoteLoading || !pricingQuote || Boolean(quoteError)}
+                disabled={submitLoading || showNewForm || !selectedMethodId || quoteLoading || !pricingQuote || Boolean(quoteError) || pricingQuote.canCreate === false || (!!pricingQuote.stockDeferralAvailable && !deferUnavailable)}
               >
                 <Check className="h-4 w-4" />
                 {submitLoading ? "Creating..." : "Create Subscription"}

@@ -410,6 +410,7 @@ const SubscriptionDetailPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [stockConsent, setStockConsent] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [pauseResumeOn, setPauseResumeOn] = useState("");
   const [pauseRefundMethod, setPauseRefundMethod] =
@@ -1610,7 +1611,20 @@ const SubscriptionDetailPage: React.FC = () => {
               Started {formatDate(subscription.startDate)}
             </p>
             {subscription.status !== "cancelled" && <RecurringPriceNotice change={subscription.recurringPriceChange} />}
-            {subscription.introOffer && <p className="mt-2 text-sm text-muted-foreground">
+            {subscription.stockDeferralAvailable && <div className="rounded-lg border p-4 text-sm">
+            <h3 className="font-semibold">Unavailable recurring items</h3>
+            {subscription.stockDeferralEnabled ? <p>You pay for available products only. Unavailable items stay on your recurring plan for future consideration, without catch-up quantities. Funded deliveries keep their confirmed selection.</p> : <>
+              <p>Opt in to receive available products when some recurring items are unavailable. Missing items will not be charged and stay on your plan for a future eligible delivery. We will notify you; missed quantities do not accumulate. Already funded deliveries stay unchanged.</p>
+              <label className="my-3 flex gap-2"><input type="checkbox" checked={stockConsent} onChange={event => setStockConsent(event.target.checked)} />I agree to this policy for future unbilled deliveries.</label>
+              <Button variant="outline" disabled={!stockConsent || saving || subscription.status !== "active"} onClick={async () => {
+                setSaving(true);
+                try { await portalSubscriptionsApi.enableStockDeferral(subscription._id); await load(true); setNotice("Availability policy saved for future unbilled deliveries."); }
+                catch (error) { setNotice(error instanceof Error ? error.message : "Could not save availability policy"); }
+                finally { setSaving(false); }
+              }}>Enable availability policy</Button>
+            </>}
+          </div>}
+          {subscription.introOffer && <p className="mt-2 text-sm text-muted-foreground">
               First payment: {formatMoney(subscription.introOffer.firstChargeMinor / 100)}, including {formatMoney(subscription.introOffer.discountMinor / 100)} introductory savings. Future payments use normal recurring prices.
             </p>}
           </div>
@@ -2492,6 +2506,10 @@ const SubscriptionDetailPage: React.FC = () => {
                           }} />
                       </div>
 
+                      {delivery.stockAvailability && delivery.stockAvailability.deferred.length > 0 && <div className="px-3 pb-3 text-sm" role="status">
+                        <p>Unavailable: {delivery.stockAvailability.deferred.map(item => `${item.name} ×${item.quantity}`).join(", ")}. {formatMoney(delivery.stockAvailability.notChargedMinor / 100)} not charged.</p>
+                        <p>These items remain on your recurring plan for a future eligible delivery when stock is available. No catch-up quantities.</p>
+                      </div>}
                       {isExpanded && (
                         <div
                           id={detailsId}

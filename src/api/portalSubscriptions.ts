@@ -34,6 +34,8 @@ export type PortalSubscriptionItem = {
 };
 
 export type PortalSubscription = {
+  stockDeferralEnabled?: boolean;
+  stockDeferralAvailable?: boolean;
   recurringPriceChange?: {
     status: "queued" | "provider_pending" | "applied";
     previousAmountMinor: number;
@@ -99,6 +101,7 @@ export type PortalSubscription = {
 };
 
 export type PortalSubscriptionDelivery = {
+  stockAvailability?: { deferred: Array<{name: string; quantity: number}>; notChargedMinor: number; amountMinor: number } | null;
   _id: string;
   scheduledDate: string;
   status: string;
@@ -240,6 +243,7 @@ type DeliveryAddOnResponse = {
 export type CreateSubscriptionPayload = {
   operationId?: string;
   pricingQuoteToken?: string;
+  deferUnavailable?: boolean;
   frequency: PortalSubscriptionFrequency;
   preferredDeliveryDay?: number;
   preferredDeliveryDays?: number[];
@@ -256,6 +260,7 @@ export type CreateSubscriptionPayload = {
 const base = "/portal/subscriptions";
 
 export const portalSubscriptionsApi = {
+  enableStockDeferral: (id: string) => api.post<ApiEnvelope<{subscription: PortalSubscription}>>(`${base}/${id}/stock-deferral`, {accept: true, operationId: crypto.randomUUID()}),
   getDeliveryReduction: (subscriptionId: string, deliveryId: string) =>
     api.get<ApiEnvelope<DeliveryReductionQuote>>(`${base}/${subscriptionId}/deliveries/${deliveryId}/one-time-change`),
 
