@@ -84,7 +84,7 @@ test("package detail shows the full offer and one click expands its checkout qua
 });
 
 for (const width of [390, 1440]) {
-  test(`homepage keeps its loading height with no featured deals at ${width}px`, async ({ page }) => {
+  test(`homepage collapses its empty featured column after loading at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 1000 });
     await api(page, [ordinary]);
     let release!: () => void;
@@ -93,11 +93,11 @@ for (const width of [390, 1440]) {
     await page.goto("/");
     const hero = page.locator('section[aria-labelledby="home-heading"]');
     await expect(hero.getByRole("status", { name: "Loading deals" })).toBeVisible();
-    const loadingHeight = (await hero.boundingBox())!.height;
     release();
     await expect(hero.getByRole("heading", { name: "Featured Deals", exact: true })).toHaveCount(0);
     await expect(hero.getByRole("status", { name: "Loading deals" })).toHaveCount(0);
-    expect(Math.abs((await hero.boundingBox())!.height - loadingHeight)).toBeLessThanOrEqual(1);
+    await expect(page.getByTestId("home-hero-layout")).not.toHaveClass(/lg:grid-cols-/);
+    expect(await page.getByTestId("home-hero-layout").evaluate(el => el.children.length)).toBe(1);
     await expect(hero.locator("img")).toHaveCount(1);
     await page.screenshot({ path: `test-results/home-no-featured-${width}.png` });
   });

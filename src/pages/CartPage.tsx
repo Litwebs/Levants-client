@@ -206,11 +206,6 @@ const CartPage: React.FC = () => {
                     )}
                   </span>
                 </div>
-                {deliveryFee > 0 && subtotal < 25 && (
-                  <p className="text-xs text-muted-foreground">
-                    Add £{(25 - subtotal).toFixed(2)} more for free delivery
-                  </p>
-                )}
                 <div className="border-t border-border pt-3 flex justify-between font-semibold text-lg">
                   <span>Total</span>
                   <span>£{total.toFixed(2)}</span>

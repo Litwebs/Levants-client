@@ -7,7 +7,7 @@ export type PromotionQuote = {
   deliveryFee: number;
   total: number;
   campaign: { id: string; name: string; kind: "percent" | "amount" | "free_delivery";
-    applicationMode: "code" | "automatic"; code: string | null; endsAt: string | null } | null;
+    minimumBasketValue?: number; applicationMode: "code" | "automatic"; code: string | null; endsAt: string | null } | null;
 };
 
 export async function quotePromotions(payload: {

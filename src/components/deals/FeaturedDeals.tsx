@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ArrowRight } from "lucide-react";
 import { Link } from "react-router-dom";
 import { listDeals, type Deal } from "@/api/deals";
@@ -34,14 +34,20 @@ export default function FeaturedDeals({ onImage = false, onAvailabilityChange }:
   const [revealed, setRevealed] = useState(false);
   const [showSkeleton, setShowSkeleton] = useState(true);
 
+  const availabilityCallback = useRef(onAvailabilityChange);
+  useEffect(() => { availabilityCallback.current = onAvailabilityChange; }, [onAvailabilityChange]);
+
   useEffect(() => {
     let active = true;
+    let generation = 0;
+    let expiryTimer: number | undefined;
     const startedAt = performance.now();
     const load = async () => {
+      const request = ++generation;
       let nextDeals: Deal[] = [];
       try {
         const response = await listDeals({ page: 1, pageSize: 12, featured: true });
-        nextDeals = response.deals.filter(deal => deal.isFeatured);
+        nextDeals = response.deals.filter(deal => deal.isFeatured && deal.maxPackages > 0 && (!deal.endsAt || new Date(deal.endsAt).getTime() > Date.now()) && (!deal.startsAt || new Date(deal.startsAt).getTime() <= Date.now()));
       } catch {
         // Hide the collection when offers cannot be loaded.
       }
@@ -53,16 +59,20 @@ export default function FeaturedDeals({ onImage = false, onAvailabilityChange }:
         }),
       ]);
 
-      if (!active) return;
-      onAvailabilityChange?.(nextDeals.length > 0);
+      if (!active || request !== generation) return;
+      window.clearTimeout(expiryTimer);
+      const endings = nextDeals.map(d => d.endsAt ? new Date(d.endsAt).getTime() : Infinity).filter(Number.isFinite);
+      if (endings.length) expiryTimer = window.setTimeout(() => { void load(); }, Math.min(Math.max(0, Math.min(...endings) - Date.now() + 10), 2_147_483_647));
+      availabilityCallback.current?.(nextDeals.length > 0);
       setDeals(nextDeals);
       setLoading(false);
     };
     void load();
-    return () => {
-      active = false;
-    };
-  }, [onAvailabilityChange]);
+    const refresh = () => { void load(); };
+    window.addEventListener("focus", refresh);
+    const interval = window.setInterval(refresh, 60_000);
+    return () => { active = false; window.clearTimeout(expiryTimer); window.clearInterval(interval); window.removeEventListener("focus", refresh); };
+  }, []);
 
   useEffect(() => {
     if (loading || deals.length === 0) return;
@@ -74,14 +84,7 @@ export default function FeaturedDeals({ onImage = false, onAvailabilityChange }:
     };
   }, [loading, deals.length]);
 
-  if (!loading && deals.length === 0) {
-    return onImage ? (
-      <div aria-hidden="true" className="invisible min-w-0 pointer-events-none">
-        <div className="mb-3 h-11" />
-        <DealsSkeleton home />
-      </div>
-    ) : null;
-  }
+  if (!loading && deals.length === 0) return null;
 
   return (
     <section
