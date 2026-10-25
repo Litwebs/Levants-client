@@ -1,0 +1,23 @@
+name: Verified branch cleanup
+on:
+  push:
+    branches: [maintenance/branch-cleanup-20261025]
+permissions:
+  contents: write
+  pull-requests: read
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Remove only verified inactive branch heads
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 maintenance/branch_cleanup.py maintenance/branch-cleanup-plan.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: branch-cleanup-report
+          path: branch-cleanup-report.json
+          if-no-files-found: warn

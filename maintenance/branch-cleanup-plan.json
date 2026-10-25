@@ -1,0 +1,44 @@
+{
+  "repository": "Litwebs/Levants-client",
+  "expected_uat": "2aa05b5bcd4ae4b2bbae8daa73938b7042c2e02c",
+  "preserve": [
+    "main",
+    "uat",
+    "gh-pages",
+    "fix/ci-speed"
+  ],
+  "branches": [
+    {
+      "name": "feat/deals",
+      "sha": "df9df49baa283e856824f1f38810d13e63b962b7"
+    },
+    {
+      "name": "feat/24-shared-catalog-controls",
+      "sha": "79f60103dffad0216311d78b4dc5e12b90865e86"
+    },
+    {
+      "name": "feat/81-82-subscription-deferrals-discount-archive",
+      "sha": "456b8c267e906c0a921fad43e1a16457dea9b527"
+    },
+    {
+      "name": "feature/one-time-order-checkout-fix",
+      "sha": "cf3ff965a3f0b46148d199fe7c47085588ab692b"
+    },
+    {
+      "name": "feature/subscription-guide",
+      "sha": "58c5ac32fe6670500d70f3848b209cf9c61e30ed"
+    },
+    {
+      "name": "fix/31-32-promotion-copy-empty-hero",
+      "sha": "7140c7c3c4f0f0081fc3326428759707caceb2fb"
+    },
+    {
+      "name": "fix/79-subscription-intro-discount",
+      "sha": "1d72674ea4d41417676e1a82b90d09dd8c4b6e29"
+    },
+    {
+      "name": "fix/80-subscription-price-propagation",
+      "sha": "9f2664eec4b4aaaf8f584eea0260cb58575b846a"
+    }
+  ]
+}
