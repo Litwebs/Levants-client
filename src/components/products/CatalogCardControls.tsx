@@ -1,5 +1,6 @@
 import * as React from "react";
 import { ShoppingBag } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 interface BasketButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
@@ -9,19 +10,20 @@ interface BasketButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement
 
 export const BasketButton = React.forwardRef<HTMLButtonElement, BasketButtonProps>(
   ({ compact = false, icon, children, className, type = "button", ...props }, ref) => (
-    <button
+    <Button
       {...props}
       ref={ref}
       type={type}
+      size="touch"
       className={cn(
-        "btn-primary inline-flex min-w-0 items-center justify-center gap-2 overflow-hidden rounded-xl px-3 py-0 text-sm disabled:cursor-not-allowed disabled:opacity-50",
-        compact ? "h-9" : "h-10",
+        "min-w-0 overflow-hidden px-3 text-sm disabled:cursor-not-allowed",
+        compact ? "text-xs sm:text-sm" : "text-sm",
         className,
       )}
     >
       {icon ?? <ShoppingBag aria-hidden="true" className="h-4 w-4 shrink-0" />}
       <span className="truncate">{children}</span>
-    </button>
+    </Button>
   ),
 );
 BasketButton.displayName = "BasketButton";

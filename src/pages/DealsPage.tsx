@@ -71,6 +71,7 @@ const DealsPage = () => {
         originalPriceLabel: value.original ?? undefined,
         maxQuantity: Math.max(1, available - inBasket),
         actionDisabled: !value.validPrice,
+        imageFit: "contain",
       },
     };
   }), [basketDeals, deals]);
@@ -98,14 +99,6 @@ const DealsPage = () => {
         return (
           <div className="space-y-2 text-xs text-muted-foreground">
             {value.saving && <p className="font-medium text-primary">Save {value.saving}</p>}
-            <p>{deal.items.length} product{deal.items.length === 1 ? "" : "s"} included</p>
-            <ul className="space-y-1">
-              {deal.items.map((item) => (
-                <li key={item.variantId} className="break-words">
-                  {item.product.name} · {item.variant.name} × {item.quantity}
-                </li>
-              ))}
-            </ul>
             {quantity > 0 && <p aria-live="polite">{quantity} in your basket</p>}
           </div>
         );

@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Package } from "lucide-react";
+import DealImage from "@/components/deals/DealImage";
+import { Select } from "@/components/common/FormControls";
 import { Product, ProductVariant } from "@/data/products";
 import QuantityStepper from "@/components/ui/QuantityStepper";
 import { resolveImageUrl } from "@/api/client";
@@ -25,6 +26,7 @@ export interface ProductCardProps {
   maxQuantity?: number;
   actionDisabled?: boolean;
   compactControls?: boolean;
+  imageFit?: "contain" | "cover";
   afterActionContent?: (params: {
     product: Product;
     variant: ProductVariant | undefined;
@@ -47,10 +49,10 @@ const ProductCard: React.FC<ProductCardProps> = ({
   maxQuantity = 99,
   actionDisabled = false,
   compactControls = false,
+  imageFit = "cover",
 }) => {
   const navigate = useNavigate();
   const [quantity, setQuantity] = useState(1);
-  const [failedImage, setFailedImage] = useState<string>();
   const safeQuantity = Math.min(quantity, Math.max(1, maxQuantity));
 
   const initialVariant = useMemo<ProductVariant | undefined>(() => {
@@ -158,18 +160,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
       <Link to={productLink} className="block">
         {/* Image Container */}
         <div className="relative aspect-square overflow-hidden bg-muted">
-          {displayImage && failedImage !== displayImage ? (
-            <img
-              src={displayImage}
-              alt={displayTitle}
-              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-              onError={() => setFailedImage(displayImage)}
-            />
-          ) : (
-            <div role="img" aria-label={displayTitle} className="flex h-full items-center justify-center text-primary/40">
-              <Package className="h-10 w-10" aria-hidden="true" />
-            </div>
-          )}
+          <DealImage src={displayImage} alt={displayTitle} className={imageFit === "contain" ? "h-full w-full object-contain p-4" : "h-full w-full object-cover"} />
           {/* Badges */}
           {product.badges.length > 0 && (
             <div className="absolute top-3 left-3 flex flex-wrap gap-1.5">
@@ -229,29 +220,14 @@ const ProductCard: React.FC<ProductCardProps> = ({
           product.variants &&
           product.variants.length > 1 && (
             <div className="mb-3">
-              <select
-                value={selectedVariant?.id || ""}
-                onChange={(e) => {
-                  const variant = product.variants?.find(
-                    (v) => v.id === e.target.value,
-                  );
-                  setSelectedVariant(variant);
-                }}
-                className="w-full input-field text-sm py-2"
-              >
-                {product.variants.map((variant) => (
-                  <option key={variant.id} value={variant.id}>
-                    {variant.name} - £{variant.price.toFixed(2)}
-                  </option>
-                ))}
-              </select>
+              <Select aria-label={`Variant for ${product.name}`} value={selectedVariant?.id || ""} onChange={value => setSelectedVariant(product.variants?.find(variant => variant.id === value))} options={product.variants.map(variant => ({value: variant.id, label: `${variant.name} - £${variant.price.toFixed(2)}`}))} />
             </div>
           )}
 
         {/* Quantity and action button */}
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           {!hideQuantityStepper && (
-            <div className={compactControls ? "shrink-0 [&>div]:h-9" : "shrink-0 [&>div]:h-10"}>
+            <div className="shrink-0">
               <QuantityStepper
                 quantity={safeQuantity}
                 onQuantityChange={setQuantity}
@@ -264,7 +240,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
             onClick={handleAction}
             disabled={actionDisabled || currentStockStatus === "out-of-stock"}
             compact={compactControls}
-            className={`flex-1 ${actionClassName || ""}`}
+            className={`min-w-[9rem] flex-1 ${actionClassName || ""}`}
           >
             {actionLabel || "Subscribe"}
           </BasketButton>

@@ -1,3 +1,4 @@
+vi.mock("@/api/catalogProducts", () => ({ getProductPresentation: vi.fn(async () => null) }));
 import {
   act,
   cleanup,
@@ -112,7 +113,7 @@ describe("honest deal pricing", () => {
 });
 
 describe("featured package contents", () => {
-  test("shows every product, variant, quantity and image in the featured panel", () => {
+  test("keeps individual product contents off the featured panel", () => {
     const items = Array.from({ length: 6 }, (_, index) => ({
       variantId: `variant-${index}`,
       quantity: index + 1,
@@ -135,14 +136,9 @@ describe("featured package contents", () => {
     const view = mount(
       <DealCard deal={{ ...deal, items }} variant="featured" />,
     );
-    expect(screen.getAllByRole("listitem")).toHaveLength(6);
-    expect(screen.getAllByRole("listitem")[5].getAttribute("title")).toBe("Product 5 · 250 g · Quantity 6");
-    expect(view.container.querySelector("img")?.getAttribute("src")).toBe(
-      "variant.jpg",
-    );
-    expect(view.container.querySelectorAll("img")[1].getAttribute("src")).toBe(
-      "product.jpg",
-    );
+    expect(screen.queryAllByRole("listitem")).toHaveLength(0);
+    expect(screen.queryByText("Product 5")).toBeNull();
+    expect(screen.queryByText("What’s included")).toBeNull();
     fireEvent.click(
       screen.getByRole("button", { name: "Add package to basket" }),
     );

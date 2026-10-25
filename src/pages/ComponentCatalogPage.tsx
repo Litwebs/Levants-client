@@ -1,3 +1,8 @@
+import QuantityStepper from "@/components/ui/QuantityStepper";
+import { CategoryFilterOptions, CatalogSortSelect } from "@/components/products/CatalogFilters";
+import { BasketButton } from "@/components/products/CatalogCardControls";
+import DealImage from "@/components/deals/DealImage";
+import catalogImage from "@/assets/product-milk.jpg";
 import { useMemo, useState } from "react";
 import { AlertCircle, ArrowLeft, Check, Mail, Search, Sparkles } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -182,7 +187,16 @@ function TabsStory() {
   );
 }
 
+function CatalogControlsStory() {
+  const [selected, setSelected] = useState<string[]>([]);
+  const [sort, setSort] = useState("featured");
+  const [quantity, setQuantity] = useState(1);
+  const [preview, setPreview] = useState("");
+  return <StoryFrame><div className="grid gap-6 md:grid-cols-2"><div><h4 className="mb-3 font-medium">Shared catalog controls</h4><CategoryFilterOptions categories={[{slug:"milk",name:"Milk"},{slug:"bread",name:"Bread"}]} selected={selected} onToggle={slug => setSelected(values => values.includes(slug) ? values.filter(v => v !== slug) : [...values, slug])} /><div className="my-4"><CatalogSortSelect value={sort} onChange={setSort} /></div><QuantityStepper quantity={quantity} onQuantityChange={setQuantity} max={3} label="Preview quantity" /><p className="mt-2 text-xs text-muted-foreground">Bounded to three for this development preview.</p><BasketButton className="mt-4" onClick={() => setPreview(`Preview action for ${quantity} items. No basket or API changes.`)}>Preview basket action</BasketButton><p aria-live="polite" className="mt-2 text-sm">{preview}</p></div><div><h4 className="mb-3 font-medium">Contained media and explicit fallback</h4><div className="grid grid-cols-2 gap-3"><DealImage src={catalogImage} alt="Development product image preview" className="aspect-square w-full rounded-xl bg-secondary object-contain p-3" /><DealImage alt="Image not supplied preview" className="aspect-square w-full rounded-xl bg-secondary" /></div><div className="mt-4 flex flex-wrap gap-2"><Button size="touch">44px touch action</Button><Button size="quantity" variant="outline" aria-label="Example quantity action">+</Button></div></div></div></StoryFrame>;
+}
+
 const entries: Entry[] = [
+  { id: "catalog-controls", title: "Catalog controls & media", category: "Actions", description: "The actual Shop/Deals filters, bounded quantities, basket-button adapter and contained imagery. Props configure this development preview; no admin styling API is implied.", component: CatalogControlsStory },
   { id: "input", title: "Input", category: "Forms", description: "Labeled text entry with size, icons, hints, errors, and native input behavior.", component: InputStory },
   { id: "select", title: "Select", category: "Forms", description: "Native select with the same field treatment and value-based change callback.", component: SelectStory },
   { id: "textarea", title: "Textarea", category: "Forms", description: "Multiline field with shared labels, hints, errors, and focus state.", component: TextareaStory },

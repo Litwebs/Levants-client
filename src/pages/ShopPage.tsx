@@ -5,6 +5,9 @@ import React, {
   useCallback,
   useRef,
 } from "react";
+import { Button } from "@/components/ui/button";
+import { CategoryFilterOptions, CatalogSortSelect } from "@/components/products/CatalogFilters";
+import { Sheet, SheetContent, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Link, useSearchParams } from "react-router-dom";
 import {
   Filter,
@@ -51,7 +54,7 @@ export interface ShopCatalogItem {
   product: Product;
   categories?: string[];
   lockedVariantId?: string;
-  cardProps?: Pick<ProductCardProps, "linkTo" | "priceLabel" | "originalPriceLabel" | "maxQuantity" | "actionDisabled">;
+  cardProps?: Pick<ProductCardProps, "linkTo" | "priceLabel" | "originalPriceLabel" | "maxQuantity" | "actionDisabled" | "imageFit">;
 }
 
 interface ShopPageProps {
@@ -113,6 +116,7 @@ const ShopPage: React.FC<ShopPageProps> = ({
 }) => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const filterTrigger = useRef<HTMLButtonElement>(null);
   const { products, meta, loading: productsLoading, error: productsError, fetchProducts } = useProducts();
   const loading = catalog?.loading ?? productsLoading;
   const error = catalog?.error ?? productsError;
@@ -472,44 +476,28 @@ const ShopPage: React.FC<ShopPageProps> = ({
                 <h3 className="font-medium mb-4 flex items-center gap-2">
                   <Filter className="w-4 h-4" /> Categories
                 </h3>
-                <div className="space-y-2">
-                  {categories.map((category) => (
-                    <label
-                      key={category.slug}
-                      className="flex items-center gap-3 cursor-pointer group"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={selectedCategories.includes(category.slug)}
-                        onChange={() => toggleCategory(category.slug)}
-                        className="w-4 h-4 rounded border-border text-primary focus:ring-primary"
-                      />
-                      <span className="text-sm group-hover:text-primary transition-colors capitalize">
-                        {category.name}
-                      </span>
-                    </label>
-                  ))}
-                </div>
+                <CategoryFilterOptions categories={categories} selected={selectedCategories} onToggle={toggleCategory} />
               </div>
 
               {(selectedCategories.length > 0 || sortBy !== "featured") && (
-                <button
+                <Button
                   onClick={clearFilters}
-                  className="text-sm text-primary hover:underline flex items-center gap-1"
+                  variant="ghost" size="touch" className="text-primary"
                 >
                   <X className="w-4 h-4" /> Clear all filters
-                </button>
+                </Button>
               )}
             </div>
           </aside>
 
           {/* Main Content */}
-          <div className="flex-1">
+          <div className="min-w-0 flex-1">
             {/* Mobile Filter Bar */}
             <div className="lg:hidden flex items-center gap-3 mb-6">
-              <button
+              <Button
+                ref={filterTrigger}
                 onClick={() => setIsFilterOpen(true)}
-                className="flex-1 btn-outline flex items-center justify-center gap-2 py-2.5"
+                variant="outline" size="touch" className="flex-1"
               >
                 <SlidersHorizontal className="w-4 h-4" /> Filters
                 {selectedCategories.length > 0 && (
@@ -517,19 +505,9 @@ const ShopPage: React.FC<ShopPageProps> = ({
                     {selectedCategories.length}
                   </span>
                 )}
-              </button>
-              <div className="relative flex-1">
-                <select
-                  value={sortBy}
-                  onChange={(e) => handleSortChange(e.target.value)}
-                  className="w-full input-field py-2.5 pr-10 appearance-none cursor-pointer"
-                >
-                  <option value="featured">Category order</option>
-                  <option value="price-low">Price: Low to High</option>
-                  <option value="price-high">Price: High to Low</option>
-                  <option value="name">Name A-Z</option>
-                </select>
-                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+              </Button>
+              <div className="relative min-w-0 flex-1">
+                <CatalogSortSelect value={sortBy} onChange={handleSortChange} />
               </div>
             </div>
 
@@ -542,16 +520,7 @@ const ShopPage: React.FC<ShopPageProps> = ({
                 <span className="shrink-0 whitespace-nowrap text-sm text-muted-foreground">
                   Sort by:
                 </span>
-                <select
-                  value={sortBy}
-                  onChange={(e) => handleSortChange(e.target.value)}
-                  className="input-field py-2 pr-10 appearance-none cursor-pointer min-w-[180px]"
-                >
-                  <option value="featured">Category order</option>
-                  <option value="price-low">Price: Low to High</option>
-                  <option value="price-high">Price: High to Low</option>
-                  <option value="name">Name A-Z</option>
-                </select>
+                <CatalogSortSelect value={sortBy} onChange={handleSortChange} />
               </div>
             </div>
 
@@ -566,12 +535,12 @@ const ShopPage: React.FC<ShopPageProps> = ({
             {error && !loading && (
               <div role="alert" className="text-center py-16">
                 <p className="text-destructive mb-4">{error}</p>
-                <button
+                <Button
                   onClick={() => catalog ? catalog.retry() : fetchProducts({})}
-                  className="btn-outline"
+                  variant="outline" size="touch"
                 >
                   Retry
-                </button>
+                </Button>
               </div>
             )}
 
@@ -710,11 +679,11 @@ const ShopPage: React.FC<ShopPageProps> = ({
                 <p className="text-muted-foreground text-lg mb-4">
                   {catalog?.emptyMessage ?? "No products found matching your filters."}
                 </p>
-                <button onClick={clearFilters} className="btn-outline">
+                <Button onClick={clearFilters} variant="outline" size="touch">
                   Clear Filters
-                </button>
+                </Button>
                 {catalog && (
-                  <Link to="/shop" className="btn-outline ml-3">Browse all products</Link>
+                  <Button asChild variant="outline" size="touch" className="ml-3"><Link to="/shop">Browse all products</Link></Button>
                 )}
               </div>
             )}
@@ -722,59 +691,14 @@ const ShopPage: React.FC<ShopPageProps> = ({
         </div>
       </div>
 
-      {/* Mobile Filter Drawer */}
-      {isFilterOpen && (
-        <>
-          <div
-            className="fixed inset-0 bg-foreground/50 z-50 lg:hidden"
-            onClick={() => setIsFilterOpen(false)}
-          />
-          <div className="fixed left-0 top-0 h-full w-80 bg-card z-50 lg:hidden animate-slide-in-right p-6 overflow-y-auto">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="font-heading text-xl font-semibold">Filters</h2>
-              <button
-                onClick={() => setIsFilterOpen(false)}
-                className="p-2 -mr-2 text-muted-foreground hover:text-foreground"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <div className="mb-8">
-              <h3 className="font-medium mb-4">Categories</h3>
-              <div className="space-y-3">
-                {categories.map((category) => (
-                  <label
-                    key={category.slug}
-                    className="flex items-center gap-3 cursor-pointer"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={selectedCategories.includes(category.slug)}
-                      onChange={() => toggleCategory(category.slug)}
-                      className="w-5 h-5 rounded border-border text-primary focus:ring-primary"
-                    />
-                    <span className="capitalize">{category.name}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-            <div className="flex gap-3">
-              <button
-                onClick={clearFilters}
-                className="flex-1 btn-outline py-3"
-              >
-                Clear All
-              </button>
-              <button
-                onClick={() => setIsFilterOpen(false)}
-                className="flex-1 btn-primary py-3"
-              >
-                Apply
-              </button>
-            </div>
-          </div>
-        </>
-      )}
+      <Sheet open={isFilterOpen} onOpenChange={setIsFilterOpen}>
+        <SheetContent side="left" onCloseAutoFocus={event => { event.preventDefault();filterTrigger.current?.focus(); }} className="w-[min(22rem,100vw)] overflow-y-auto">
+          <SheetTitle className="font-heading text-xl">Filters</SheetTitle>
+          <SheetDescription className="mt-1">Choose the categories you want to browse.</SheetDescription>
+          <div className="my-6"><h3 className="mb-3 font-medium">Categories</h3><CategoryFilterOptions categories={categories} selected={selectedCategories} onToggle={toggleCategory} /></div>
+          <div className="flex gap-3"><Button type="button" variant="outline" size="touch" className="flex-1" onClick={clearFilters}>Clear All</Button><Button type="button" size="touch" className="flex-1" onClick={() => setIsFilterOpen(false)}>Apply</Button></div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 };
