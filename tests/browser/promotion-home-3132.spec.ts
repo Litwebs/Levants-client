@@ -6,6 +6,7 @@ async function setup(page:Page,state:State){
  await page.addInitScript(price=>{localStorage.setItem('levants-dairy-cart',JSON.stringify({items:[{quantity:1,product:{id:'milk',name:'Whole milk',price,images:[],category:'Milk',stockStatus:'in-stock'},variant:{id:'milk-1',name:'1L',price,stockQuantity:30}}],deals:[]}));},state.price);
  await page.route('**/api/**',async route=>{
   const path=new URL(route.request().url()).pathname;
+  if(!path.startsWith('/api/'))return route.continue();
   if(path==='/api/deals')return route.fulfill({status:state.dealError?503:200,json:{success:!state.dealError,data:{deals:state.offers},meta:{total:state.offers.length,page:1,totalPages:1}}});
   if(path==='/api/discounts/active')return route.fulfill({json:{success:true,data:{items:state.paused||state.offline?[]:[{code:'FREE',kind:'free_delivery',minimumBasketValue:state.minimum,variants:[]}]}}});
   if(path==='/api/discounts/quote'){
