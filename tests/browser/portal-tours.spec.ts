@@ -19,6 +19,17 @@ async function api(page: Page, options: { status?: string; empty?: boolean; cust
     if (path === "/portal/auth/me") return reply({ customer: { _id: options.customerId || "tour-customer", firstName: "Tour", lastName: "Customer", email: "tour@example.com", emailVerifiedAt: "2026-01-01", themePreference: "light", creditBalance: 500 } });
     // The existing Payments page prepares Stripe on load. This is not a tour action.
     if (path.endsWith("/setup-intent")) return route.fulfill({ status: 503, json: { success: false, message: "Secure form unavailable in this fixture" } });
+    // Pricing preview is a read-only POST; it does not create a subscription.
+    if (request.method() === "POST" && path === "/portal/subscriptions/preview") {
+      const body = request.postDataJSON();
+      const lines = body.deliveryDayPlans?.flatMap((plan: { items: Array<{ quantity: number }> }) => plan.items) || body.items || [];
+      const productsMinor = lines.reduce((sum: number, line: { quantity: number }) => sum + 200 * Number(line.quantity || 0), 0);
+      const deliveryMinor = 100 * Math.max(1, body.frequency === "weekly" ? body.preferredDeliveryDays?.length || 1 : 1);
+      return reply({ quote: { productsMinor, deliveryMinor, discountMinor: 0,
+        firstChargeMinor: productsMinor + deliveryMinor, renewalMinor: productsMinor + deliveryMinor,
+        percentOff: 0, eligible: false, quoteToken: "tour-read-only-preview",
+        nextPaymentDate: "2035-05-14T08:00:00.000Z", firstDeliveryDate: delivery.scheduledDate } });
+    }
     if (request.method() !== "GET") { writes.push(`${request.method()} ${path}`); return route.fulfill({ status: 400, json: { success: false, message: "Tours must not mutate account data" } }); }
     if (path === "/portal/addresses") return reply({ addresses: options.empty ? [] : [address] });
     if (path === "/portal/subscriptions/settings") return reply({ settings: { deliveryDays: [1, 4], cutoffDaysBefore: 2, cutoffTime: "18:00" } });
