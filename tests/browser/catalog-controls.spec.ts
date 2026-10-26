@@ -29,7 +29,7 @@ for(const width of [320,375,768,1024,1440])test(`shared catalog and illustrated 
  await page.setViewportSize({width,height:1000});await setup(page);await page.goto('/deals');
  const catalog=page.locator('#all-deals'),card=catalog.locator('.card-product').first();await expect(card.getByRole('heading',{name:offer.name})).toBeVisible();
  await expect(card.getByRole('listitem')).toHaveCount(0);await expect(card.getByText('Whole milk',{exact:true})).toHaveCount(0);
- expect(await card.locator('img').first().evaluate(el=>getComputedStyle(el).objectFit)).toBe('contain');
+ expect(await card.locator('img').first().evaluate(el=>getComputedStyle(el).objectFit)).toBe('cover');
  await expect(page.getByRole('combobox',{name:'Sort by'})).toBeVisible();
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
  await page.screenshot({path:info.outputPath(`deals-${width}.png`),fullPage:true,animations:'disabled'});
