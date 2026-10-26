@@ -8,20 +8,18 @@ import DealImage from '@/components/deals/DealImage';
 import DealContents from '@/components/deals/DealContents';
 import { dealPresentation } from '@/components/deals/dealPresentation';
 import { BasketButton } from '@/components/products/CatalogCardControls';
-import QuantityStepper from '@/components/ui/QuantityStepper';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 export default function DealDetailPage() {
   const { slug = '' } = useParams();
   const { addDeal, deals, openCart } = useCart();
   const [deal, setDeal] = useState<Deal | null>(null);
-  const [quantity, setQuantity] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const sequence = useRef(0);
   const load = useCallback(async () => {
     const request = ++sequence.current;
-    setLoading(true);setError('');setQuantity(1);
+    setLoading(true);setError('');
     try {
       const next = await getDeal(slug);
       if (request !== sequence.current) return;
@@ -37,11 +35,10 @@ export default function DealDetailPage() {
   const purchased = deals.find(entry => entry.deal.id === deal.id)?.quantity ?? 0;
   const soldOut = !Number.isFinite(deal.maxPackages) || deal.maxPackages <= 0 || Boolean(deal.endsAt && new Date(deal.endsAt).getTime() <= Date.now());
   const remaining = Math.max(0, Math.min(99, deal.maxPackages) - purchased);
-  const selected = Math.min(quantity, Math.max(1, remaining));
   const add = () => {
     if (soldOut || !value.validPrice) return;
     if (!remaining) { openCart();return; }
-    addDeal(deal, selected);toast.success(deal.name + ' added to your basket', { description: value.saving ? `Package deal · save ${value.saving}` : 'Package deal' });
+    addDeal(deal, 1);toast.success(deal.name + ' added to your basket', { description: value.saving ? `Package deal · save ${value.saving}` : 'Package deal' });
   };
   const ends = deal.endsAt ? new Date(deal.endsAt) : null;
   return <div className="min-h-screen bg-background"><div className="container-custom py-8 lg:py-12">
@@ -52,7 +49,6 @@ export default function DealDetailPage() {
         <h1 className="break-words font-heading text-3xl font-semibold leading-tight sm:text-4xl">{deal.name}</h1>
         {deal.description && <p className="mt-4 break-words leading-relaxed text-muted-foreground">{deal.description}</p>}
         <div className="my-6 rounded-2xl border border-border bg-card p-5"><div className="flex flex-wrap items-baseline gap-3"><span className="text-3xl font-semibold text-primary">{value.price}</span>{value.original && <span className="text-muted-foreground"><span className="sr-only">Original value </span><del>{value.original}</del></span>}</div>{value.saving && <p className="mt-2 font-medium text-primary">You save {value.saving}{value.percent !== null ? ` (${value.percent}%)` : ''}</p>}{ends && Number.isFinite(ends.getTime()) && <p className="mt-2 text-sm text-muted-foreground">Offer ends {ends.toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })}</p>}</div>
-        {!soldOut && remaining > 0 && <div className="mb-4"><p className="mb-2 text-sm font-medium">Packages</p><QuantityStepper quantity={selected} onQuantityChange={setQuantity} max={remaining} disabled={!value.validPrice} label="Package quantity" /></div>}
         <BasketButton onClick={add} disabled={soldOut || !value.validPrice} className="w-full sm:w-auto">{soldOut ? 'Currently unavailable' : !value.validPrice ? 'Price unavailable' : !remaining ? 'View basket' : 'Add package to basket'}</BasketButton>
         {!soldOut && <p aria-live="polite" className="mt-3 text-sm text-muted-foreground">{purchased > 0 ? `${purchased} in your basket · ` : ''}{remaining} package{remaining === 1 ? '' : 's'} available to add.</p>}
       </div>

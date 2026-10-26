@@ -178,6 +178,10 @@
     @apply bg-gold text-charcoal px-6 py-3 rounded-xl font-medium transition-all duration-200 hover:bg-gold-dark active:scale-[0.98];
   }
 
+  .checkout-button-md {
+    @apply inline-flex h-10 items-center justify-center gap-2 rounded-lg px-4 py-0 text-sm font-medium;
+  }
+
   /* Shared field surface for the catalog controls and existing native forms. */
   .form-control,
   .input-field {

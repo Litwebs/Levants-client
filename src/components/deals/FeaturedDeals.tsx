@@ -30,6 +30,7 @@ function waitForFirstImage(src?: string): Promise<void> {
 
 export default function FeaturedDeals({ onImage = false, onAvailabilityChange }: { onImage?: boolean; onAvailabilityChange?: (available: boolean) => void }) {
   const [deals, setDeals] = useState<Deal[]>([]);
+  const [loadingImage, setLoadingImage] = useState<string>();
   const [loading, setLoading] = useState(true);
   const [revealed, setRevealed] = useState(false);
   const [showSkeleton, setShowSkeleton] = useState(true);
@@ -51,6 +52,8 @@ export default function FeaturedDeals({ onImage = false, onAvailabilityChange }:
       } catch {
         // Hide the collection when offers cannot be loaded.
       }
+
+      if (active && request === generation) setLoadingImage(nextDeals[0]?.imageUrl);
 
       await Promise.all([
         waitForFirstImage(nextDeals[0]?.imageUrl),
@@ -117,7 +120,7 @@ export default function FeaturedDeals({ onImage = false, onAvailabilityChange }:
                 revealed && "opacity-0",
               )}
             >
-              <DealsSkeleton home />
+              <DealsSkeleton home imageSrc={loadingImage} />
             </div>
           )}
           {!loading && (

@@ -96,6 +96,7 @@ const ContactPage: React.FC = () => {
                     <div>
                       <Input
                         label="Your Name *"
+                        size="sm"
                         type="text"
                         name="name"
                         value={formData.name}
@@ -107,6 +108,7 @@ const ContactPage: React.FC = () => {
                     <div>
                       <Input
                         label="Email Address *"
+                        size="sm"
                         type="email"
                         name="email"
                         value={formData.email}
@@ -121,6 +123,7 @@ const ContactPage: React.FC = () => {
                     <div>
                       <Input
                         label="Phone Number"
+                        size="sm"
                         type="tel"
                         name="phone"
                         value={formData.phone}
@@ -131,6 +134,7 @@ const ContactPage: React.FC = () => {
                     <div>
                       <Select
                         label="Subject *"
+                        className="[&_select]:h-10"
                         name="subject"
                         value={formData.subject}
                         onChange={(subject) =>
@@ -164,7 +168,7 @@ const ContactPage: React.FC = () => {
 
                   <button
                     type="submit"
-                    className="btn-primary inline-flex items-center gap-2"
+                    className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
                     <Send className="w-4 h-4" />
                     Send Message

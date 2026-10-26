@@ -1,9 +1,8 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import DealImage from "@/components/deals/DealImage";
-import { Select } from "@/components/common/FormControls";
+import { CatalogSelect } from "@/components/common/CatalogSelect";
 import { Product, ProductVariant } from "@/data/products";
-import QuantityStepper from "@/components/ui/QuantityStepper";
 import { resolveImageUrl } from "@/api/client";
 import { isPortalLoggedIn } from "@/lib/portalAuth";
 import { BasketButton, SavingsTag } from "./CatalogCardControls";
@@ -26,6 +25,8 @@ export interface ProductCardProps {
   maxQuantity?: number;
   actionDisabled?: boolean;
   compactControls?: boolean;
+  controlSize?: "sm" | "md";
+  stackControls?: boolean;
   imageFit?: "contain" | "cover";
   afterActionContent?: (params: {
     product: Product;
@@ -40,20 +41,19 @@ const ProductCard: React.FC<ProductCardProps> = ({
   hideVariantSelector,
   actionLabel,
   onAction,
-  hideQuantityStepper,
   actionClassName,
   afterActionContent,
   linkTo,
   priceLabel,
   originalPriceLabel,
-  maxQuantity = 99,
   actionDisabled = false,
   compactControls = false,
+  controlSize = "sm",
+  stackControls = false,
   imageFit = "cover",
 }) => {
   const navigate = useNavigate();
-  const [quantity, setQuantity] = useState(1);
-  const safeQuantity = Math.min(quantity, Math.max(1, maxQuantity));
+  const safeQuantity = 1;
 
   const initialVariant = useMemo<ProductVariant | undefined>(() => {
     if (!product.variants?.length) return undefined;
@@ -220,27 +220,17 @@ const ProductCard: React.FC<ProductCardProps> = ({
           product.variants &&
           product.variants.length > 1 && (
             <div className="mb-3">
-              <Select aria-label={`Variant for ${product.name}`} value={selectedVariant?.id || ""} onChange={value => setSelectedVariant(product.variants?.find(variant => variant.id === value))} options={product.variants.map(variant => ({value: variant.id, label: `${variant.name} - £${variant.price.toFixed(2)}`}))} />
+              <CatalogSelect aria-label={`Variant for ${product.name}`} size={controlSize} value={selectedVariant?.id || ""} onChange={value => setSelectedVariant(product.variants?.find(variant => variant.id === value))} options={product.variants.map(variant => ({value: variant.id, label: `${variant.name} - £${variant.price.toFixed(2)}`}))} />
             </div>
           )}
 
-        {/* Quantity and action button */}
-        <div className="flex flex-wrap items-center gap-3">
-          {!hideQuantityStepper && (
-            <div className="shrink-0">
-              <QuantityStepper
-                quantity={safeQuantity}
-                onQuantityChange={setQuantity}
-                max={Math.max(1, maxQuantity)}
-                size="sm"
-              />
-            </div>
-          )}
+        {/* Add to basket */}
+        <div className={stackControls ? "flex flex-col gap-3" : "flex flex-wrap items-center gap-3"}>
           <BasketButton
             onClick={handleAction}
             disabled={actionDisabled || currentStockStatus === "out-of-stock"}
             compact={compactControls}
-            className={`min-w-[9rem] flex-1 ${actionClassName || ""}`}
+            className={`${stackControls ? "w-full" : "min-w-[9rem] flex-1"} ${actionClassName || ""}`}
           >
             {actionLabel || "Subscribe"}
           </BasketButton>

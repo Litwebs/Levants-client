@@ -29,7 +29,7 @@ for(const width of [320,375,768,1024,1440])test(`shared catalog and illustrated 
  await page.setViewportSize({width,height:1000});await setup(page);await page.goto('/deals');
  const catalog=page.locator('#all-deals'),card=catalog.locator('.card-product').first();await expect(card.getByRole('heading',{name:offer.name})).toBeVisible();
  await expect(card.getByRole('listitem')).toHaveCount(0);await expect(card.getByText('Whole milk',{exact:true})).toHaveCount(0);
- expect(await card.locator('img').first().evaluate(el=>getComputedStyle(el).objectFit)).toBe('contain');
+ expect(await card.locator('img').first().evaluate(el=>getComputedStyle(el).objectFit)).toBe('cover');
  await expect(page.getByRole('combobox',{name:'Sort by'})).toBeVisible();
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
  await page.screenshot({path:info.outputPath(`deals-${width}.png`),fullPage:true,animations:'disabled'});
@@ -37,8 +37,10 @@ for(const width of [320,375,768,1024,1440])test(`shared catalog and illustrated 
  const contents=page.getByRole('region',{name:"What's included"});await expect(contents.getByRole('listitem')).toHaveCount(2);await expect(contents.getByText('A one-litre bottle of whole milk.')).toBeVisible();await expect(contents.getByRole('img').first()).toBeVisible();
  await page.evaluate(()=>{document.documentElement.style.scrollBehavior='auto';scrollTo(0,0);});
  await page.screenshot({path:info.outputPath(`detail-${width}.png`),fullPage:true,animations:'disabled'});
- const quantity=page.getByRole('group',{name:'Package quantity'});await quantity.getByRole('button',{name:'Increase quantity'}).click();await quantity.getByRole('button',{name:'Increase quantity'}).click();await expect(quantity.getByRole('button',{name:'Increase quantity'})).toBeDisabled();
+ await expect(page.getByRole('group',{name:'Package quantity'})).toHaveCount(0);
  await page.getByRole('button',{name:'Add package to basket',exact:true}).click();
+ await expect.poll(()=>page.evaluate(()=>JSON.parse(localStorage.getItem('levants-dairy-cart')||'{}').deals?.[0]?.quantity)).toBe(1);
+ const quantity=page.getByRole('group',{name:`Quantity for ${offer.name}`});await quantity.getByRole('button',{name:'Increase package quantity'}).click();await quantity.getByRole('button',{name:'Increase package quantity'}).click();await expect(quantity.getByRole('button',{name:'Increase package quantity'})).toBeDisabled();
  await expect.poll(()=>page.evaluate(()=>JSON.parse(localStorage.getItem('levants-dairy-cart')||'{}').deals?.[0]?.quantity)).toBe(3);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
  await page.getByRole('button',{name:'Close cart',exact:true}).click();await expect(page.getByRole('button',{name:'Close cart',exact:true})).toHaveCount(0);

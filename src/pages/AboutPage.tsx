@@ -246,7 +246,7 @@ const AboutPage: React.FC = () => {
 
                 <Link
                   to={subscriptionHref}
-                  className="btn-primary mt-7 inline-flex w-full items-center justify-center gap-2 sm:w-auto"
+                  className="mt-7 inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:w-auto"
                 >
                   Set Up Your Subscription
                   <ArrowRight className="h-4 w-4" aria-hidden="true" />
@@ -299,7 +299,7 @@ const AboutPage: React.FC = () => {
             Experience the taste of freshness today and support local farms with
             every delivery.
           </p>
-          <Link to="/shop" className="btn-gold inline-flex items-center gap-2">
+          <Link to="/shop" className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-white px-4 text-sm font-medium text-primary transition-colors hover:bg-white/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-primary">
             Shop Our Products
             <ArrowRight className="w-4 h-4" />
           </Link>

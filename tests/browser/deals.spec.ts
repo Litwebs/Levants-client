@@ -336,13 +336,13 @@ test("package pricing, contents, basket persistence and navigation", async ({ pa
   await expect(card.getByText("Save 33%", { exact: true })).toBeVisible();
   await expect(card.locator("p").filter({ has: page.locator("del") })).toContainText("£10.00");
   await expect(card.locator("del")).toHaveText("£15.00");
-  await expect(card.getByText("Save £5.00", { exact: true })).toBeVisible();
+  await expect(card.getByText("Save £5.00", { exact: true })).toHaveCount(0);
   await expect(card.getByRole("listitem")).toHaveCount(0);
   await expect(card.getByText("Whole milk · 1 litre × 1", { exact: true })).toHaveCount(0);
   await card.getByRole("button", { name: "Add to basket", exact: true }).click();
   await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem("levants-dairy-cart") || "{}").deals?.[0]?.quantity)).toBe(1);
   await page.reload();
-  await expect(card.getByText("1 in your basket")).toBeVisible();
+  await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem("levants-dairy-cart") || "{}").deals?.[0]?.quantity)).toBe(1);
   await card.getByRole("button", { name: "Add to basket", exact: true }).click();
   await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem("levants-dairy-cart") || "{}").deals?.[0]?.quantity)).toBe(2);
   await page.goto("/");
