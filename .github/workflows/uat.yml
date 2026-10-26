@@ -18,6 +18,9 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
+      - name: Check subscription discount feedback and renewal wording
+        if: contains(github.event.head_commit.message, '[subscription-code-ui]')
+        run: npm run typecheck && npx vitest run tests/subscription-discount-feedback.test.tsx tests/subscription-intro-offer.test.tsx tests/subscription-stock-availability.test.tsx
       - run: npm run test:uat
       - name: Issue 67 focused payment-copy regressions
         run: node --test tests/issue67PaymentCopy.test.mjs
@@ -68,7 +71,7 @@ jobs:
           curl --fail --retry 3 https://uat.levantsdairy.co.uk/release.json > /tmp/deployed.json
           python3 -c 'import json,os; assert json.load(open("/tmp/deployed.json"))["sha"] == os.environ["RELEASE_SHA"]'
   basket-persistence:
-    name: Deployed basket persistence acceptance
+    name: Deployed basket and subscription review acceptance
     needs: deploy
     runs-on: ubuntu-latest
     # Match the exact Playwright version in package-lock.json.
@@ -89,7 +92,7 @@ jobs:
         run: |
           curl --fail --retry 3 https://uat.levantsdairy.co.uk/release.json > /tmp/basket-release.json
           node -e 'const fs=require("fs"); if(JSON.parse(fs.readFileSync("/tmp/basket-release.json","utf8")).sha !== process.env.EXPECTED_UAT_SHA) process.exit(1)'
-      - name: Verify UI-added baskets survive real UAT reloads
+      - name: Verify deployed baskets and subscription review feedback
         run: npx playwright test --config playwright.uat-basket.config.ts
       - uses: actions/upload-artifact@v4
         if: always()
@@ -98,5 +101,3 @@ jobs:
           path: |
             playwright-report/
             test-results/
-
-

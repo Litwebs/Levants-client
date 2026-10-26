@@ -6,7 +6,7 @@ const quote: SubscriptionPricingQuote = { productsMinor:2000,deliveryMinor:100,d
 test("shows concise saving and full-price renewal without repeating the first charge",()=>{
   render(<SubscriptionIntroOfferSummary quote={quote}/>);
   expect(screen.getByText("10% first payment offer")).toBeTruthy();expect(screen.getByText("−£2.00")).toBeTruthy();
-  expect(screen.getByText(/Then £21.00 per billing period from 01\/11\/2026/)).toBeTruthy();
+  expect(screen.getByText(/Next payment: 1 November 2026/)).toBeTruthy();
   expect(screen.queryByText(/First payment:/)).toBeNull();
 });
 test("fixed discount uses GBP without a zero-percent claim",()=>{
@@ -15,11 +15,17 @@ test("fixed discount uses GBP without a zero-percent claim",()=>{
 });
 test("ineligible customers see renewal without an offer",()=>{
   render(<SubscriptionIntroOfferSummary quote={{...quote,eligible:false,percentOff:0,discountMinor:0,firstChargeMinor:2100}}/>);
-  expect(screen.queryByText(/payment offer/)).toBeNull();expect(screen.getByText(/Then £21.00/)).toBeTruthy();
+  expect(screen.queryByText(/payment offer/)).toBeNull();expect(screen.getByText(/£21.00 per billing period/)).toBeTruthy();
 });
 test("subscription code clearly applies once and keeps the full renewal price visible",()=>{
   render(<SubscriptionIntroOfferSummary quote={{...quote,discountCode:"WELCOME-SUB"}}/>);
   expect(screen.getByText("WELCOME-SUB · first payment only")).toBeTruthy();
   expect(screen.getByText("−£2.00")).toBeTruthy();
-  expect(screen.getByText(/Then £21.00 per billing period/)).toBeTruthy();
+  expect(screen.getByText(/£21.00 per billing period/)).toBeTruthy();
+});
+
+test("weekly renewal shows the cadence and next payment date without implying a discount",()=>{
+ render(<SubscriptionIntroOfferSummary quote={{...quote,eligible:false,discountMinor:0}} frequency="weekly"/>);
+ expect(screen.getByText("£21.00 every week")).toBeTruthy();expect(screen.getByText("Next payment: 1 November 2026.")).toBeTruthy();
+ expect(screen.queryByText(/first-payment discount/)).toBeNull();
 });

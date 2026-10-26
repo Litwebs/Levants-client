@@ -18,6 +18,8 @@ import {
   portalPaymentsApi,
   type PortalPaymentMethod,
 } from "@/api/portalPayments";
+import SubscriptionDiscountCodeField from "@/portal/components/SubscriptionDiscountCodeField";
+import { subscriptionCodeRejection } from "@/portal/components/subscriptionCodeFeedback";
 import SubscriptionIntroOfferSummary, { type SubscriptionPricingQuote } from "@/portal/components/SubscriptionIntroOfferSummary";
 import ProductCard from "@/components/products/ProductCard";
 import ShopPage from "@/pages/ShopPage";
@@ -1300,6 +1302,8 @@ const NewSubscriptionPage: React.FC = () => {
     return () => { active = false; clearTimeout(timer); };
   }, [previewKey, quoteRevision]);
 
+  const codeRejection = discountCode ? subscriptionCodeRejection(quoteError) : null;
+
   const completeSubscription = async () => {
     if (!pricingQuote || quoteLoading || quoteError) throw new Error("Please wait for a confirmed price before subscribing.");
     if (pricingQuote.canCreate === false || (pricingQuote.stockDeferralAvailable && !deferUnavailable)) throw new Error("Review availability and confirm the stock-deferral policy before subscribing.");
@@ -2186,26 +2190,19 @@ const NewSubscriptionPage: React.FC = () => {
                       Total charged today
                     </span>
                     <span className="font-semibold text-foreground">
-                      {pricingQuote ? fmt(pricingQuote.firstChargeMinor / 100) : "Confirming price…"}
+                      {pricingQuote ? fmt(pricingQuote.firstChargeMinor / 100) : quoteError ? "Price not confirmed" : "Confirming price…"}
                     </span>
                   </div>
-                  <div className="space-y-2 py-3">
-                    <label htmlFor="subscription-discount-code" className="text-sm font-medium">Subscription discount code</label>
-                    <div className="flex gap-2">
-                      <Input id="subscription-discount-code" value={discountCodeDraft} maxLength={32}
-                        onChange={event => setDiscountCodeDraft(event.target.value.toUpperCase())} placeholder="Enter code" />
-                      <Button variant="outline" disabled={quoteLoading || discountCodeDraft.trim().length < 3}
-                        onClick={() => { setPricingQuote(null); setDiscountCode(discountCodeDraft.trim().toUpperCase()); setQuoteRevision(value => value + 1); }}>Apply</Button>
-                      {discountCode && <Button variant="outline" onClick={() => { setPricingQuote(null); setDiscountCode(""); setDiscountCodeDraft(""); }}>Remove</Button>}
-                    </div>
-                    <p className="text-sm text-muted-foreground">One use per first-time subscriber. Applies to products in your first billing payment only; later payments are full price. Does not combine with the introductory offer.</p>
-                  </div>
-                  {pricingQuote && <SubscriptionIntroOfferSummary quote={pricingQuote} />}
+                  <SubscriptionDiscountCodeField value={discountCodeDraft} appliedCode={discountCode} loading={quoteLoading} rejection={codeRejection}
+                    onChange={setDiscountCodeDraft}
+                    onApply={() => { setPricingQuote(null); setDiscountCode(discountCodeDraft.trim().toUpperCase()); setQuoteRevision(value => value + 1); }}
+                    onRemove={() => { setPricingQuote(null); setQuoteError(null); setDiscountCode(""); setDiscountCodeDraft(""); }} />
+                  {pricingQuote && <SubscriptionIntroOfferSummary quote={pricingQuote} frequency={frequency} />}
                   {pricingQuote?.stockDeferralAvailable && <label className="flex gap-3 py-3 text-sm"><input type="checkbox" checked={deferUnavailable} onChange={event => setDeferUnavailable(event.target.checked)} className="h-5 w-5 shrink-0" />
                     I agree to receive and pay for available products only. Unavailable items stay on my recurring plan for future consideration, without catch-up quantities. I will be notified of delivery changes.
                   </label>}
                   {quoteLoading && <p role="status">Confirming your first payment and renewal price…</p>}
-                  {quoteError && <div role="alert"><p>{quoteError}</p><Button variant="outline" onClick={() => setQuoteRevision(value => value + 1)}>Retry pricing</Button></div>}
+                  {quoteError && !codeRejection && <div role="alert" className="space-y-3 rounded-xl border border-destructive/30 bg-destructive/5 p-4"><p className="font-medium">We couldn’t confirm your price</p><p className="text-sm text-muted-foreground">{quoteError}</p><Button type="button" variant="outline" onClick={() => setQuoteRevision(value => value + 1)}>Retry pricing</Button></div>}
 
                 </div>
               </section>
@@ -2396,4 +2393,3 @@ const NewSubscriptionPage: React.FC = () => {
 };
 
 export default NewSubscriptionPage;
-

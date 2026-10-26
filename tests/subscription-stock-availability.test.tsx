@@ -6,12 +6,12 @@ const quote:SubscriptionPricingQuote={productsMinor:200,deliveryMinor:100,discou
 test("names missing goods and date, amount not charged, standing recurrence and no backlog",()=>{
  render(<Summary quote={quote}/>);expect(screen.getByText("Weekly bread ×1")).toBeTruthy();expect(screen.getByText(/Unavailable for 04\/11\/2026/)).toBeTruthy();
  expect(screen.getByText(/£3.00 will not be charged/).textContent).toContain("Missed quantities do not accumulate");
- expect(screen.getByText(/Then £6.00/).textContent).toContain("subject to availability");
+ expect(screen.getByText(/£6.00 per billing period/)).toBeTruthy();expect(screen.getByText(/future amounts may change/)).toBeTruthy();
 });
 test("all unavailable blocks misleading success with actionable explanation",()=>{
  render(<Summary quote={{...quote,canCreate:false}}/>);expect(screen.getByRole("alert").textContent).toContain("Adjust your selection");
  expect(screen.getByRole("alert").textContent).toContain("No payment will be taken");
 });
 test("legacy quotes show ordinary renewal without invented shortages",()=>{
- render(<Summary quote={{...quote,stockDeferralAvailable:false,availability:undefined}}/>);expect(screen.queryByText(/Unavailable for/)).toBeNull();expect(screen.getByText(/Then £6.00 per billing period from/)).toBeTruthy();
+ render(<Summary quote={{...quote,stockDeferralAvailable:false,availability:undefined}}/>);expect(screen.queryByText(/Unavailable for/)).toBeNull();expect(screen.getByText(/£6.00 per billing period/)).toBeTruthy();
 });
