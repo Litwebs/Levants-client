@@ -17,3 +17,9 @@ test("ineligible customers see renewal without an offer",()=>{
   render(<SubscriptionIntroOfferSummary quote={{...quote,eligible:false,percentOff:0,discountMinor:0,firstChargeMinor:2100}}/>);
   expect(screen.queryByText(/payment offer/)).toBeNull();expect(screen.getByText(/Then £21.00/)).toBeTruthy();
 });
+test("subscription code clearly applies once and keeps the full renewal price visible",()=>{
+  render(<SubscriptionIntroOfferSummary quote={{...quote,discountCode:"WELCOME-SUB"}}/>);
+  expect(screen.getByText("WELCOME-SUB · first payment only")).toBeTruthy();
+  expect(screen.getByText("−£2.00")).toBeTruthy();
+  expect(screen.getByText(/Then £21.00 per billing period/)).toBeTruthy();
+});

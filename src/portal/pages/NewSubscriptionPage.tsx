@@ -8,6 +8,7 @@ import {
   CreditCard,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { useAddresses } from "@/portal/context/AddressesContext";
 import { cn } from "@/lib/utils";
@@ -609,6 +610,8 @@ const NewSubscriptionPage: React.FC = () => {
   const [quoteLoading, setQuoteLoading] = useState(false);
   const [quoteError, setQuoteError] = useState<string | null>(null);
   const [quoteRevision, setQuoteRevision] = useState(0);
+  const [discountCodeDraft, setDiscountCodeDraft] = useState("");
+  const [discountCode, setDiscountCode] = useState("");
   const [submitLoading, setSubmitLoading] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
@@ -1249,6 +1252,7 @@ const NewSubscriptionPage: React.FC = () => {
       );
 
       return {
+        ...(discountCode ? { discountCode } : {}),
         frequency: frequencyToApi(frequency) as
           | "weekly"
           | "every_two_weeks"
@@ -1263,6 +1267,7 @@ const NewSubscriptionPage: React.FC = () => {
     }
 
     return {
+      ...(discountCode ? { discountCode } : {}),
       frequency: frequencyToApi(frequency) as
         | "weekly"
         | "every_two_weeks"
@@ -2184,6 +2189,17 @@ const NewSubscriptionPage: React.FC = () => {
                       {pricingQuote ? fmt(pricingQuote.firstChargeMinor / 100) : "Confirming price…"}
                     </span>
                   </div>
+                  <div className="space-y-2 py-3">
+                    <label htmlFor="subscription-discount-code" className="text-sm font-medium">Subscription discount code</label>
+                    <div className="flex gap-2">
+                      <Input id="subscription-discount-code" value={discountCodeDraft} maxLength={32}
+                        onChange={event => setDiscountCodeDraft(event.target.value.toUpperCase())} placeholder="Enter code" />
+                      <Button variant="outline" disabled={quoteLoading || discountCodeDraft.trim().length < 3}
+                        onClick={() => { setPricingQuote(null); setDiscountCode(discountCodeDraft.trim().toUpperCase()); setQuoteRevision(value => value + 1); }}>Apply</Button>
+                      {discountCode && <Button variant="outline" onClick={() => { setPricingQuote(null); setDiscountCode(""); setDiscountCodeDraft(""); }}>Remove</Button>}
+                    </div>
+                    <p className="text-sm text-muted-foreground">One use per first-time subscriber. Applies to products in your first billing payment only; later payments are full price. Does not combine with the introductory offer.</p>
+                  </div>
                   {pricingQuote && <SubscriptionIntroOfferSummary quote={pricingQuote} />}
                   {pricingQuote?.stockDeferralAvailable && <label className="flex gap-3 py-3 text-sm"><input type="checkbox" checked={deferUnavailable} onChange={event => setDeferUnavailable(event.target.checked)} className="h-5 w-5 shrink-0" />
                     I agree to receive and pay for available products only. Unavailable items stay on my recurring plan for future consideration, without catch-up quantities. I will be notified of delivery changes.
@@ -2380,3 +2396,4 @@ const NewSubscriptionPage: React.FC = () => {
 };
 
 export default NewSubscriptionPage;
+

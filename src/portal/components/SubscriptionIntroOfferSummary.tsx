@@ -1,4 +1,5 @@
 export type SubscriptionPricingQuote = {
+  discountCode?: string;
   stockDeferralAvailable?: boolean;
   canCreate?: boolean;
   availability?: Array<{scheduledDate: string; deferred: Array<{name: string; quantity: number}>; included: Array<{name: string; quantity: number}>; notChargedMinor: number}>;
@@ -10,7 +11,7 @@ const money = (minor: number) => new Intl.NumberFormat("en-GB", { style: "curren
 export default function SubscriptionIntroOfferSummary({ quote }: { quote: SubscriptionPricingQuote }) {
   return <div className="space-y-1 text-sm" aria-live="polite">
     {quote.discountMinor > 0 && <div className="flex items-center justify-between gap-4 text-forest">
-      <span>{quote.discountType === "fixed" ? "First payment offer" : `${quote.percentOff}% first payment offer`}</span>
+      <span>{quote.discountCode ? `${quote.discountCode} · first payment only` : quote.discountType === "fixed" ? "First payment offer" : `${quote.percentOff}% first payment offer`}</span>
       <span className="font-semibold">−{money(quote.discountMinor)}</span>
     </div>}
     {quote.availability?.filter(day => day.deferred.length > 0).map(day => <div key={day.scheduledDate} role="status" className="rounded-md border p-3">
@@ -22,3 +23,4 @@ export default function SubscriptionIntroOfferSummary({ quote }: { quote: Subscr
     <p className="text-muted-foreground">Then {money(quote.renewalMinor)} per billing period {quote.stockDeferralAvailable ? "at current prices, subject to availability, " : ""}from {new Date(quote.nextPaymentDate).toLocaleDateString("en-GB", { timeZone: "Europe/London" })}.</p>
   </div>;
 }
+
