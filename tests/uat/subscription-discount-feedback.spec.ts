@@ -2,7 +2,7 @@ import {test,expect} from "@playwright/test";
 test("existing subscriber can recover from a rejected code without starting a payment",async({page},info)=>{
  const writes:string[]=[];const previews:Array<Record<string,unknown>>=[];
  await page.addInitScript(()=>{
-  localStorage.setItem("levants:portal-tour:v1:discount-ui:new-review","seen");
+  localStorage.setItem("levants:portal-tour:v1:discount-ui:new-subscription","seen");
   sessionStorage.setItem("levants_subscription_draft",JSON.stringify({flowVersion:2,step:4,selectedVariantIds:["milk-v"],quantities:{"milk-v":1},dayQuantities:{Monday:{"milk-v":1}},frequency:"weekly",deliveryDays:["Monday"],selectedAddress:"address-1",deliveryInstructions:"Synthetic UI test only"}));
  });
  await page.route("**/api/**",async route=>{
@@ -14,6 +14,7 @@ test("existing subscriber can recover from a rejected code without starting a pa
    if(body.discountCode)return route.fulfill({json:{success:false,message:"Subscription codes are for first-time subscribers only, with one use per customer.",data:{quoteChanged:true}}});
    return reply({quote:{productsMinor:1200,deliveryMinor:100,discountMinor:0,firstChargeMinor:1300,renewalMinor:1300,percentOff:0,eligible:false,quoteToken:"ui-read-only",nextPaymentDate:"2026-11-02T12:00:00Z",firstDeliveryDate:"2026-11-02T00:00:00Z"}});
   }
+  if(p.endsWith("/setup-intent"))return route.fulfill({status:503,json:{success:false,message:"No new payment method is needed for this UI review."}});
   if(r.method()!=="GET"){writes.push(p);return route.fulfill({status:503,json:{success:false,message:"No writes allowed in UI fixture"}});}
   if(p==="/api/portal/addresses")return reply({addresses:[{_id:"address-1",line1:"1 Test Lane",city:"Bradford",postcode:"BD5 0AL",country:"United Kingdom",isDefault:true}]});
   if(p==="/api/portal/subscriptions/settings")return reply({settings:{deliveryDays:[1],cutoffDaysBefore:2,cutoffTime:"18:00"}});
