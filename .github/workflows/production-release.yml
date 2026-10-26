@@ -1,0 +1,64 @@
+name: Prepare approved production storefront
+on:
+  workflow_run:
+    workflows: [Client CI]
+    types: [completed]
+    branches: [main]
+permissions:
+  contents: write
+  pages: read
+concurrency:
+  group: approved-production-storefront
+  cancel-in-progress: false
+jobs:
+  build:
+    if: github.event.workflow_run.conclusion == 'success' && contains(github.event.workflow_run.head_commit.message, '[production-release-20261026]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      RELEASE_SHA: ${{ github.event.workflow_run.head_sha }}
+      GH_REPOSITORY: ${{ github.repository }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          fetch-depth: 0
+      - name: Require the accepted application source unchanged
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$RELEASE_SHA"
+          git diff --exit-code 9fbf6be43e868b55d699d50ace6c7a842ad69ed2 HEAD -- . ':(exclude).github/workflows/production-release.yml'
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Build for the production API
+        env:
+          VITE_API_BASE_URL: https://api.levantsdairy.co.uk/api
+        run: |
+          npm run build
+          touch dist/.nojekyll
+      - name: Validate environment, Pages configuration and asset manifest
+        run: node scripts/prepare-production.mjs
+      - name: Stage a reviewable build without publishing
+        run: |
+          set -euo pipefail
+          git fetch origin gh-pages
+          BUILD_DIR="$RUNNER_TEMP/production-pages"
+          BUILD_BRANCH="release/production-build-$RELEASE_SHA"
+          git worktree add --detach "$BUILD_DIR" origin/gh-pages
+          git -C "$BUILD_DIR" switch -c "$BUILD_BRANCH"
+          rsync -a --delete --exclude=.git dist/ "$BUILD_DIR/"
+          git -C "$BUILD_DIR" add --all
+          git -C "$BUILD_DIR" -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m "Production storefront $RELEASE_SHA"
+          git -C "$BUILD_DIR" push origin "HEAD:refs/heads/$BUILD_BRANCH"
+          echo "Prepared $BUILD_BRANCH; production gh-pages remains unchanged." >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: approved-production-storefront
+          path: |
+            dist
+            production-preparation.json
+          retention-days: 14
