@@ -241,6 +241,7 @@ type DeliveryAddOnResponse = {
 };
 
 export type CreateSubscriptionPayload = {
+  discountCode?: string;
   operationId?: string;
   pricingQuoteToken?: string;
   deferUnavailable?: boolean;
@@ -432,5 +433,6 @@ export const portalSubscriptionsApi = {
       query,
     ),
 };
+
 
 

@@ -51,7 +51,14 @@ for(const width of [375,1440])test(`shared category, URL, sorting and cart remov
  const filters=page.getByRole('button',{name:/^Filters/});
  if(width<1024)await filters.click();
  const scope=width<1024?page.getByRole('dialog'):page.locator('aside');await scope.getByRole('checkbox',{name:'Bakery',exact:true}).click();
- if(width<1024){await page.getByRole('button',{name:'Apply',exact:true}).click();await expect(filters).toBeFocused();}
+ if(width<1024){
+  await expect(page).toHaveURL(/category=bakery/);
+  await expect(scope.getByRole('checkbox',{name:'Bakery',exact:true})).toBeChecked();
+  await expect(page.getByRole('heading',{name:/Farm bread/}).first()).toBeVisible();
+  await scope.getByRole('button',{name:'Apply',exact:true}).click();
+  await expect(scope).toBeHidden();
+  await expect(filters).toBeFocused();
+ }
  await expect(page).toHaveURL(/category=bakery/);await expect(page.getByRole('heading',{name:/Farm bread/}).first()).toBeVisible();
  await page.getByRole('combobox',{name:'Sort by'}).selectOption('price-low');await expect(page).toHaveURL(/sort=price-low/);
  await page.goBack();await expect(page).toHaveURL(/category=bakery/);await expect(page.getByRole('combobox',{name:'Sort by'})).toHaveValue('featured');

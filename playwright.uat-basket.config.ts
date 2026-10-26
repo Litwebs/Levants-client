@@ -2,7 +2,7 @@ import { defineConfig, devices } from "@playwright/test";
 
 export default defineConfig({
   testDir: "./tests/uat",
-  testMatch: "basket-persistence.spec.ts",
+  testMatch: ["basket-persistence.spec.ts", "subscription-discount-feedback.spec.ts"],
   timeout: 60_000,
   expect: { timeout: 15_000 },
   workers: 1,

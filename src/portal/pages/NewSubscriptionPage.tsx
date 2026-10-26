@@ -8,6 +8,7 @@ import {
   CreditCard,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { useAddresses } from "@/portal/context/AddressesContext";
 import { cn } from "@/lib/utils";
@@ -17,6 +18,8 @@ import {
   portalPaymentsApi,
   type PortalPaymentMethod,
 } from "@/api/portalPayments";
+import SubscriptionDiscountCodeField from "@/portal/components/SubscriptionDiscountCodeField";
+import { subscriptionCodeRejection } from "@/portal/components/subscriptionCodeFeedback";
 import SubscriptionIntroOfferSummary, { type SubscriptionPricingQuote } from "@/portal/components/SubscriptionIntroOfferSummary";
 import ProductCard from "@/components/products/ProductCard";
 import ShopPage from "@/pages/ShopPage";
@@ -609,6 +612,8 @@ const NewSubscriptionPage: React.FC = () => {
   const [quoteLoading, setQuoteLoading] = useState(false);
   const [quoteError, setQuoteError] = useState<string | null>(null);
   const [quoteRevision, setQuoteRevision] = useState(0);
+  const [discountCodeDraft, setDiscountCodeDraft] = useState("");
+  const [discountCode, setDiscountCode] = useState("");
   const [submitLoading, setSubmitLoading] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
@@ -1249,6 +1254,7 @@ const NewSubscriptionPage: React.FC = () => {
       );
 
       return {
+        ...(discountCode ? { discountCode } : {}),
         frequency: frequencyToApi(frequency) as
           | "weekly"
           | "every_two_weeks"
@@ -1263,6 +1269,7 @@ const NewSubscriptionPage: React.FC = () => {
     }
 
     return {
+      ...(discountCode ? { discountCode } : {}),
       frequency: frequencyToApi(frequency) as
         | "weekly"
         | "every_two_weeks"
@@ -1294,6 +1301,8 @@ const NewSubscriptionPage: React.FC = () => {
     }, 150);
     return () => { active = false; clearTimeout(timer); };
   }, [previewKey, quoteRevision]);
+
+  const codeRejection = discountCode ? subscriptionCodeRejection(quoteError) : null;
 
   const completeSubscription = async () => {
     if (!pricingQuote || quoteLoading || quoteError) throw new Error("Please wait for a confirmed price before subscribing.");
@@ -2181,15 +2190,19 @@ const NewSubscriptionPage: React.FC = () => {
                       Total charged today
                     </span>
                     <span className="font-semibold text-foreground">
-                      {pricingQuote ? fmt(pricingQuote.firstChargeMinor / 100) : "Confirming price…"}
+                      {pricingQuote ? fmt(pricingQuote.firstChargeMinor / 100) : quoteError ? "Price not confirmed" : "Confirming price…"}
                     </span>
                   </div>
-                  {pricingQuote && <SubscriptionIntroOfferSummary quote={pricingQuote} />}
+                  <SubscriptionDiscountCodeField value={discountCodeDraft} appliedCode={discountCode} loading={quoteLoading} rejection={codeRejection}
+                    onChange={setDiscountCodeDraft}
+                    onApply={() => { setPricingQuote(null); setDiscountCode(discountCodeDraft.trim().toUpperCase()); setQuoteRevision(value => value + 1); }}
+                    onRemove={() => { setPricingQuote(null); setQuoteError(null); setDiscountCode(""); setDiscountCodeDraft(""); }} />
+                  {pricingQuote && <SubscriptionIntroOfferSummary quote={pricingQuote} frequency={frequency} />}
                   {pricingQuote?.stockDeferralAvailable && <label className="flex gap-3 py-3 text-sm"><input type="checkbox" checked={deferUnavailable} onChange={event => setDeferUnavailable(event.target.checked)} className="h-5 w-5 shrink-0" />
                     I agree to receive and pay for available products only. Unavailable items stay on my recurring plan for future consideration, without catch-up quantities. I will be notified of delivery changes.
                   </label>}
                   {quoteLoading && <p role="status">Confirming your first payment and renewal price…</p>}
-                  {quoteError && <div role="alert"><p>{quoteError}</p><Button variant="outline" onClick={() => setQuoteRevision(value => value + 1)}>Retry pricing</Button></div>}
+                  {quoteError && !codeRejection && <div role="alert" className="space-y-3 rounded-xl border border-destructive/30 bg-destructive/5 p-4"><p className="font-medium">We couldn’t confirm your price</p><p className="text-sm text-muted-foreground">{quoteError}</p><Button type="button" variant="outline" onClick={() => setQuoteRevision(value => value + 1)}>Retry pricing</Button></div>}
 
                 </div>
               </section>
