@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { canModifySubscription } from "@/portal/utils/subscriptionEditingPolicy";
 import { recurringItemPaymentMessage } from "@/portal/utils/recurringItemPaymentMessage";
+import { deliveryFeesForDraft } from "@/portal/utils/subscriptionDraftPricing";
 import { needsItemRefundChoice, saveDeliveryDayItemEdits } from "@/api/subscriptionDayItemEdits";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
@@ -773,14 +774,10 @@ const SubscriptionDetailPage: React.FC = () => {
     [perDayPricing],
   );
 
-  const deliveryFeeCount = useMemo(
-    () => (isMultiDayWeekly ? Math.max(1, selectedDayIndexes.length) : 1),
-    [isMultiDayWeekly, selectedDayIndexes.length],
-  );
-
   const deliveryFeeTotal = useMemo(
-    () => total > 0 ? SUBSCRIPTION_DELIVERY_FEE * deliveryFeeCount : 0,
-    [deliveryFeeCount, total],
+    () => deliveryFeesForDraft(isMultiDayWeekly
+      ? perDayPricing.map(day => day.itemsTotal) : [total], SUBSCRIPTION_DELIVERY_FEE),
+    [isMultiDayWeekly, perDayPricing, total],
   );
 
   const totalWithDeliveryFee = useMemo(
@@ -1747,7 +1744,7 @@ const SubscriptionDetailPage: React.FC = () => {
           <Card data-tour="subscription-products" className="shadow-none">
             <CardHeader className={styles.sectionHeader}><div className="flex items-center justify-between gap-2"><CardTitle className={styles.sectionTitle}>Products</CardTitle>{canModify && <Button size="sm" variant="outline" asChild><Link data-tour="subscription-add" to={`/portal/subscriptions/${id}/add-products`}><Plus size={14}/>Add products</Link></Button>}</div><CardDescription>{hasUnsavedProductChanges ? 'Unsaved changes — review before saving.' : hasScheduledProductChanges ? 'Includes scheduled changes.' : 'Your regular selection.'}</CardDescription></CardHeader>
             <CardContent className="px-4 pb-4 sm:px-5 sm:pb-5">
-              {isMultiDayWeekly ? deliveryDays.map(dayName=><section key={dayName} className={styles.dayGroup}><div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/70 pb-2"><h3 className="font-body text-sm font-semibold">{dayName} delivery</h3><span className="text-xs text-muted-foreground">{formatMoney(perDayPricingByDay.get(dayName)?.totalWithFee || SUBSCRIPTION_DELIVERY_FEE)} incl. delivery</span></div>{(dayProductDraft[dayName] || []).map(item=>renderProduct(item,dayName))}{(scheduledRemovedDayItems[dayName] || []).map(item=><p key={getDayPlanItemKey(item)} className="border-t border-border/60 py-3 text-sm text-muted-foreground"><span className="line-through">{item.name}</span> · removal scheduled from {getDayScheduledFromLabel(dayNameToIndex(dayName),cutoff)}</p>)}</section>) : <div>{productDraft.map(item=>renderProduct(item))}{scheduledRemovedItems.map(item=><p key={item._id} className="border-t border-border/60 py-3 text-sm text-muted-foreground"><span className="line-through">{item.name}</span> · removal scheduled from {subscription.pendingChanges?.effectiveFrom ? formatDate(subscription.pendingChanges.effectiveFrom) : 'a following delivery'}</p>)}</div>}
+              {isMultiDayWeekly ? deliveryDays.map(dayName=><section key={dayName} className={styles.dayGroup}><div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/70 pb-2"><h3 className="font-body text-sm font-semibold">{dayName} delivery</h3><span className="text-xs text-muted-foreground">{formatMoney(perDayPricingByDay.get(dayName)?.totalWithFee ?? 0)} incl. delivery</span></div>{(dayProductDraft[dayName] || []).map(item=>renderProduct(item,dayName))}{(scheduledRemovedDayItems[dayName] || []).map(item=><p key={getDayPlanItemKey(item)} className="border-t border-border/60 py-3 text-sm text-muted-foreground"><span className="line-through">{item.name}</span> · removal scheduled from {getDayScheduledFromLabel(dayNameToIndex(dayName),cutoff)}</p>)}</section>) : <div>{productDraft.map(item=>renderProduct(item))}{scheduledRemovedItems.map(item=><p key={item._id} className="border-t border-border/60 py-3 text-sm text-muted-foreground"><span className="line-through">{item.name}</span> · removal scheduled from {subscription.pendingChanges?.effectiveFrom ? formatDate(subscription.pendingChanges.effectiveFrom) : 'a following delivery'}</p>)}</div>}
                           {hasUnsavedProductChanges && (
               <div className="rounded-md bg-muted/40 p-4 text-sm text-foreground leading-relaxed">
                 <div className="flex items-center justify-between gap-2">
