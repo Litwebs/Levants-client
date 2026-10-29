@@ -1,4 +1,4 @@
-import api from "@/api/client";
+import api, { ApiError } from "@/api/client";
 import { withSubscriptionMutationRetry } from "./subscriptionMutationRetry";
 import { withSubscriptionCreationRetry } from "./subscriptionCreationRetry";
 import { portalAuthApi } from "./portalAuth";
@@ -271,6 +271,26 @@ export type CreateSubscriptionPayload = {
 };
 
 const base = "/portal/subscriptions";
+const listRetryDelaysMs = [200, 600];
+
+async function listSubscriptionsWithRetry(
+  query: { status?: PortalSubscriptionStatus; page?: number; pageSize?: number },
+): Promise<ApiEnvelope<ListSubscriptionsResponse>> {
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      const response = await api.get<ApiEnvelope<ListSubscriptionsResponse>>(base, query);
+      if (!response?.success || !Array.isArray(response.data?.subscriptions)) {
+        throw new Error("Subscription list response was incomplete.");
+      }
+      return response;
+    } catch (error) {
+      const transient = !(error instanceof ApiError) || error.status === 408 ||
+        error.status === 429 || error.status >= 500;
+      if (!transient || attempt >= listRetryDelaysMs.length) throw error;
+      await new Promise(resolve => setTimeout(resolve, listRetryDelaysMs[attempt]));
+    }
+  }
+}
 
 export const portalSubscriptionsApi = {
   enableStockDeferral: (id: string) => api.post<ApiEnvelope<{subscription: PortalSubscription}>>(`${base}/${id}/stock-deferral`, {accept: true, operationId: crypto.randomUUID()}),
@@ -284,7 +304,7 @@ export const portalSubscriptionsApi = {
     api.post<ApiEnvelope<DeliveryReductionResult>>(`${base}/${subscriptionId}/deliveries/${deliveryId}/one-time-change/confirm`, payload),
 
   list: (query: { status?: PortalSubscriptionStatus; page?: number; pageSize?: number } = {}) =>
-    api.get<ApiEnvelope<ListSubscriptionsResponse>>(base, query),
+    listSubscriptionsWithRetry(query),
 
   getSettings: () =>
     api.get<ApiEnvelope<SubscriptionSettingsResponse>>(`${base}/settings`),
