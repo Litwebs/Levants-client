@@ -214,20 +214,20 @@ const AddCardForm: React.FC<{
         onChange={(e) => setBillingName(e.target.value)}
       />
       <div data-tour="card-form" className="space-y-3">
-        <div className="rounded-xl border border-border bg-background px-3 py-3 transition-colors focus-within:border-forest/60">
+        <div className="rounded-xl border border-border bg-background px-3 py-3 transition-colors focus-within:border-ring/60">
           <label className="mb-2 block text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
             Card number
           </label>
           <CardNumberElement options={sharedStripeInputOptions} />
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
-          <div className="rounded-xl border border-border bg-background px-3 py-3 transition-colors focus-within:border-forest/60">
+          <div className="rounded-xl border border-border bg-background px-3 py-3 transition-colors focus-within:border-ring/60">
             <label className="mb-2 block text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
               Expiry date
             </label>
             <CardExpiryElement options={sharedStripeInputOptions} />
           </div>
-          <div className="rounded-xl border border-border bg-background px-3 py-3 transition-colors focus-within:border-forest/60">
+          <div className="rounded-xl border border-border bg-background px-3 py-3 transition-colors focus-within:border-ring/60">
             <label className="mb-2 block text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
               CVC
             </label>

@@ -18,8 +18,8 @@ function visible(element: HTMLElement) {
 }
 
 function snapshot(): Snapshot | null {
-  const roots = Array.from(document.querySelectorAll<HTMLElement>('[data-tour-page][data-tour-ready="true"]')).filter(visible);
-  // Dialogs are portalled after the page. Their own tour takes precedence.
+  const roots = Array.from(document.querySelectorAll<HTMLElement>('[data-tour-page][data-tour-ready="true"]')).filter(element => visible(element) && !element.closest('[role="dialog"], [role="alertdialog"]'));
+  // Walkthroughs belong to pages; modal dialogs keep the action in focus.
   const root = roots.at(-1);
   const id = root?.dataset.tourPage;
   const definition = id ? portalTours[id] : null;

@@ -115,7 +115,6 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 
-import { PortalTourButton } from "@/portal/tours/PortalTour";
 
 interface ConfirmationModalProps {
   tourId?: string;
@@ -142,7 +141,7 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
   onConfirm,
   isLoading = false,
   tourId,
-  buttonSize = "default",
+  buttonSize = "sm",
 }) => {
   const [isProcessing, setIsProcessing] = React.useState(false);
 
@@ -158,13 +157,12 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent data-tour-page={tourId} data-tour-ready={Boolean(tourId)} className={cn("max-h-[90dvh] overflow-y-auto", buttonSize === "sm" ? "max-w-lg p-5" : "max-w-xl p-8")}>
+      <DialogContent data-tour-page={tourId} data-tour-ready={Boolean(tourId)} className="max-w-md p-5">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription data-tour="confirmation-policy">{description}</DialogDescription>
         </DialogHeader>
-        {tourId && <PortalTourButton />}
-        <DialogFooter className="gap-1">
+        <DialogFooter>
           <Button
             size={buttonSize}
             variant="outline"

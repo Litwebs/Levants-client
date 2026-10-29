@@ -41,7 +41,7 @@
     /* Borders & Inputs */
     --border: 35 20% 88%;
     --input: 35 20% 88%;
-    --ring: 150 35% 28%;
+    --ring: 30 8% 45%;
 
     --radius: 0.5rem;
 
@@ -73,7 +73,7 @@
     --sidebar-accent: 35 30% 92%;
     --sidebar-accent-foreground: 30 10% 25%;
     --sidebar-border: 35 20% 88%;
-    --sidebar-ring: 150 35% 28%;
+    --sidebar-ring: 30 8% 45%;
   }
 
   .dark {
@@ -103,7 +103,7 @@
 
     --border: 30 12% 22%;
     --input: 30 12% 22%;
-    --ring: 150 35% 45%;
+    --ring: 35 10% 65%;
 
     --cream: 30 15% 12%;
     --cream-dark: 30 12% 18%;
@@ -204,8 +204,8 @@
   .form-control:focus-visible,
   .input-field:focus-visible {
     outline: none;
-    border-color: hsl(var(--primary));
-    box-shadow: 0 0 0 3px hsl(var(--ring) / 0.16);
+    border-color: hsl(var(--ring));
+    box-shadow: 0 0 0 2px hsl(var(--ring) / 0.16);
   }
 
   .form-control[aria-invalid="true"],

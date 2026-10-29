@@ -146,7 +146,7 @@ function buildStripeAppearance(): object {
         outline: "none",
       },
       ".Input:focus": {
-        border: `1px solid hsl(${s.getPropertyValue("--forest").trim()} / 0.7)`,
+        border: `1px solid hsl(${s.getPropertyValue("--ring").trim()} / 0.7)`,
         boxShadow: "none",
         outline: "none",
       },
@@ -1803,7 +1803,7 @@ const NewSubscriptionPage: React.FC = () => {
                           fullName: event.target.value,
                         }))
                       }
-                      className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none ring-0 transition-colors placeholder:text-muted-foreground focus:border-forest"
+                      className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none ring-0 transition-colors placeholder:text-muted-foreground focus:border-ring"
                       placeholder="Sarah Mitchell"
                     />
                   </div>
@@ -1819,7 +1819,7 @@ const NewSubscriptionPage: React.FC = () => {
                           phone: event.target.value,
                         }))
                       }
-                      className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none ring-0 transition-colors placeholder:text-muted-foreground focus:border-forest"
+                      className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none ring-0 transition-colors placeholder:text-muted-foreground focus:border-ring"
                       placeholder="+44 7700 900000"
                     />
                   </div>
@@ -1838,7 +1838,7 @@ const NewSubscriptionPage: React.FC = () => {
                         line1: event.target.value,
                       }))
                     }
-                    className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none ring-0 transition-colors placeholder:text-muted-foreground focus:border-forest"
+                    className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none ring-0 transition-colors placeholder:text-muted-foreground focus:border-ring"
                     placeholder="14 Meadow Lane"
                   />
                 </div>
@@ -1855,7 +1855,7 @@ const NewSubscriptionPage: React.FC = () => {
                         line2: event.target.value,
                       }))
                     }
-                    className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none ring-0 transition-colors placeholder:text-muted-foreground focus:border-forest"
+                    className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none ring-0 transition-colors placeholder:text-muted-foreground focus:border-ring"
                     placeholder="Flat 3"
                   />
                 </div>
@@ -1873,7 +1873,7 @@ const NewSubscriptionPage: React.FC = () => {
                           city: event.target.value,
                         }))
                       }
-                      className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none ring-0 transition-colors placeholder:text-muted-foreground focus:border-forest"
+                      className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none ring-0 transition-colors placeholder:text-muted-foreground focus:border-ring"
                       placeholder="Manchester"
                     />
                   </div>
@@ -1889,7 +1889,7 @@ const NewSubscriptionPage: React.FC = () => {
                           postcode: event.target.value,
                         }))
                       }
-                      className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none ring-0 transition-colors placeholder:text-muted-foreground focus:border-forest"
+                      className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none ring-0 transition-colors placeholder:text-muted-foreground focus:border-ring"
                       placeholder="M14 5TF"
                     />
                   </div>
@@ -1907,7 +1907,7 @@ const NewSubscriptionPage: React.FC = () => {
                         country: event.target.value,
                       }))
                     }
-                    className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none ring-0 transition-colors placeholder:text-muted-foreground focus:border-forest"
+                    className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none ring-0 transition-colors placeholder:text-muted-foreground focus:border-ring"
                     placeholder="United Kingdom"
                   />
                 </div>
@@ -1926,7 +1926,7 @@ const NewSubscriptionPage: React.FC = () => {
                     }
                     rows={3}
                     maxLength={500}
-                    className="w-full resize-y rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none ring-0 transition-colors placeholder:text-muted-foreground focus:border-forest"
+                    className="w-full resize-y rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none ring-0 transition-colors placeholder:text-muted-foreground focus:border-ring"
                     placeholder="Leave at the side gate or ring the doorbell."
                   />
                 </div>
@@ -1941,7 +1941,7 @@ const NewSubscriptionPage: React.FC = () => {
                         isDefault: event.target.checked,
                       }))
                     }
-                    className="h-4 w-4 rounded border-input text-forest focus:ring-forest"
+                    className="h-4 w-4 rounded border-input text-forest focus-visible:ring-ring"
                   />
                   Set as default delivery address
                 </label>

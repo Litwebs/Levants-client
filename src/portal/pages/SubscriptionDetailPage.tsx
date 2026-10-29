@@ -49,7 +49,6 @@ import {
   SubscriptionStatusBadge,
   DeliveryStatusBadge,
 } from "@/portal/components/StatusBadges";
-import { PortalTourButton } from "@/portal/tours/PortalTour";
 import DeliveryReduction from "@/portal/components/DeliveryReduction";
 import DeliveryReductionHistory from "@/portal/components/DeliveryReductionHistory";
 import DeliveryReductionGuide from "@/portal/components/DeliveryReductionGuide";
@@ -2018,20 +2017,14 @@ const SubscriptionDetailPage: React.FC = () => {
           }
         }}
       >
-        <DialogContent data-tour-page="pause-form" data-tour-ready={!saving} className="max-w-md max-h-[90dvh] overflow-y-auto p-5">
+        <DialogContent data-tour-page="pause-form" data-tour-ready={!saving} className="max-w-md max-h-[calc(100dvh_-_2rem)] overflow-y-auto p-5">
           <DialogHeader>
             <DialogTitle>Pause Subscription?</DialogTitle>
             <DialogDescription data-tour="pause-policy">
-              Choose when this subscription should resume. Pauses can last up to
-              28 days. Deliveries before your resume date are skipped if their
-              cut-off has not passed. Eligible prepaid amounts are returned to
-              your payment card or store credit using your settlement choice.
-              Deliveries past cut-off remain scheduled. Deliveries on or after
-              your resume date are not skipped by this pause. You cannot edit
-              the subscription while it is paused.
+              Skip eligible deliveries until your resume date (up to 28 days).
+              Deliveries past cutoff stay scheduled. Editing is unavailable while paused.
             </DialogDescription>
           </DialogHeader>
-          <PortalTourButton />
           <div className="space-y-3 pt-2">
             <div className="space-y-1.5">
               <label htmlFor="pause-resume-date" className="text-sm font-medium text-foreground">
@@ -2048,12 +2041,12 @@ const SubscriptionDetailPage: React.FC = () => {
                 disabled={saving}
               />
               <p className="text-xs text-muted-foreground">
-                Choose a date between {formatDate(pauseMinDate)} and{" "}
+                {formatDate(pauseMinDate)} –{" "}
                 {formatDate(pauseMaxDate)}.
               </p>
               <div className="space-y-1.5">
                 <label className="text-sm font-medium text-foreground">
-                  Settlement method
+                  Return eligible prepayments to
                 </label>
                 <Select
                   value={pauseRefundMethod}
@@ -2061,7 +2054,7 @@ const SubscriptionDetailPage: React.FC = () => {
                     setPauseRefundMethod(value as SubscriptionRefundMethod)
                   }
                 >
-                  <SelectTrigger data-tour="pause-settlement" aria-label="Settlement method">
+                  <SelectTrigger data-tour="pause-settlement" aria-label="Return eligible prepayments to">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -2069,16 +2062,12 @@ const SubscriptionDetailPage: React.FC = () => {
                     <SelectItem value="credit">Store credit</SelectItem>
                   </SelectContent>
                 </Select>
-                <p className="text-xs text-muted-foreground">
-                  If a prepaid delivery is eligible to be settled, choose whether
-                  the amount should return to your card or be added as store credit.
-                </p>
               </div>
               {pauseError && (
                 <p className="text-xs text-destructive">{pauseError}</p>
               )}
             </div>
-            <div className="flex justify-end gap-2 pt-2">
+            <div className="flex flex-wrap justify-end gap-2 pt-2">
               <Button size="sm"
                 variant="outline"
                 onClick={() => setPauseOpen(false)}
@@ -2099,7 +2088,7 @@ const SubscriptionDetailPage: React.FC = () => {
         open={resumeOpen}
         onOpenChange={setResumeOpen}
         title="Resume Subscription?"
-        description="Resume from the next eligible delivery. If its previous payment was refunded or credited, your saved card may be charged to restore the unpaid value. Existing store credit is kept."
+        description="Restart from the next eligible delivery. Your card may be charged to restore refunded or credited payments. Existing store credit is kept."
         confirmLabel="Resume"
         onConfirm={handleResume}
       />
@@ -2109,7 +2098,7 @@ const SubscriptionDetailPage: React.FC = () => {
         open={cancelOpen}
         onOpenChange={setCancelOpen}
         title="Cancel Subscription?"
-        description="Eligible future deliveries will stop. A delivery already past its cutoff stays scheduled. Any eligible prepaid value is settled using your refund or store-credit choice."
+        description="Stop future deliveries. Deliveries past cutoff stay scheduled. Eligible prepayments can be refunded or credited."
         confirmLabel="Yes, Cancel"
         cancelLabel="Keep Subscription"
         variant="destructive"
@@ -2122,7 +2111,7 @@ const SubscriptionDetailPage: React.FC = () => {
           if (!open) setRemoveProductId(null);
         }}
         title="Remove Product?"
-        description="This removes the product from your draft changes. Click Save product changes to apply it."
+        description="Remove from your draft. Save product changes to apply."
         confirmLabel="Remove"
         variant="destructive"
         onConfirm={handleRemoveItem}
@@ -2137,19 +2126,19 @@ const SubscriptionDetailPage: React.FC = () => {
           }
         }}
       >
-        <DialogContent className="max-w-md max-h-[90dvh] overflow-y-auto p-5">
+        <DialogContent className="max-w-md max-h-[calc(100dvh_-_2rem)] overflow-y-auto p-5">
           <DialogHeader>
-            <DialogTitle>How would you like your refund?</DialogTitle>
+            <DialogTitle>Return prepaid funds</DialogTitle>
             <DialogDescription>
               {pendingDeliveryDetailsSave ? (
-                "You're removing one or more delivery days before cut-off. Choose how you'd like the pre-paid amount returned."
+                "Choose where to return your prepaid delivery amount."
               ) : (
                 <>
-                  You're reducing this subscription by{" "}
+                  Choose where to return the{" "}
                   <strong>
                     {formatMoney(Math.max(0, previewOriginalTotal - total))}
                   </strong>
-                  . Choose how you'd like to receive the difference.
+                  {" "}difference.
                 </>
               )}
             </DialogDescription>
@@ -2157,7 +2146,7 @@ const SubscriptionDetailPage: React.FC = () => {
           <div className="flex flex-col gap-3 pt-2">
             <Button size="sm"
               variant="outline"
-              className="h-auto py-3 justify-start text-left"
+              className="h-auto whitespace-normal py-3 justify-start text-left"
               disabled={saving}
               onClick={() => {
                 setRefundChoiceOpen(false);
@@ -2171,13 +2160,13 @@ const SubscriptionDetailPage: React.FC = () => {
               <div>
                 <div className="font-medium">Store credit</div>
                 <div className="text-xs text-muted-foreground">
-                  Added to your account instantly to spend on future orders.
+                  For future orders.
                 </div>
               </div>
             </Button>
             <Button size="sm"
               variant="outline"
-              className="h-auto py-3 justify-start text-left"
+              className="h-auto whitespace-normal py-3 justify-start text-left"
               disabled={saving}
               onClick={() => {
                 setRefundChoiceOpen(false);
@@ -2191,7 +2180,7 @@ const SubscriptionDetailPage: React.FC = () => {
               <div>
                 <div className="font-medium">Refund to my card</div>
                 <div className="text-xs text-muted-foreground">
-                  Sent back to your original payment method where possible.
+                  To your original payment method, where possible.
                 </div>
               </div>
             </Button>
@@ -2203,18 +2192,17 @@ const SubscriptionDetailPage: React.FC = () => {
         open={cancelRefundChoiceOpen}
         onOpenChange={setCancelRefundChoiceOpen}
       >
-        <DialogContent className="max-w-md max-h-[90dvh] overflow-y-auto p-5">
+        <DialogContent className="max-w-md max-h-[calc(100dvh_-_2rem)] overflow-y-auto p-5">
           <DialogHeader>
-            <DialogTitle>How should we settle your cancellation?</DialogTitle>
+            <DialogTitle>Return prepaid funds</DialogTitle>
             <DialogDescription>
-              Your upcoming subscription delivery is pre-paid. Choose whether to
-              receive the amount as store credit or back to your card.
+              Choose store credit or a refund to your card.
             </DialogDescription>
           </DialogHeader>
           <div className="flex flex-col gap-3 pt-2">
             <Button size="sm"
               variant="outline"
-              className="h-auto py-3 justify-start text-left"
+              className="h-auto whitespace-normal py-3 justify-start text-left"
               disabled={saving}
               onClick={() => {
                 void handleCancel("credit");
@@ -2223,13 +2211,13 @@ const SubscriptionDetailPage: React.FC = () => {
               <div>
                 <div className="font-medium">Store credit</div>
                 <div className="text-xs text-muted-foreground">
-                  Added to your account instantly for future orders.
+                  For future orders.
                 </div>
               </div>
             </Button>
             <Button size="sm"
               variant="outline"
-              className="h-auto py-3 justify-start text-left"
+              className="h-auto whitespace-normal py-3 justify-start text-left"
               disabled={saving}
               onClick={() => {
                 void handleCancel("refund");
@@ -2238,7 +2226,7 @@ const SubscriptionDetailPage: React.FC = () => {
               <div>
                 <div className="font-medium">Refund to my card</div>
                 <div className="text-xs text-muted-foreground">
-                  Sent back to your original payment method where possible.
+                  To your original payment method, where possible.
                 </div>
               </div>
             </Button>
