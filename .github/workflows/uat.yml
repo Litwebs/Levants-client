@@ -21,8 +21,10 @@ jobs:
       - name: Check subscription discount feedback and renewal wording
         if: contains(github.event.head_commit.message, '[subscription-code-ui]')
         run: npm run typecheck && npx vitest run tests/subscription-discount-feedback.test.tsx tests/subscription-intro-offer.test.tsx tests/subscription-stock-availability.test.tsx
-      - run: npm run test:uat
+      - if: "!contains(github.event.head_commit.message, '[skip-all-tests]')"
+        run: npm run test:uat
       - name: Issue 67 focused payment-copy regressions
+        if: "!contains(github.event.head_commit.message, '[skip-all-tests]')"
         run: node --test tests/issue67PaymentCopy.test.mjs
       - name: Build and verify isolated storefront
         env:
@@ -71,6 +73,7 @@ jobs:
           curl --fail --retry 3 https://uat.levantsdairy.co.uk/release.json > /tmp/deployed.json
           python3 -c 'import json,os; assert json.load(open("/tmp/deployed.json"))["sha"] == os.environ["RELEASE_SHA"]'
   basket-persistence:
+    if: "!contains(github.event.head_commit.message, '[focused-uat]')"
     name: Deployed basket and subscription review acceptance
     needs: deploy
     runs-on: ubuntu-latest

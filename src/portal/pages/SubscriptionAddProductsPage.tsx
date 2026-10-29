@@ -12,7 +12,6 @@ import {
   type PortalSubscriptionCutoff,
   type PortalSubscription,
 } from "@/api/portalSubscriptions";
-import { toast } from "sonner";
 import {
   formatCutoffDate,
   getDeliveryDayCutoff,
@@ -197,7 +196,7 @@ const SubscriptionAddProductsPage: React.FC = () => {
         const message =
           err instanceof ApiError ? err.message : "Failed to load products.";
         setError(message);
-        toast.error(message);
+
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -385,6 +384,7 @@ const SubscriptionAddProductsPage: React.FC = () => {
     try {
       setSaving(true);
       setError(null);
+      const messages: string[] = [];
 
       if (isMultiDayWeekly && subscriptionSnapshot) {
         const sourcePlans =
@@ -486,13 +486,14 @@ const SubscriptionAddProductsPage: React.FC = () => {
         if (!subscriptionSnapshot) {
           throw new Error("Subscription changed while loading. Please reload.");
         }
-        await portalSubscriptionsApi.update(id, {
+        const response = await portalSubscriptionsApi.update(id, {
           ...updatePayload,
           expectedVersion: subscriptionSnapshot.customerVersion,
           operationId: operationIdFor(
             `multi-day-add:${JSON.stringify(updatePayload)}`,
           ),
         });
+        if (response.message) messages.push(response.message);
       } else {
         if (!subscriptionSnapshot) {
           throw new Error("Subscription changed while loading. Please reload.");
@@ -507,6 +508,7 @@ const SubscriptionAddProductsPage: React.FC = () => {
               `single-day-add:${item.variantId}:${item.quantity}`,
             ),
           });
+          if (response.message) messages.push(response.message);
           expectedVersion = Number(
             (response as any)?.data?.subscription?.customerVersion ??
               expectedVersion + 1,
@@ -515,14 +517,14 @@ const SubscriptionAddProductsPage: React.FC = () => {
       }
 
       operationIdsRef.current.clear();
-      navigate(`/portal/subscriptions/${id}`);
+      navigate(`/portal/subscriptions/${id}`, { state: { subscriptionNotice: [...new Set(messages)].join(" ") || "Products added to your subscription." } });
     } catch (err) {
       const message =
         err instanceof ApiError
           ? err.message
           : "Failed to add selected products.";
       setError(message);
-      toast.error(message);
+
     } finally {
       setSaving(false);
     }
@@ -819,7 +821,7 @@ const SubscriptionAddProductsPage: React.FC = () => {
                     : deliveryDays.slice(0, 1)
                   ).map(dayName => {
                     const dayCutoff = cutoff ? getDeliveryDayCutoff(cutoff, dayNameToIndex(dayName)) : undefined;
-                    const locked = isPastCutoffInstant(dayCutoff?.cutoffAt, dayCutoff?.isPastCutoff ?? cutoff?.isPastCutoff ?? false);
+                    const locked = isPastCutoffInstant(dayCutoff?.cutoffAt, dayCutoff?.lockedForFulfilment || dayCutoff?.isPastCutoff || cutoff?.isPastCutoff || false);
                     const extra = isMultiDayWeekly
                       ? selectedList.filter(item => selectedAddDays[item.variantId]?.includes(dayName))
                         .reduce((sum, item) => sum + item.unitPrice * item.quantity, 0)

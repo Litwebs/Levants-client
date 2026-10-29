@@ -1,6 +1,6 @@
 import RecurringPriceNotice from "@/portal/components/RecurringPriceNotice";
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useLocation, useParams } from "react-router-dom";
 import {
   ArrowLeft,
   Plus,
@@ -36,7 +36,6 @@ import {
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import { toast } from "sonner";
 import {
   SubscriptionStatusBadge,
   DeliveryStatusBadge,
@@ -327,6 +326,7 @@ const getDayCutoffLabel = (
   );
   if (!cutoffLabel) return "Cut-off unavailable";
 
+  if (dayCutoff?.lockedForFulfilment) return "Already being fulfilled · edits apply to the following delivery";
   const isPastCutoff = isPastCutoffInstant(
     dayCutoff?.cutoffAt,
     dayCutoff?.isPastCutoff ?? cutoff.isPastCutoff,
@@ -340,7 +340,7 @@ const isDayPastOwnCutoff = (
   cutoff: PortalSubscriptionCutoff,
 ) => {
   const dayCutoff = getDeliveryDayCutoff(cutoff, dayIndex);
-  return isPastCutoffInstant(
+  return Boolean(dayCutoff?.lockedForFulfilment) || isPastCutoffInstant(
     dayCutoff?.cutoffAt,
     dayCutoff?.isPastCutoff ?? cutoff.isPastCutoff,
   );
@@ -388,6 +388,7 @@ const addressMatchesSubscription = (
 
 const SubscriptionDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
+  const location = useLocation();
   const { customer, refreshCustomer } = usePortalCustomer();
   const currentId = useRef(id);
   const loadGeneration = useRef(0);
@@ -411,7 +412,7 @@ const SubscriptionDetailPage: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [stockConsent, setStockConsent] = useState(false);
-  const [notice, setNotice] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(() => typeof location.state?.subscriptionNotice === "string" ? location.state.subscriptionNotice : null);
   const [pauseResumeOn, setPauseResumeOn] = useState("");
   const [pauseRefundMethod, setPauseRefundMethod] =
     useState<SubscriptionRefundMethod>("refund");
@@ -427,6 +428,7 @@ const SubscriptionDetailPage: React.FC = () => {
   const [frequency, setFrequency] = useState("weekly");
   const [deliveryDays, setDeliveryDays] = useState<string[]>(["Tuesday"]);
   const [cutoff, setCutoff] = useState<PortalSubscriptionCutoff | null>(null);
+  const isProductDeliveryLocked = Boolean(cutoff?.isPastCutoff || (!((subscription?.preferredDeliveryDays?.length || 0) > 1) && cutoff?.deliveryDayCutoffs?.some(day => day.lockedForFulfilment)));
   const [refundChoiceOpen, setRefundChoiceOpen] = useState(false);
   const [cancelRefundChoiceOpen, setCancelRefundChoiceOpen] = useState(false);
   const [pendingDeliveryDetailsSave, setPendingDeliveryDetailsSave] = useState<{
@@ -548,14 +550,14 @@ const SubscriptionDetailPage: React.FC = () => {
 
         const nextProductDraft = buildEditableItems(
           sub,
-          Boolean(nextCutoff?.isPastCutoff),
+          Boolean(nextCutoff?.isPastCutoff || nextCutoff?.deliveryDayCutoffs?.some(day => day.lockedForFulfilment)),
         );
         setProductDraft(nextProductDraft);
         setChangedMultiDayIndexes([]);
         setDayProductDraft(
           buildEditableDayPlans(
             sub,
-            Boolean(nextCutoff?.isPastCutoff),
+            Boolean(nextCutoff?.isPastCutoff || nextCutoff?.deliveryDayCutoffs?.some(day => day.lockedForFulfilment)),
             selectedDayNames,
           ),
         );
@@ -566,8 +568,8 @@ const SubscriptionDetailPage: React.FC = () => {
           ? err.message
           : "Failed to load subscription details.";
       if (currentId.current !== id || serial !== loadGeneration.current) return;
-      if (!background) setError(message);
-      toast.error(message);
+      if (!background) { setNotice(null); setError(message); }
+
       if (!background) setSubscription(null);
       else throw err;
     } finally {
@@ -787,14 +789,14 @@ const SubscriptionDetailPage: React.FC = () => {
 
   const editableBaseline = useMemo(() => {
     if (!subscription) return [];
-    return buildEditableItems(subscription, Boolean(cutoff?.isPastCutoff));
+    return buildEditableItems(subscription, isProductDeliveryLocked);
   }, [subscription, cutoff]);
 
   const dayPlanBaseline = useMemo(() => {
     if (!subscription) return {} as Record<string, EditableSubscriptionItem[]>;
     return buildEditableDayPlans(
       subscription,
-      Boolean(cutoff?.isPastCutoff),
+      isProductDeliveryLocked,
       deliveryDays,
     );
   }, [subscription, cutoff, deliveryDays]);
@@ -964,7 +966,7 @@ const SubscriptionDetailPage: React.FC = () => {
     : [toDayName(subscription?.preferredDeliveryDay ?? 0)];
 
   const hasScheduledProductChanges = Boolean(
-    cutoff?.isPastCutoff &&
+    isProductDeliveryLocked &&
     (subscription?.pendingChanges?.items?.length ||
       subscription?.pendingChanges?.deliveryDayPlans?.length),
   );
@@ -1025,7 +1027,7 @@ const SubscriptionDetailPage: React.FC = () => {
 
   const scheduledRemovedItems = useMemo(() => {
     if (isMultiDayWeekly) return [] as PortalSubscriptionItem[];
-    if (!cutoff?.isPastCutoff || !subscription?.pendingChanges?.items?.length) {
+    if (!isProductDeliveryLocked || !subscription?.pendingChanges?.items?.length) {
       return [] as PortalSubscriptionItem[];
     }
 
@@ -1106,7 +1108,7 @@ const SubscriptionDetailPage: React.FC = () => {
       refundMethod?: SubscriptionRefundMethod,
     ) => {
       setSaving(true);
-      setError(null);
+      setError(null); setNotice(null);
       setNotice(null);
       await portalSubscriptionsApi.update(id, {
         ...payload,
@@ -1115,7 +1117,7 @@ const SubscriptionDetailPage: React.FC = () => {
       });
       await load();
       setNotice("Delivery details updated.");
-      toast.success("Delivery details updated.");
+
     };
 
     try {
@@ -1125,8 +1127,8 @@ const SubscriptionDetailPage: React.FC = () => {
         err instanceof ApiError
           ? err.message
           : "Failed to update delivery details.";
-      setError(message);
-      toast.error(message);
+      setNotice(null); setError(message);
+
     } finally {
       setSaving(false);
     }
@@ -1139,7 +1141,7 @@ const SubscriptionDetailPage: React.FC = () => {
 
     try {
       setSaving(true);
-      setError(null);
+      setError(null); setNotice(null);
       setNotice(null);
       await portalSubscriptionsApi.update(id, {
         ...pendingDeliveryDetailsSave,
@@ -1148,14 +1150,14 @@ const SubscriptionDetailPage: React.FC = () => {
       });
       await load();
       setNotice("Delivery details updated.");
-      toast.success("Delivery details updated.");
+
     } catch (err) {
       const message =
         err instanceof ApiError
           ? err.message
           : "Failed to update delivery details.";
-      setError(message);
-      toast.error(message);
+      setNotice(null); setError(message);
+
     } finally {
       setSaving(false);
       setPendingDeliveryDetailsSave(null);
@@ -1170,7 +1172,7 @@ const SubscriptionDetailPage: React.FC = () => {
     }
     setSaving(true);
     try {
-      setError(null);
+      setError(null); setNotice(null);
       setNotice(null);
       setPauseError(null);
       const res = await portalSubscriptionsApi.pause(
@@ -1182,13 +1184,13 @@ const SubscriptionDetailPage: React.FC = () => {
       await load();
       setPauseOpen(false);
       const message = (res as any)?.message || "Subscription paused.";
-      setNotice(message);
-      toast.success(message);
+      setError(null); setNotice(message);
+
     } catch (err) {
       const message =
         err instanceof ApiError ? err.message : "Failed to pause subscription.";
-      setError(message);
-      toast.error(message);
+      setNotice(null); setError(message);
+
     } finally {
       setSaving(false);
     }
@@ -1197,7 +1199,7 @@ const SubscriptionDetailPage: React.FC = () => {
   const handleResume = async () => {
     if (!id) return;
     setSaving(true);
-    setError(null);
+    setError(null); setNotice(null);
     try {
       const res = await portalSubscriptionsApi.resume(
         id,
@@ -1205,15 +1207,15 @@ const SubscriptionDetailPage: React.FC = () => {
       );
       await load();
       const message = (res as any)?.message || "Subscription resumed.";
-      setNotice(message);
-      toast.success(message);
+      setError(null); setNotice(message);
+
     } catch (err) {
       const message =
         err instanceof ApiError
           ? err.message
           : "Failed to resume subscription. Please try again.";
-      setError(message);
-      toast.error(message);
+      setNotice(null); setError(message);
+
     } finally {
       setSaving(false);
     }
@@ -1235,14 +1237,14 @@ const SubscriptionDetailPage: React.FC = () => {
         (res as any)?.data?.subscription?.isCancellationScheduled,
       );
       setNotice(isScheduledCancellation ? null : message);
-      toast.success(message);
+
     } catch (err) {
       const message =
         err instanceof ApiError
           ? err.message
           : "Failed to cancel subscription.";
-      setError(message);
-      toast.error(message);
+      setNotice(null); setError(message);
+
     } finally {
       setSaving(false);
     }
@@ -1326,7 +1328,7 @@ const SubscriptionDetailPage: React.FC = () => {
       });
 
     const itemDay = cutoff ? getDeliveryDayCutoff(cutoff, subscription.preferredDeliveryDay) : undefined;
-    if (hasDecrease && cutoff && needsItemRefundChoice(itemDay?.paymentState, cutoff.isPastCutoff, -1)) {
+    if (hasDecrease && cutoff && needsItemRefundChoice(itemDay?.paymentState, isProductDeliveryLocked, -1)) {
       setRefundChoiceOpen(true);
       return;
     }
@@ -1359,7 +1361,7 @@ const SubscriptionDetailPage: React.FC = () => {
         });
 
         setSaving(true);
-        setError(null);
+        setError(null); setNotice(null);
         setNotice(null);
 
         const changedDays = getChangedMultiDayIndexes(dayProductDraft, dayPlanBaseline);
@@ -1390,8 +1392,8 @@ const SubscriptionDetailPage: React.FC = () => {
           (cutoff?.isPastCutoff
             ? "Product changes were scheduled for deliveries after the upcoming one."
             : "Product changes saved.");
-        setNotice(message);
-        toast.success(message);
+        setError(null); setNotice(message);
+
       } catch (err) {
         const message =
           err instanceof ApiError
@@ -1399,8 +1401,8 @@ const SubscriptionDetailPage: React.FC = () => {
             : err instanceof Error
               ? err.message
               : "Failed to save product changes.";
-        setError(message);
-        toast.error(message);
+        setNotice(null); setError(message);
+
       } finally {
         setSaving(false);
       }
@@ -1409,7 +1411,7 @@ const SubscriptionDetailPage: React.FC = () => {
 
     try {
       setSaving(true);
-      setError(null);
+      setError(null); setNotice(null);
       setNotice(null);
 
       const replacementItems = productDraft.map((item) => {
@@ -1443,8 +1445,8 @@ const SubscriptionDetailPage: React.FC = () => {
         (cutoff?.isPastCutoff
           ? "Product changes were scheduled for deliveries after the upcoming one."
           : "Product changes saved.");
-      setNotice(message);
-      toast.success(message);
+      setError(null); setNotice(message);
+
     } catch (err) {
       const message =
         err instanceof ApiError
@@ -1452,8 +1454,8 @@ const SubscriptionDetailPage: React.FC = () => {
           : err instanceof Error
             ? err.message
             : "Failed to save product changes.";
-      setError(message);
-      toast.error(message);
+      setNotice(null); setError(message);
+
     } finally {
       setSaving(false);
     }
@@ -1618,8 +1620,8 @@ const SubscriptionDetailPage: React.FC = () => {
               <label className="my-3 flex gap-2"><input type="checkbox" checked={stockConsent} onChange={event => setStockConsent(event.target.checked)} />I agree to this policy for future unbilled deliveries.</label>
               <Button variant="outline" disabled={!stockConsent || saving || subscription.status !== "active"} onClick={async () => {
                 setSaving(true);
-                try { await portalSubscriptionsApi.enableStockDeferral(subscription._id); await load(true); setNotice("Availability policy saved for future unbilled deliveries."); }
-                catch (error) { setNotice(error instanceof Error ? error.message : "Could not save availability policy"); }
+                try { setError(null); setNotice(null); await portalSubscriptionsApi.enableStockDeferral(subscription._id); await load(true); setNotice("Availability policy saved for future unbilled deliveries."); }
+                catch (error) { setNotice(null); setError(error instanceof Error ? error.message : "Could not save availability policy"); }
                 finally { setSaving(false); }
               }}>Enable availability policy</Button>
             </>}
@@ -1637,10 +1639,10 @@ const SubscriptionDetailPage: React.FC = () => {
 
       {(error || notice || showScheduledCancellationAlert) && (
         <div
-          className="sticky top-[var(--sticky-top)] z-30 mb-4 space-y-3"
+          data-testid="subscription-feedback" className="sticky top-[var(--sticky-top)] z-30 mb-4 space-y-3"
           style={{ ["--sticky-top" as string]: `${stickyTopOffset}px` }}
         >
-          {showScheduledCancellationAlert && (
+          {showScheduledCancellationAlert && !error && !notice && (
             <div className="rounded-xl border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900 shadow-sm backdrop-blur-sm dark:border-sky-500/30 dark:bg-sky-500/10 dark:text-sky-100">
               <div>
                 Subscription scheduled for cancellation. Your protected delivery
@@ -1657,14 +1659,16 @@ const SubscriptionDetailPage: React.FC = () => {
           )}
 
           {error && (
-            <div className="rounded-xl border border-destructive/20 bg-destructive/10 p-3 text-sm text-destructive shadow-sm backdrop-blur-sm dark:border-red-500/30 dark:bg-red-500/15 dark:text-red-200">
+            <div role="alert" className="rounded-xl border border-destructive/20 bg-destructive/10 p-3 text-sm text-destructive shadow-sm backdrop-blur-sm dark:border-red-500/30 dark:bg-red-500/15 dark:text-red-200">
               {error}
+              <button type="button" className="ml-3 underline" onClick={() => { setError(null); setNotice(null); }}>Dismiss message</button>
             </div>
           )}
 
-          {notice && (
-            <div className="rounded-xl border border-forest/20 bg-forest/10 p-3 text-sm text-forest shadow-sm backdrop-blur-sm dark:border-emerald-500/30 dark:bg-emerald-500/15 dark:text-emerald-200">
+          {notice && !error && (
+            <div role="status" className="rounded-xl border border-forest/20 bg-forest/10 p-3 text-sm text-forest shadow-sm backdrop-blur-sm dark:border-emerald-500/30 dark:bg-emerald-500/15 dark:text-emerald-200">
               {notice}
+              <button type="button" className="ml-3 underline" onClick={() => { setError(null); setNotice(null); }}>Dismiss message</button>
             </div>
           )}
         </div>
@@ -1687,7 +1691,7 @@ const SubscriptionDetailPage: React.FC = () => {
         </div>
       )}
 
-      {cutoff && canModify && (
+      {cutoff && canModify && !error && !notice && (
         <div data-tour="subscription-cutoff"
           className={`mb-4 rounded-xl border p-3 text-xs sm:text-sm leading-relaxed ${
             cutoff.isPastCutoff
@@ -1717,6 +1721,8 @@ const SubscriptionDetailPage: React.FC = () => {
                 Changes are applied separately for each delivery day.
               </div>
             </>
+          ) : getDeliveryDayCutoff(cutoff, subscription.preferredDeliveryDay)?.lockedForFulfilment ? (
+            <>Your upcoming delivery is already being fulfilled. Product changes apply to the following delivery. No payment is taken for these changes now.</>
           ) : cutoff.isPastCutoff ? (
             <>
               The cut-off for your next delivery
@@ -1995,7 +2001,7 @@ const SubscriptionDetailPage: React.FC = () => {
                         getItemMatchKey(item),
                       );
                       const hasScheduledChange = Boolean(
-                        cutoff?.isPastCutoff &&
+                        isProductDeliveryLocked &&
                         subscription.pendingChanges?.items?.length &&
                         (!liveItem ||
                           Number(liveItem.quantity || 0) !==
