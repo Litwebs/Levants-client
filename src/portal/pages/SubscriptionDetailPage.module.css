@@ -33,6 +33,15 @@
 .page .deliveryFacts { margin:0; display:grid; gap:20px; }
 .page .deliveryFacts dt { display:flex; align-items:center; gap:6px; margin-bottom:5px; font-size:12px; color:hsl(var(--muted-foreground)); }
 .page .deliveryFacts dd { margin:0; font-size:14px; line-height:1.5; color:hsl(var(--foreground)); overflow-wrap:anywhere; }
+.page .dayFieldset { min-width:0; margin:0; padding:0; border:0; }
+.page .dayOptions { display:grid; grid-template-columns:minmax(0,1fr); gap:4px; }
+.page .dayOption { display:flex; align-items:center; gap:12px; min-height:48px; padding:12px 14px; border-radius:6px; cursor:pointer; font-size:14px; line-height:1.5; transition:background-color .15s ease; }
+.page .dayOption[data-selected=true] { background:hsl(var(--forest)/.05); }
+.page .dayOption[data-disabled=true] { cursor:not-allowed; opacity:.6; }
+.page .dayOption:focus-within { outline:2px solid hsl(var(--ring)); outline-offset:2px; }
+.page .preferenceTrigger { display:flex; width:100%; height:auto; min-height:64px; align-items:center; justify-content:space-between; gap:16px; padding:12px; white-space:normal; text-align:left; line-height:1.5; }
+.page .preferenceTrigger > span { min-width:0; }
+@media(hover:hover) { .page .dayOption:not([data-disabled=true]):hover { background:hsl(var(--forest)/.1); } }
 .page .chevron { flex-shrink:0; transition:transform .2s ease; }
 .page [data-state=open] > .chevron,.page [data-state=open] > span > .chevron { transform:rotate(180deg); }
 .page .collapse { overflow:hidden; }

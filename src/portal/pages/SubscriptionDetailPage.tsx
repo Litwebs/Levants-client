@@ -27,6 +27,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/com
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Checkbox } from "@/components/ui/checkbox";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import styles from "./SubscriptionDetailPage.module.css";
 import {
   Dialog,
@@ -1600,6 +1601,9 @@ const SubscriptionDetailPage: React.FC = () => {
   );
 
   const savedDayNames = currentDayIndexes.map(toDayName);
+  const availableDeliveryDays = cutoff?.deliveryDays?.length
+    ? cutoff.deliveryDays.map(toDayName)
+    : ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
   const savedFrequencyLabel = subscription.frequency === "every_two_weeks" ? "Every 2 weeks" : subscription.frequency === "monthly" ? "Monthly" : "Weekly";
   const savedPlanTotal = originalTotal + SUBSCRIPTION_DELIVERY_FEE * Math.max(1, savedDayNames.length);
   const renderProduct = (item: EditableSubscriptionItem, dayName?: string) => {
@@ -1845,62 +1849,40 @@ const SubscriptionDetailPage: React.FC = () => {
                   <CalendarDays className="h-4 w-4 text-forest" />
                   Delivery Schedule
                 </h3>
-                <div className="space-y-3">
-                  <div className="space-y-1.5">
-                    <p className="text-xs font-medium text-muted-foreground">
-                      {frequency === "weekly"
-                        ? "Preferred Days"
-                        : "Preferred Day"}
-                    </p>
-                    <div data-tour="subscription-days" className="flex flex-wrap justify-end gap-2">
-                      {(cutoff?.deliveryDays?.length
-                        ? cutoff.deliveryDays.map((d) => toDayName(d))
-                        : [
-                            "Monday",
-                            "Tuesday",
-                            "Wednesday",
-                            "Thursday",
-                            "Friday",
-                            "Saturday",
-                          ]
-                      ).map((day) => (
-                        <Button
-                          size="sm"
-                          variant={deliveryDays.includes(day) ? "default" : "outline"}
-                          aria-pressed={deliveryDays.includes(day)}
-                          key={day}
-                          type="button"
-                          disabled={!canModify}
-                          onClick={() => {
-                            if (frequency === "weekly") {
-                              setDeliveryDays((prev) => {
-                                if (prev.includes(day)) {
-                                  return prev.length > 1
-                                    ? prev.filter((d) => d !== day)
-                                    : prev;
-                                }
-                                return [...prev, day];
-                              });
-                              return;
-                            }
-
-                            setDeliveryDays([day]);
-                          }}
-                          className={cn(
-                            "whitespace-nowrap",
-                            deliveryDays.includes(day)
-                              ? "border-forest bg-forest text-primary-foreground"
-                              : "border-border hover:border-forest/40",
-                            !canModify &&
-                              "opacity-60 cursor-not-allowed",
-                          )}
-                        >
-                          {day}
-                        </Button>
+                <fieldset className={styles.dayFieldset} disabled={!canModify || saving}>
+                  <legend className="text-xs font-medium text-muted-foreground">
+                    {frequency === "weekly" ? "Delivery days" : "Delivery day"}
+                  </legend>
+                  <p id="delivery-days-help" className="mb-3 mt-1 text-sm text-muted-foreground">
+                    {frequency === "weekly" ? "Select one or more days for your deliveries." : "Select a day for your deliveries."}
+                  </p>
+                  {frequency === "weekly" ? (
+                    <div data-tour="subscription-days" className={styles.dayOptions} aria-describedby="delivery-days-help">
+                      {availableDeliveryDays.map(day => (
+                        <label key={day} htmlFor={`delivery-day-${day}`} className={styles.dayOption} data-selected={deliveryDays.includes(day)} data-disabled={!canModify || saving}>
+                          <Checkbox
+                            id={`delivery-day-${day}`}
+                            checked={deliveryDays.includes(day)}
+                            disabled={!canModify || saving}
+                            onCheckedChange={checked => setDeliveryDays(prev => checked === true
+                              ? prev.includes(day) ? prev : [...prev, day]
+                              : prev.length > 1 ? prev.filter(selected => selected !== day) : prev)}
+                          />
+                          <span>{day}</span>
+                        </label>
                       ))}
                     </div>
-                  </div>
-                </div>
+                  ) : (
+                    <RadioGroup data-tour="subscription-days" className={styles.dayOptions} value={deliveryDays[0]} onValueChange={day => setDeliveryDays([day])} disabled={!canModify || saving} aria-label="Delivery day" aria-describedby="delivery-days-help">
+                      {availableDeliveryDays.map(day => (
+                        <label key={day} htmlFor={`delivery-day-${day}`} className={styles.dayOption} data-selected={deliveryDays.includes(day)} data-disabled={!canModify || saving}>
+                          <RadioGroupItem id={`delivery-day-${day}`} value={day} />
+                          <span>{day}</span>
+                        </label>
+                      ))}
+                    </RadioGroup>
+                  )}
+                </fieldset>
               </div>
             </div>
 
@@ -2012,7 +1994,7 @@ const SubscriptionDetailPage: React.FC = () => {
           {(subscription.stockDeferralAvailable || subscription.introOffer || subscription.recurringPriceChange) && <Card className="shadow-none"><CardHeader className={styles.sectionHeader}><CardTitle className={styles.sectionTitle}>Plan preferences</CardTitle></CardHeader><CardContent className="px-4 pb-4 text-sm sm:px-5 sm:pb-5">
             {subscription.status!=='cancelled' && <RecurringPriceNotice change={subscription.recurringPriceChange}/>}
             {subscription.introOffer && <p className="mb-3 text-sm text-muted-foreground">First payment {formatMoney(subscription.introOffer.firstChargeMinor/100)}, including {formatMoney(subscription.introOffer.discountMinor/100)} introductory savings. Renewals use normal recurring prices.</p>}
-            {subscription.stockDeferralAvailable && <Collapsible><CollapsibleTrigger asChild><Button size="sm" variant="ghost" className="h-auto w-full justify-between whitespace-normal px-0 py-2 text-left"><span>Unavailable products<span className="mt-1 block text-xs font-normal text-muted-foreground">{subscription.stockDeferralEnabled ? 'Available-products-only policy enabled' : 'Choose how future deliveries handle availability'}</span></span><ChevronDown size={15} className={styles.chevron}/></Button></CollapsibleTrigger><CollapsibleContent className={styles.collapse}><div className="space-y-3 pt-3 text-sm text-muted-foreground"><p>You pay for available products only. Unavailable products stay on your recurring plan without catch-up quantities. Already funded deliveries keep their confirmed selection.</p>{!subscription.stockDeferralEnabled && <><label className="flex items-start gap-2" htmlFor="availability-consent"><Checkbox id="availability-consent" className="mt-0.5" checked={stockConsent} onCheckedChange={checked=>setStockConsent(checked===true)} disabled={saving || subscription.status!=='active'}/>I agree to this policy for future unbilled deliveries.</label><Button size="sm" variant="outline" className="ml-auto flex w-fit" disabled={!stockConsent || saving || subscription.status!=='active'} onClick={async()=>{setSaving(true);try{setError(null);setNotice(null);await portalSubscriptionsApi.enableStockDeferral(subscription._id);await load(true);setNotice('Availability policy saved for future unbilled deliveries.');}catch(error){setNotice(null);setError(error instanceof Error ? error.message : 'Could not save availability policy');}finally{setSaving(false);}}}>Enable availability policy</Button></>}</div></CollapsibleContent></Collapsible>}
+            {subscription.stockDeferralAvailable && <Collapsible><CollapsibleTrigger asChild><Button size="sm" variant="ghost" className={styles.preferenceTrigger}><span>Unavailable products<span className="mt-1 block text-xs font-normal text-muted-foreground">{subscription.stockDeferralEnabled ? 'Available-products-only policy enabled' : 'Choose how future deliveries handle availability'}</span></span><ChevronDown size={15} className={styles.chevron}/></Button></CollapsibleTrigger><CollapsibleContent className={styles.collapse}><div className="space-y-3 px-3 pt-3 text-sm text-muted-foreground"><p>You pay for available products only. Unavailable products stay on your recurring plan without catch-up quantities. Already funded deliveries keep their confirmed selection.</p>{!subscription.stockDeferralEnabled && <><label className="flex items-start gap-2" htmlFor="availability-consent"><Checkbox id="availability-consent" className="mt-0.5" checked={stockConsent} onCheckedChange={checked=>setStockConsent(checked===true)} disabled={saving || subscription.status!=='active'}/>I agree to this policy for future unbilled deliveries.</label><Button size="sm" variant="outline" className="ml-auto flex w-fit" disabled={!stockConsent || saving || subscription.status!=='active'} onClick={async()=>{setSaving(true);try{setError(null);setNotice(null);await portalSubscriptionsApi.enableStockDeferral(subscription._id);await load(true);setNotice('Availability policy saved for future unbilled deliveries.');}catch(error){setNotice(null);setError(error instanceof Error ? error.message : 'Could not save availability policy');}finally{setSaving(false);}}}>Enable availability policy</Button></>}</div></CollapsibleContent></Collapsible>}
           </CardContent></Card>}
 
         {subscription.status !== "cancelled" && <Card className="shadow-none" data-tour="subscription-management">
