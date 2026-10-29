@@ -2,7 +2,6 @@ import RecurringPriceNotice from "@/portal/components/RecurringPriceNotice";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useParams } from "react-router-dom";
 import {
-  ArrowLeft,
   Plus,
   Minus,
   Trash2,
@@ -10,16 +9,25 @@ import {
   MapPin,
   Pause,
   Play,
-  X,
   Loader2,
   ShoppingBag,
   ChevronDown,
+  ChevronRight,
+  Package,
+  Settings2,
+  Clock3,
+  CheckCircle2,
+  Info,
 } from "lucide-react";
 import { canModifySubscription } from "@/portal/utils/subscriptionEditingPolicy";
 import { recurringItemPaymentMessage } from "@/portal/utils/recurringItemPaymentMessage";
 import { needsItemRefundChoice, saveDeliveryDayItemEdits } from "@/api/subscriptionDayItemEdits";
 import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Checkbox } from "@/components/ui/checkbox";
+import styles from "./SubscriptionDetailPage.module.css";
 import {
   Dialog,
   DialogContent,
@@ -421,6 +429,7 @@ const SubscriptionDetailPage: React.FC = () => {
     null,
   );
 
+  const [deliveryEditorOpen, setDeliveryEditorOpen] = useState(false);
   const [pauseOpen, setPauseOpen] = useState(false);
   const [resumeOpen, setResumeOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
@@ -1590,116 +1599,57 @@ const SubscriptionDetailPage: React.FC = () => {
     subscription.isCancellationScheduled,
   );
 
-  return (
-    <div data-tour-page="subscription-detail" data-tour-ready={true} className="max-w-6xl mx-auto">
-      <div className="flex items-start justify-between gap-4 mb-5">
-        <div className="flex items-start gap-2 min-w-0">
-          <Button
-            asChild
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 mt-0.5"
-          >
-            <Link to="/portal/subscriptions">
-              <ArrowLeft className="h-4 w-4" />
-            </Link>
-          </Button>
-          <div className="min-w-0">
-            <h1 className="font-heading text-xl sm:text-2xl font-bold text-foreground truncate">
-              {subscription.subscriptionNumber ||
-                `Subscription ${subscription._id.slice(-6)}`}
-            </h1>
-            <p className="text-xs sm:text-sm text-muted-foreground">
-              Started {formatDate(subscription.startDate)}
-            </p>
-            {subscription.status !== "cancelled" && <RecurringPriceNotice change={subscription.recurringPriceChange} />}
-            {subscription.stockDeferralAvailable && <div className="rounded-lg border p-4 text-sm">
-            <h3 className="font-semibold">Unavailable recurring items</h3>
-            {subscription.stockDeferralEnabled ? <p>You pay for available products only. Unavailable items stay on your recurring plan for future consideration, without catch-up quantities. Funded deliveries keep their confirmed selection.</p> : <>
-              <p>Opt in to receive available products when some recurring items are unavailable. Missing items will not be charged and stay on your plan for a future eligible delivery. We will notify you; missed quantities do not accumulate. Already funded deliveries stay unchanged.</p>
-              <label className="my-3 flex gap-2"><input type="checkbox" checked={stockConsent} onChange={event => setStockConsent(event.target.checked)} />I agree to this policy for future unbilled deliveries.</label>
-              <Button variant="outline" disabled={!stockConsent || saving || subscription.status !== "active"} onClick={async () => {
-                setSaving(true);
-                try { setError(null); setNotice(null); await portalSubscriptionsApi.enableStockDeferral(subscription._id); await load(true); setNotice("Availability policy saved for future unbilled deliveries."); }
-                catch (error) { setNotice(null); setError(error instanceof Error ? error.message : "Could not save availability policy"); }
-                finally { setSaving(false); }
-              }}>Enable availability policy</Button>
-            </>}
-          </div>}
-          {subscription.introOffer && <p className="mt-2 text-sm text-muted-foreground">
-              First payment: {formatMoney(subscription.introOffer.firstChargeMinor / 100)}, including {formatMoney(subscription.introOffer.discountMinor / 100)} introductory savings. Future payments use normal recurring prices.
-            </p>}
-          </div>
+  const savedDayNames = currentDayIndexes.map(toDayName);
+  const savedFrequencyLabel = subscription.frequency === "every_two_weeks" ? "Every 2 weeks" : subscription.frequency === "monthly" ? "Monthly" : "Weekly";
+  const savedPlanTotal = originalTotal + SUBSCRIPTION_DELIVERY_FEE * Math.max(1, savedDayNames.length);
+  const renderProduct = (item: EditableSubscriptionItem, dayName?: string) => {
+    const included = !dayName || item.quantity > 0;
+    const liveItem = liveItemsByKey.get(getItemMatchKey(item));
+    const scheduled = dayName ? getScheduledMultiDayItemChange(dayName, item) :
+      isProductDeliveryLocked && subscription.pendingChanges?.items?.length &&
+      (!liveItem || liveItem.quantity !== item.quantity || liveItem.unitPrice !== item.unitPrice)
+        ? `Scheduled from ${subscription.pendingChanges.effectiveFrom ? formatDate(subscription.pendingChanges.effectiveFrom) : "a following delivery"}${liveItem ? ` · ${liveItem.quantity} → ${item.quantity}` : ""}` : null;
+    return <div key={`${dayName || 'single'}:${item.localId}`} className={cn(styles.productRow, !included && styles.excluded)}>
+      {item.imageUrl ? <img src={item.imageUrl} alt="" className={styles.productImage}/> : <span className={styles.productImage}><Package size={20} aria-hidden="true"/></span>}
+      <div className="min-w-0"><p className="text-sm font-medium text-foreground break-words">{item.name}</p><p className="mt-1 text-xs text-muted-foreground">{formatMoney(item.unitPrice)} each{item.sku ? ` · ${item.sku}` : ''}</p>{scheduled && <p className="mt-1 text-xs text-forest">{scheduled}</p>}</div>
+      <div className={styles.productControls}>
+        {dayName && <Button type="button" size="sm" variant={included ? "secondary" : "outline"} aria-pressed={included} aria-label={`Include ${item.name} in ${dayName} delivery`} disabled={saving || !canModify} onClick={()=>toggleDayItemIncluded(dayName,item.localId)}>{included ? "Included" : "Excluded"}</Button>}
+        <div className={styles.quantity} role="group" aria-label={`Quantity for ${item.name}${dayName ? ` on ${dayName}` : ''}`}>
+          <Button type="button" size="sm" variant="ghost" className="px-2" data-tour="subscription-quantity" aria-label={`Decrease ${item.name} quantity${dayName ? ` for ${dayName}` : ''}`} disabled={saving || !canModify || !included || (!dayName && item.quantity <= 1)} onClick={()=>dayName ? updateDayQty(dayName,item.localId,item.quantity-1) : updateQty(item.localId,item.quantity-1)}><Minus size={14}/></Button>
+          <span className="min-w-6 text-center text-sm font-medium tabular-nums" aria-live="polite">{item.quantity}</span>
+          <Button type="button" size="sm" variant="ghost" className="px-2" aria-label={`Increase ${item.name} quantity${dayName ? ` for ${dayName}` : ''}`} disabled={saving || !canModify || !included} onClick={()=>dayName ? updateDayQty(dayName,item.localId,item.quantity+1) : updateQty(item.localId,item.quantity+1)}><Plus size={14}/></Button>
         </div>
-        <SubscriptionStatusBadge
-          status={subscription.status}
-          isCancellationScheduled={subscription.isCancellationScheduled}
-        />
+        {!dayName && <Button type="button" size="sm" variant="ghost" className="px-2 text-muted-foreground hover:text-destructive" aria-label={`Remove ${item.name}`} disabled={saving || !canModify} onClick={()=>setRemoveProductId(item.localId)}><Trash2 size={15}/></Button>}
       </div>
+    </div>;
+  };
 
-      {(error || notice || showScheduledCancellationAlert) && (
-        <div
-          data-testid="subscription-feedback" className="sticky top-[var(--sticky-top)] z-30 mb-4 space-y-3"
-          style={{ ["--sticky-top" as string]: `${stickyTopOffset}px` }}
-        >
-          {showScheduledCancellationAlert && !error && !notice && (
-            <div className="rounded-xl border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900 shadow-sm backdrop-blur-sm dark:border-sky-500/30 dark:bg-sky-500/10 dark:text-sky-100">
-              <div>
-                Subscription scheduled for cancellation. Your protected delivery
-                remains scheduled; future deliveries are stopped.
-              </div>
-              {hasValidCancellationDate && (
-                <div className="mt-1 text-xs text-blue-700 dark:text-sky-200">
-                  Final protected delivery date:{" "}
-                  {formatDate(cancellationEffectiveAt?.toISOString())}. The
-                  cancellation completes after this day.
-                </div>
-              )}
-            </div>
-          )}
-
-          {error && (
-            <div role="alert" className="rounded-xl border border-destructive/20 bg-destructive/10 p-3 text-sm text-destructive shadow-sm backdrop-blur-sm dark:border-red-500/30 dark:bg-red-500/15 dark:text-red-200">
-              {error}
-              <button type="button" className="ml-3 underline" onClick={() => { setError(null); setNotice(null); }}>Dismiss message</button>
-            </div>
-          )}
-
-          {notice && !error && (
-            <div role="status" className="rounded-xl border border-forest/20 bg-forest/10 p-3 text-sm text-forest shadow-sm backdrop-blur-sm dark:border-emerald-500/30 dark:bg-emerald-500/15 dark:text-emerald-200">
-              {notice}
-              <button type="button" className="ml-3 underline" onClick={() => { setError(null); setNotice(null); }}>Dismiss message</button>
-            </div>
-          )}
+  return (
+    <div data-tour-page="subscription-detail" data-tour-ready={true} className={cn(styles.page, "mx-auto w-full max-w-6xl")}>
+      <nav aria-label="Breadcrumb" className="mb-5 flex flex-wrap items-center gap-2 text-sm text-muted-foreground"><Link className="hover:text-foreground" to="/portal/subscriptions">My subscriptions</Link><ChevronRight size={14} aria-hidden="true"/><span aria-current="page" className="text-foreground">Subscription details</span></nav>
+      <header className={styles.pageHeader}>
+        <div className="min-w-0"><div className="mb-2 flex flex-wrap items-center gap-3"><p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Your subscription</p><SubscriptionStatusBadge className="[&>span:last-child]:text-sm" status={subscription.status} isCancellationScheduled={subscription.isCancellationScheduled}/></div><h1 className="break-words font-heading text-2xl font-semibold text-foreground sm:text-3xl">{subscription.subscriptionNumber || `Subscription ${subscription._id.slice(-6)}`}</h1><p className="mt-2 text-sm text-muted-foreground">Started {formatDate(subscription.startDate)}</p></div>
+        <div className={styles.headerActions}>
+          {subscription.status === "active" ? <Button size="sm" variant="outline" data-tour="subscription-pause" onClick={()=>setPauseOpen(true)} disabled={saving || !canModify}><Pause size={15}/>Pause</Button> : subscription.status === "paused" ? <Button size="sm" data-tour="subscription-resume" onClick={()=>setResumeOpen(true)} disabled={saving || subscription.isCancellationScheduled}><Play size={15}/>Resume subscription</Button> : null}
+          {subscription.status !== "cancelled" && <Button size="sm" variant="ghost" className="text-destructive hover:bg-destructive/5 hover:text-destructive" data-tour="subscription-cancel" onClick={()=>setCancelOpen(true)} disabled={saving || subscription.isCancellationScheduled}>Cancel subscription</Button>}
         </div>
-      )}
+      </header>
 
-      {subscription.status === "paused" && (
-        <div data-tour="subscription-state" className="mb-4 rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-100">
-          This subscription is paused
-          {subscription.pausedUntil
-            ? ` until ${formatDate(subscription.pausedUntil)}`
-            : ""}
-          . No changes can be made while paused, and it will resume
-          automatically when the pause period ends.
-        </div>
-      )}
+      {(error || notice || showScheduledCancellationAlert) && <div data-testid="subscription-feedback" className="mb-4">
+        <Alert variant={error ? "destructive" : "default"} role={error ? "alert" : "status"} className={cn("shadow-none", !error && notice && "border-forest/20 bg-forest/5")}>
+          {error ? <Info size={17}/> : <CheckCircle2 size={17}/>}
+          <AlertDescription><div className="flex flex-wrap items-start justify-between gap-3"><div className="min-w-0 flex-1">{error || notice || <>Subscription scheduled for cancellation. Your protected delivery remains scheduled; future deliveries are stopped.{hasValidCancellationDate && <> Cancellation completes after {formatDate(cancellationEffectiveAt?.toISOString())}.</>}</>}</div>{(error || notice) && <Button type="button" size="sm" variant="ghost" className="h-auto px-1 py-0 text-current" onClick={()=>{setError(null);setNotice(null);}}>Dismiss message</Button>}</div></AlertDescription>
+        </Alert>
+      </div>}
+      {subscription.status === "paused" && <div data-tour="subscription-state" className="mb-4 flex items-start gap-2 border-l-2 border-amber-400 bg-amber-500/5 px-4 py-3 text-sm text-foreground"><Pause size={16} className="mt-0.5 shrink-0 text-amber-600"/><p>Paused{subscription.pausedUntil ? ` until ${formatDate(subscription.pausedUntil)}` : ''}. Your plan cannot be edited while paused.{subscription.pausedUntil ? ' It resumes automatically when the pause ends, or you can resume it now.' : ''}</p></div>}
+      {subscription.status === "cancelled" && <p data-tour="subscription-state" className="mb-4 border-l-2 border-muted-foreground/40 bg-muted/40 px-4 py-3 text-sm text-muted-foreground">This subscription is cancelled and cannot be changed.</p>}
 
-      {subscription.status === "cancelled" && (
-        <div data-tour="subscription-state" className="mb-4 rounded-xl border border-red-300 bg-red-50 p-3 text-sm text-red-800 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-100">
-          This subscription is cancelled and cannot be modified.
-        </div>
-      )}
-
-      {cutoff && canModify && !error && !notice && (
-        <div data-tour="subscription-cutoff"
-          className={`mb-4 rounded-xl border p-3 text-xs sm:text-sm leading-relaxed ${
-            cutoff.isPastCutoff
-              ? "border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-100"
-              : "border-forest/20 bg-forest/5 text-foreground dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-100"
-          }`}
-        >
-          {isMultiDayWeekly ? (
+      <Card className={cn(styles.hero, "mb-5 shadow-none")}>
+        <CardContent data-tour="subscription-summary" className={styles.heroContent}>
+          <div><p className="mb-2 flex items-center gap-2 text-sm text-muted-foreground"><CalendarDays size={16} className="text-forest"/>{subscription.status === "paused" ? 'Next scheduled delivery' : 'Next delivery'}</p><p className="font-heading text-2xl font-semibold text-foreground">{displayNextDeliveryDate ? formatDate(displayNextDeliveryDate) : 'None scheduled'}</p><p className="mt-2 text-sm text-muted-foreground">{savedFrequencyLabel} · {savedDayNames.join(', ')}</p></div>
+          <div className={styles.heroPrice}><p className="mb-2 text-sm text-muted-foreground">{nextDelivery ? 'Next delivery total' : 'Regular plan total'}</p><p className="text-2xl font-semibold tabular-nums text-foreground">{formatMoney(nextDelivery ? nextDeliveryTotal : savedPlanTotal)}</p><p className="mt-2 text-xs text-muted-foreground">{nextDelivery ? 'Includes delivery' : `${savedDayNames.length > 1 ? 'Per cycle' : 'Per delivery'} · includes delivery`}{nextDeliveryAddOnTotal > 0 ? ` and ${formatMoney(nextDeliveryAddOnTotal)} one-time extras` : ''}</p></div>
+        </CardContent>
+        {cutoff && canModify && !error && !notice && <Collapsible className={styles.cutoff}><CollapsibleTrigger asChild><Button size="sm" variant="ghost" className="h-auto w-full justify-between whitespace-normal rounded-none px-4 py-3 text-left sm:px-5"><span className="flex items-center gap-2"><Clock3 size={15}/>{isMultiDayWeekly ? 'Delivery cutoffs & payment timing' : getDeliveryDayCutoff(cutoff, subscription.preferredDeliveryDay)?.lockedForFulfilment ? 'Upcoming delivery is being fulfilled' : cutoff.isPastCutoff ? 'Changes apply after the upcoming delivery' : 'Changes are open for your upcoming delivery'}</span><ChevronDown size={15} className={styles.chevron}/></Button></CollapsibleTrigger><CollapsibleContent className={styles.collapse}><div data-tour="subscription-cutoff" className="px-4 pb-4 text-sm leading-relaxed text-muted-foreground sm:px-5">          {isMultiDayWeekly ? (
             <>
               <div className="font-medium">
                 Each delivery day has its own cut-off:
@@ -1746,378 +1696,16 @@ const SubscriptionDetailPage: React.FC = () => {
                 false,
               )}
             </>
-          )}
-        </div>
-      )}
-
-      <div
-        className={cn(
-          "rounded-2xl border bg-gradient-to-r p-4 sm:p-5 mb-4",
-          subscription.status === "cancelled"
-            ? "border-red-200 bg-red-50/40 from-red-50/60 via-card to-red-50/40 dark:border-red-500/40 dark:bg-red-500/10 dark:from-red-500/15 dark:via-card dark:to-red-500/10"
-            : "border-border from-card via-card to-muted/30",
-        )}
-      >
-        <div data-tour="subscription-summary" className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
-          <div className="rounded-xl border border-border/70 bg-background/70 px-3 py-2.5">
-            <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">
-              Next delivery
-            </p>
-            <p className="text-sm sm:text-base font-semibold text-foreground mt-1">
-              {displayNextDeliveryDate
-                ? formatDate(displayNextDeliveryDate)
-                : "None scheduled"}
-            </p>
-          </div>
-          <div className="rounded-xl border border-border/70 bg-background/70 px-3 py-2.5">
-            <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">
-              Frequency
-            </p>
-            <p className="text-sm sm:text-base font-semibold text-foreground mt-1">
-              {frequency === "every_two_weeks"
-                ? "Every 2 weeks"
-                : frequency.charAt(0).toUpperCase() + frequency.slice(1)}
-            </p>
-          </div>
-          <div className="rounded-xl border border-border/70 bg-background/70 px-3 py-2.5">
-            <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">
-              Delivery day
-            </p>
-            <p className="text-sm sm:text-base font-semibold text-foreground mt-1">
-              {deliveryDays.join(", ")}
-            </p>
-          </div>
-          <div className="rounded-xl border border-border/70 bg-background/70 px-3 py-2.5">
-            <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">
-              {isMultiDayWeekly ? "Per day totals" : "Per delivery"}
-            </p>
-            <p className="text-sm sm:text-base font-semibold text-foreground mt-1">
-              {isMultiDayWeekly
-                ? `${formatMoney(totalWithDeliveryFee)} per cycle`
-                : formatMoney(totalWithDeliveryFee)}
-            </p>
-            {isMultiDayWeekly ? (
-              <div className="mt-1 space-y-0.5 text-[11px] text-muted-foreground">
-                {perDayPricing.map((entry) => (
-                  <p key={`hero-day-total-${entry.dayName}`}>
-                    {entry.dayName}: {formatMoney(entry.totalWithFee)} (fee{" "}
-                    {formatMoney(entry.deliveryFee)})
-                  </p>
-                ))}
-              </div>
-            ) : (
-              <p className="text-[11px] text-muted-foreground mt-0.5">
-                Includes delivery fee {formatMoney(deliveryFeeTotal)}
-              </p>
-            )}
-          </div>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 xl:grid-cols-12 gap-4 sm:gap-5">
-        <div className="xl:col-span-8 space-y-4">
-          <section data-tour="subscription-products" className="bg-card border border-border rounded-2xl p-4 sm:p-5">
-            <div className="flex items-center justify-between gap-2 mb-3">
-              <h3 className="font-semibold text-foreground text-base sm:text-lg">
-                Products in Subscription
-              </h3>
-              {canModify && (
-                <Button variant="outline" size="sm" className="h-8" asChild>
-                  <Link data-tour="subscription-add" to={`/portal/subscriptions/${id}/add-products`}>
-                    <Plus className="h-3.5 w-3.5" />
-                    Add product
-                  </Link>
-                </Button>
-              )}
-            </div>
-
-            <div className="space-y-2.5">
-              {isMultiDayWeekly ? (
-                deliveryDays.map((dayName, dayIndex) => {
-                  const dayItems = dayProductDraft[dayName] || [];
-                  const removedDayItems =
-                    scheduledRemovedDayItems[dayName] || [];
-                  const dayPrice = perDayPricingByDay.get(dayName);
-                  const includedCount = dayPrice?.includedCount || 0;
-                  const totalQty = dayPrice?.totalQty || 0;
-
-                  return (
-                    <div
-                      key={dayName}
-                      className="rounded-xl border border-border bg-muted/15 p-3 space-y-2.5"
-                    >
-                      <div className="rounded-lg border border-border/70 bg-background px-3 py-2">
-                        <p className="text-sm font-semibold text-foreground">
-                          Order {dayIndex + 1}: {dayName}
-                        </p>
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                          {includedCount} selected · {totalQty} total qty
-                        </p>
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                          Products {formatMoney(dayPrice?.itemsTotal || 0)} +
-                          fee {formatMoney(SUBSCRIPTION_DELIVERY_FEE)} ={" "}
-                          {formatMoney(
-                            dayPrice?.totalWithFee || SUBSCRIPTION_DELIVERY_FEE,
-                          )}
-                        </p>
-                      </div>
-
-                      <div className="space-y-2">
-                        {dayItems.map((item, idx) => {
-                          const isIncluded = Number(item.quantity || 0) > 0;
-                          const scheduledDayChange =
-                            getScheduledMultiDayItemChange(dayName, item);
-
-                          return (
-                            <div
-                              key={`${dayName}:${item.localId || idx}`}
-                              className={cn(
-                                "rounded-lg border border-border/70 bg-background p-2.5",
-                                !isIncluded && "opacity-65",
-                              )}
-                            >
-                              <div className="flex items-center justify-between gap-2">
-                                <div className="flex items-center gap-2 min-w-0">
-                                  {item.imageUrl ? (
-                                    <img
-                                      src={item.imageUrl}
-                                      alt={item.name}
-                                      className="w-10 h-10 rounded-lg object-cover flex-shrink-0"
-                                    />
-                                  ) : (
-                                    <div className="w-10 h-10 rounded-lg bg-muted/40 border border-border/50 flex-shrink-0" />
-                                  )}
-                                  <div className="min-w-0">
-                                    <p className="text-sm font-medium text-foreground truncate">
-                                      {item.name}
-                                    </p>
-                                    <p className="text-xs text-muted-foreground truncate">
-                                      {item.sku} · {formatMoney(item.unitPrice)}{" "}
-                                      each
-                                    </p>
-                                    {scheduledDayChange && (
-                                      <p className="mt-1 text-xs text-blue-700 dark:text-sky-300">
-                                        {scheduledDayChange}
-                                      </p>
-                                    )}
-                                  </div>
-                                </div>
-
-                                <button
-                                  type="button"
-                                  className={cn(
-                                    "h-7 px-2 rounded-lg border text-xs font-medium min-w-[78px]",
-                                    isIncluded
-                                      ? "border-forest/60 bg-forest/10 text-foreground"
-                                      : "border-border text-muted-foreground hover:border-forest/40",
-                                  )}
-                                  aria-label={`Include ${item.name} in ${dayName} delivery`}
-                                  aria-pressed={isIncluded}
-                                  onClick={() =>
-                                    toggleDayItemIncluded(dayName, item.localId)
-                                  }
-                                  disabled={
-                                    saving || !canModify
-                                  }
-                                >
-                                  {isIncluded ? "Included" : "Excluded"}
-                                </button>
-                              </div>
-
-                              <div className="mt-2 flex items-center justify-end gap-2 border-t border-border/70 pt-2">
-                                <button
-                                  type="button"
-                                  data-tour="subscription-quantity" aria-label={`Decrease ${item.name} quantity for ${dayName}`}
-                                  onClick={() =>
-                                    updateDayQty(
-                                      dayName,
-                                      item.localId,
-                                      Number(item.quantity || 0) - 1,
-                                    )
-                                  }
-                                  disabled={
-                                    !isIncluded ||
-                                    saving ||
-                                    !canModify
-                                  }
-                                  className="w-7 h-7 rounded-md border border-border flex items-center justify-center hover:bg-muted transition-colors"
-                                >
-                                  <Minus className="h-3 w-3" />
-                                </button>
-                                <span className="w-6 text-center text-sm font-semibold text-foreground">
-                                  {Number(item.quantity || 0)}
-                                </span>
-                                <button
-                                  type="button"
-                                  aria-label={`Increase ${item.name} quantity for ${dayName}`}
-                                  onClick={() =>
-                                    updateDayQty(
-                                      dayName,
-                                      item.localId,
-                                      Number(item.quantity || 0) + 1,
-                                    )
-                                  }
-                                  disabled={
-                                    !isIncluded ||
-                                    saving ||
-                                    !canModify
-                                  }
-                                  className="w-7 h-7 rounded-md border border-border flex items-center justify-center hover:bg-muted transition-colors"
-                                >
-                                  <Plus className="h-3 w-3" />
-                                </button>
-                              </div>
-                            </div>
-                          );
-                        })}
-                        {removedDayItems.map((item) => (
-                          <div
-                            key={`removed:${dayName}:${getDayPlanItemKey(item)}`}
-                            className="rounded-lg border border-blue-200 bg-blue-50 p-2.5 dark:border-sky-500/30 dark:bg-sky-500/10"
-                          >
-                            <div className="min-w-0 space-y-1">
-                              <p className="text-sm font-medium text-blue-900 line-through dark:text-sky-100">
-                                {item.name}
-                              </p>
-                              <p className="text-xs text-blue-700 dark:text-sky-300">
-                                {item.sku} · scheduled for removal from{" "}
-                                {getDayScheduledFromLabel(
-                                  dayNameToIndex(dayName),
-                                  cutoff,
-                                )}
-                              </p>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  );
-                })
-              ) : (
-                <>
-                  {productDraft.map((item, idx) =>
-                    (() => {
-                      const liveItem = liveItemsByKey.get(
-                        getItemMatchKey(item),
-                      );
-                      const hasScheduledChange = Boolean(
-                        isProductDeliveryLocked &&
-                        subscription.pendingChanges?.items?.length &&
-                        (!liveItem ||
-                          Number(liveItem.quantity || 0) !==
-                            Number(item.quantity || 0) ||
-                          Number(liveItem.unitPrice || 0) !==
-                            Number(item.unitPrice || 0)),
-                      );
-
-                      return (
-                        <div
-                          key={item.localId || idx}
-                          className="rounded-xl border border-border/70 bg-muted/20 px-3 py-3 space-y-3"
-                        >
-                          <div className="min-w-0">
-                            <p className="font-medium text-foreground text-sm sm:text-base">
-                              {item.name}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              {item.sku} · {formatMoney(item.unitPrice)} each
-                            </p>
-                            {hasScheduledChange && (
-                              <p className="mt-1 text-xs text-blue-700 dark:text-sky-300">
-                                {liveItem
-                                  ? `Scheduled quantity ${
-                                      item.quantity < liveItem.quantity
-                                        ? "decrease"
-                                        : "increase"
-                                    } from ${
-                                      subscription.pendingChanges?.effectiveFrom
-                                        ? formatDate(
-                                            subscription.pendingChanges
-                                              .effectiveFrom,
-                                          )
-                                        : "your next delivery"
-                                    }: ${liveItem.quantity} to ${item.quantity}`
-                                  : `Scheduled from ${
-                                      subscription.pendingChanges?.effectiveFrom
-                                        ? formatDate(
-                                            subscription.pendingChanges
-                                              .effectiveFrom,
-                                          )
-                                        : "your next delivery"
-                                    }: ${item.quantity} per delivery`}
-                              </p>
-                            )}
-                          </div>
-                          <div className="flex items-center justify-end gap-2 border-t border-border/70 pt-3">
-                            <button
-                              onClick={() =>
-                                updateQty(item.localId, item.quantity - 1)
-                              }
-                              data-tour="subscription-quantity" aria-label={`Decrease ${item.name} quantity`}
-                              disabled={
-                                saving || !canModify
-                              }
-                              className="w-7 h-7 rounded-md border border-border flex items-center justify-center hover:bg-muted transition-colors"
-                            >
-                              <Minus className="h-3 w-3" />
-                            </button>
-                            <span className="w-6 text-center text-sm font-semibold text-foreground">
-                              {item.quantity}
-                            </span>
-                            <button
-                              onClick={() =>
-                                updateQty(item.localId, item.quantity + 1)
-                              }
-                              aria-label={`Increase ${item.name} quantity`}
-                              disabled={
-                                saving || !canModify
-                              }
-                              className="w-7 h-7 rounded-md border border-border flex items-center justify-center hover:bg-muted transition-colors"
-                            >
-                              <Plus className="h-3 w-3" />
-                            </button>
-                            <button
-                              className="text-muted-foreground hover:text-destructive transition-colors"
-                              onClick={() => setRemoveProductId(item.localId)}
-                              disabled={
-                                saving || !canModify
-                              }
-                              aria-label={`Remove ${item.name}`}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    })(),
-                  )}
-                  {scheduledRemovedItems.map((item) => (
-                    <div
-                      key={`removed:${item._id}`}
-                      className="rounded-xl border border-blue-200 bg-blue-50 px-3 py-3 dark:border-sky-500/30 dark:bg-sky-500/10"
-                    >
-                      <div className="min-w-0 space-y-1">
-                        <p className="font-medium text-blue-900 text-sm sm:text-base line-through dark:text-sky-100">
-                          {item.name}
-                        </p>
-                        <p className="text-xs text-blue-700 dark:text-sky-300">
-                          {item.sku} · scheduled for removal from{" "}
-                          {subscription.pendingChanges?.effectiveFrom
-                            ? formatDate(
-                                subscription.pendingChanges.effectiveFrom,
-                              )
-                            : "your next delivery"}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </>
-              )}
-            </div>
-
-            <Separator className="my-3" />
-            {hasUnsavedProductChanges && (
-              <div className="mb-3 rounded-xl border border-forest/20 bg-forest/5 p-3 text-xs sm:text-sm text-foreground leading-relaxed">
+          )}</div></CollapsibleContent></Collapsible>}
+      </Card>
+      <div className={styles.layout}>
+        <div className="min-w-0 space-y-5" aria-label="Subscription products and deliveries">
+          <Card data-tour="subscription-products" className="shadow-none">
+            <CardHeader className={styles.sectionHeader}><div className="flex flex-wrap items-center justify-between gap-3"><div><CardTitle className={styles.sectionTitle}>Your regular products</CardTitle><CardDescription className="mt-1">{hasUnsavedProductChanges ? 'You have unsaved product changes.' : hasScheduledProductChanges ? 'Includes changes scheduled for a future delivery.' : 'Your recurring selection for each delivery.'}</CardDescription></div>{canModify && <Button size="sm" variant="outline" asChild><Link data-tour="subscription-add" to={`/portal/subscriptions/${id}/add-products`}><Plus size={15}/>Add products</Link></Button>}</div></CardHeader>
+            <CardContent className="px-4 pb-4 sm:px-5 sm:pb-5">
+              {isMultiDayWeekly ? deliveryDays.map(dayName=><section key={dayName} className={styles.dayGroup}><div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/70 pb-2"><h3 className="font-body text-sm font-semibold">{dayName} delivery</h3><span className="text-xs text-muted-foreground">{formatMoney(perDayPricingByDay.get(dayName)?.totalWithFee || SUBSCRIPTION_DELIVERY_FEE)} incl. delivery</span></div>{(dayProductDraft[dayName] || []).map(item=>renderProduct(item,dayName))}{(scheduledRemovedDayItems[dayName] || []).map(item=><p key={getDayPlanItemKey(item)} className="border-t border-border/60 py-3 text-sm text-muted-foreground"><span className="line-through">{item.name}</span> · removal scheduled from {getDayScheduledFromLabel(dayNameToIndex(dayName),cutoff)}</p>)}</section>) : <div>{productDraft.map(item=>renderProduct(item))}{scheduledRemovedItems.map(item=><p key={item._id} className="border-t border-border/60 py-3 text-sm text-muted-foreground"><span className="line-through">{item.name}</span> · removal scheduled from {subscription.pendingChanges?.effectiveFrom ? formatDate(subscription.pendingChanges.effectiveFrom) : 'a following delivery'}</p>)}</div>}
+                          {hasUnsavedProductChanges && (
+              <div className="rounded-md bg-muted/40 p-4 text-sm text-foreground leading-relaxed">
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-muted-foreground">
                     {isMultiDayWeekly ? "Current products per cycle" : "Current products per delivery"}
@@ -2178,352 +1766,29 @@ const SubscriptionDetailPage: React.FC = () => {
                 </ul>
               </div>
             )}
-            <div className="flex items-center justify-between gap-2 flex-wrap">
-              <div>
-                <span className="text-sm font-semibold text-muted-foreground">
-                  {isMultiDayWeekly ? "Per day totals" : "Per delivery total"}
-                </span>
-                {isMultiDayWeekly ? (
-                  <div className="mt-1 space-y-1 text-xs text-muted-foreground">
-                    {perDayPricing.map((entry) => (
-                      <div
-                        key={`footer-day-total-${entry.dayName}`}
-                        className="flex items-center justify-between gap-2"
-                      >
-                        <span>
-                          {entry.dayName} (products{" "}
-                          {formatMoney(entry.itemsTotal)} + fee{" "}
-                          {formatMoney(entry.deliveryFee)})
-                        </span>
-                        <span>{formatMoney(entry.totalWithFee)}</span>
-                      </div>
-                    ))}
-                    <div className="flex items-center justify-between gap-2 pt-1 border-t border-border/70">
-                      <span>Cycle delivery fees</span>
-                      <span>{formatMoney(deliveryFeeTotal)}</span>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="mt-1 space-y-0.5 text-xs text-muted-foreground">
-                    <div className="flex items-center justify-between gap-2">
-                      <span>Products</span>
-                      <span>{formatMoney(total)}</span>
-                    </div>
-                    <div className="flex items-center justify-between gap-2">
-                      <span>Delivery fee</span>
-                      <span>{formatMoney(deliveryFeeTotal)}</span>
-                    </div>
-                  </div>
-                )}
-                <div className="text-lg font-bold text-foreground">
-                  {isMultiDayWeekly
-                    ? `${formatMoney(totalWithDeliveryFee)} per cycle`
-                    : formatMoney(totalWithDeliveryFee)}
-                </div>
-              </div>
-              <div className="flex items-center gap-2 ml-auto">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    if (isMultiDayWeekly) {
-                      setDayProductDraft(dayPlanBaseline);
-                      setChangedMultiDayIndexes([]);
-                      return;
-                    }
-                    setProductDraft(editableBaseline);
-                  }}
-                  disabled={
-                    !hasUnsavedProductChanges ||
-                    saving ||
-                    !canModify
-                  }
-                >
-                  Discard
-                </Button>
-                <Button
-                  size="sm"
-                  data-tour="subscription-save-products" onClick={() => void handleSaveProductChanges()}
-                  disabled={
-                    !hasUnsavedProductChanges ||
-                    saving ||
-                    !canModify
-                  }
-                >
-                  {saving ? "Saving..." : "Save product changes"}
-                </Button>
-              </div>
-            </div>
-          </section>
 
-          <section data-tour="subscription-delivery-settings" className="bg-card border border-border rounded-2xl p-4 sm:p-5">
-            <div className="grid sm:grid-cols-2 gap-6">
-              <div>
-                <h3 className="font-semibold text-foreground mb-4 flex items-center gap-2 text-base sm:text-lg">
-                  <MapPin className="h-4 w-4 text-forest" />
-                  Delivery Address
-                </h3>
-                {addresses.length > 0 ? (
-                  <div className="space-y-3">
-                    <div className="space-y-1.5">
-                      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                        Saved addresses
-                      </p>
-                      <Select
-                        value={selectedAddressId}
-                        onValueChange={setSelectedAddressId}
-                        disabled={!canModify}
-                      >
-                        <SelectTrigger data-tour="subscription-address">
-                          <SelectValue placeholder="Select an address" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {addresses.map((address) => {
-                            const addressId = getAddressId(address);
-                            const addressLabel = [
-                              address.label || address.fullName,
-                              address.line1,
-                              address.city,
-                              address.postcode,
-                            ]
-                              .filter(Boolean)
-                              .join(" - ");
+              <div className={styles.productFooter}><div><p className="text-xs text-muted-foreground">{hasUnsavedProductChanges ? 'Draft total' : hasScheduledProductChanges ? 'Scheduled plan total' : isMultiDayWeekly ? 'Regular cycle total' : 'Regular delivery total'}</p><p className="mt-1 text-lg font-semibold tabular-nums">{formatMoney(totalWithDeliveryFee)}</p><p className="mt-1 text-xs text-muted-foreground">Products {formatMoney(total)} + delivery {formatMoney(deliveryFeeTotal)}</p></div>{hasUnsavedProductChanges && <div className="flex flex-wrap gap-2"><Button size="sm" variant="outline" disabled={saving || !canModify} onClick={()=>{if(isMultiDayWeekly){setDayProductDraft(dayPlanBaseline);setChangedMultiDayIndexes([]);}else setProductDraft(editableBaseline);}}>Discard</Button><Button size="sm" data-tour="subscription-save-products" disabled={saving || !canModify} onClick={()=>void handleSaveProductChanges()}>{saving ? 'Saving…' : 'Save product changes'}</Button></div>}</div>
+            </CardContent>
+          </Card>
 
-                            return (
-                              <SelectItem key={addressId} value={addressId}>
-                                {addressLabel}
-                              </SelectItem>
-                            );
-                          })}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                        Subscription delivery address
-                      </p>
-                      <p className="text-sm text-foreground leading-relaxed">
-                        {selectedAddressPreview ||
-                          "No delivery address configured."}
-                      </p>
-                    </div>
-                    {canModify ? (
-                      <Button variant="outline" size="sm" asChild>
-                      <Link to="/portal/addresses">Manage addresses</Link>
-                    </Button>
-                    ) : (
-                      <Button variant="outline" size="sm" disabled>Manage addresses</Button>
-                    )}
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    <p className="text-sm text-foreground leading-relaxed">
-                      {fullAddress || "No delivery address configured."}
-                    </p>
-                    {canModify ? (
-                      <Button variant="outline" size="sm" asChild>
-                      <Link to="/portal/addresses">Add address</Link>
-                    </Button>
-                    ) : (
-                      <Button variant="outline" size="sm" disabled>Add address</Button>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              <div>
-                <h3 className="font-semibold text-foreground mb-4 flex items-center gap-2 text-base sm:text-lg">
-                  <CalendarDays className="h-4 w-4 text-forest" />
-                  Delivery Schedule
-                </h3>
-                <div className="space-y-3">
-                  <div className="space-y-1.5">
-                    <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                      {frequency === "weekly"
-                        ? "Preferred Days"
-                        : "Preferred Day"}
-                    </p>
-                    <div data-tour="subscription-days" className="flex flex-wrap gap-2">
-                      {(cutoff?.deliveryDays?.length
-                        ? cutoff.deliveryDays.map((d) => toDayName(d))
-                        : [
-                            "Monday",
-                            "Tuesday",
-                            "Wednesday",
-                            "Thursday",
-                            "Friday",
-                            "Saturday",
-                          ]
-                      ).map((day) => (
-                        <button
-                          key={day}
-                          type="button"
-                          disabled={!canModify}
-                          onClick={() => {
-                            if (frequency === "weekly") {
-                              setDeliveryDays((prev) => {
-                                if (prev.includes(day)) {
-                                  return prev.length > 1
-                                    ? prev.filter((d) => d !== day)
-                                    : prev;
-                                }
-                                return [...prev, day];
-                              });
-                              return;
-                            }
-
-                            setDeliveryDays([day]);
-                          }}
-                          className={cn(
-                            "rounded-lg border px-3 py-2 text-sm font-medium leading-tight min-h-[42px] whitespace-nowrap transition-colors",
-                            deliveryDays.includes(day)
-                              ? "border-forest bg-forest text-primary-foreground"
-                              : "border-border hover:border-forest/40",
-                            !canModify &&
-                              "opacity-60 cursor-not-allowed",
-                          )}
-                        >
-                          {day}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-5 pt-4 border-t border-border flex items-center gap-2 flex-wrap">
-              <Button
-                size="sm"
-                data-tour="subscription-save-delivery" onClick={() => void handleSaveDeliveryDetails()}
-                disabled={!canSaveDeliveryDetails}
-              >
-                {saving ? "Saving..." : "Save delivery details"}
-              </Button>
-            </div>
-          </section>
-
-          <section data-tour="subscription-upcoming" className="bg-card border border-border rounded-2xl p-4 sm:p-5">
-            <DeliveryReductionGuide />
-            <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <h3 className="font-semibold text-foreground text-base sm:text-lg">
-                  Upcoming Deliveries
-                </h3>
-                <p className="mt-0.5 text-xs text-muted-foreground">
-                  Add extras once, or reduce an eligible paid delivery before its cut-off.
-                  Your regular subscription stays the same.
-                </p>
-              </div>
-              {canModify && deliveries.length > 0 && (
-                <Button asChild size="sm" className="shrink-0">
-                  <Link data-tour="subscription-add-on"
-                    to={`/portal/subscriptions/${id}/next-delivery/add-ons`}
-                  >
-                    <ShoppingBag className="h-3.5 w-3.5" />
-                    Add to next delivery
-                  </Link>
-                </Button>
-              )}
-            </div>
-            {deliveries.some(delivery => delivery.status === "generated" && delivery.oneTimeChanges?.length &&
-              !isPastCutoffInstant(delivery.cutoffAt, delivery.isPastCutoff ?? true)) &&
-              <p className="mb-3 rounded-lg bg-muted/40 p-3 text-sm text-muted-foreground">An upcoming delivery has a one-time reduction. You can reduce it further here. Regular product or schedule changes can be saved after that delivery’s cut-off, for a later delivery.</p>}
-            {deliveryPageLoading && <p role="status" className="mb-2 text-sm text-muted-foreground">Loading deliveries…</p>}
-            {deliveryPages.totalPages > 1 && <nav aria-label="Delivery history pages" className="mb-3 flex flex-wrap items-center justify-between gap-2 text-sm">
-              <Button type="button" variant="outline" size="sm" className="min-h-11" disabled={deliveryPageLoading || deliveryPages.page <= 1}
-                onClick={() => { void load(true, deliveryPages.page - 1).catch(() => {}); }}>Older deliveries</Button>
-              <span>Page {deliveryPages.page} of {deliveryPages.totalPages}</span>
-              <Button type="button" variant="outline" size="sm" className="min-h-11" disabled={deliveryPageLoading || deliveryPages.page >= deliveryPages.totalPages}
-                onClick={() => { void load(true, deliveryPages.page + 1).catch(() => {}); }}>Newer deliveries</Button>
-            </nav>}
-            {deliveries.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                No upcoming deliveries.
-              </p>
-            ) : (
-              <div className="space-y-2">
-                {deliveries.map((delivery, index) => {
-                  const deliveryId = delivery._id || `delivery-${index}`;
-                  const detailsId = `delivery-details-${deliveryId}`;
-                  const isExpanded = expandedDeliveryId === deliveryId;
-                  const recurringItems = getRecurringItemsForDelivery(
-                    delivery,
-                    subscription,
-                  );
-                  const recurringSubtotal = getRecurringSubtotalForDelivery(
-                    delivery,
-                    subscription,
-                  );
-                  const addOnTotal = getDeliveryAddOnTotal(delivery);
-                  const addOnQuantity = getDeliveryAddOnQuantity(delivery);
-                  const deliveryTotal = getTotalForDelivery(
-                    delivery,
-                    subscription,
-                  );
-
-                  return (
-                    <div
-                      key={deliveryId}
-                      className="overflow-hidden rounded-xl border border-border/70 bg-muted/10 transition-colors hover:border-forest/30"
-                    >
-                      <button
-                        id={`delivery-toggle-${deliveryId}`}
-                        type="button"
-                        aria-expanded={isExpanded}
-                        aria-controls={detailsId}
-                        data-tour="delivery-expand" aria-label={`${isExpanded ? "Hide" : "View"} details for ${formatDate(delivery.scheduledDate)}`}
-                        onClick={() =>
-                          setExpandedDeliveryId((current) =>
-                            current === deliveryId ? null : deliveryId,
-                          )
-                        }
-                        className="flex w-full items-center justify-between gap-3 px-3 py-3 text-left outline-none transition-colors hover:bg-muted/30 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-forest"
-                      >
-                        <span>
-                          <span className="block text-sm font-medium text-foreground">
-                            {formatDate(delivery.scheduledDate)}
-                          </span>
-                          {addOnQuantity > 0 && (
-                            <span className="mt-0.5 block text-xs text-forest">
-                              {addOnQuantity} one-time add-on
-                              {addOnQuantity === 1 ? "" : "s"} confirmed
-                            </span>
-                          )}
-                          {Boolean(delivery.oneTimeChanges?.length) && <span className="mt-0.5 block text-xs text-forest">Changed for this delivery only</span>}
-                        </span>
-                        <span className="flex shrink-0 items-center gap-2">
-                          <DeliveryStatusBadge status={delivery.status} />
-                          <ChevronDown
-                            aria-hidden="true"
-                            className={cn(
-                              "h-4 w-4 text-muted-foreground transition-transform",
-                              isExpanded && "rotate-180",
-                            )}
-                          />
-                        </span>
-                      </button>
-
-                      <div className="px-3 pb-3 empty:hidden">
-                        <DeliveryReduction key={`${customer?._id}:${deliveryId}`} customerId={customer?._id || ""} subscriptionId={id!} delivery={delivery}
-                          onChanged={async result => {
-                            setNotice(`Delivery changed. ${formatMoney(result.creditedMinor / 100)} added as store credit. Your regular subscription stays the same.`);
-                            await Promise.all([load(true), refreshCustomer()]);
-                          }} />
-                      </div>
-
-                      {delivery.stockAvailability && delivery.stockAvailability.deferred.length > 0 && <div className="px-3 pb-3 text-sm" role="status">
-                        <p>Unavailable: {delivery.stockAvailability.deferred.map(item => `${item.name} ×${item.quantity}`).join(", ")}. {formatMoney(delivery.stockAvailability.notChargedMinor / 100)} not charged.</p>
-                        <p>These items remain on your recurring plan for a future eligible delivery when stock is available. No catch-up quantities.</p>
-                      </div>}
-                      {isExpanded && (
-                        <div
-                          id={detailsId}
-                          role="region"
-                          aria-label={`Delivery details for ${formatDate(delivery.scheduledDate)}`}
-                          className="border-t border-border/70 bg-card px-3 py-3"
-                        >
-                          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          <Card data-tour="subscription-upcoming" className="shadow-none">
+            <CardHeader className={styles.sectionHeader}><div className="flex flex-wrap items-start justify-between gap-3"><div><CardTitle className={styles.sectionTitle}>Upcoming deliveries</CardTitle><CardDescription className="mt-1">View each delivery or make a one-time change.</CardDescription></div>{canModify && deliveries.length>0 && <Button size="sm" variant="outline" asChild><Link data-tour="subscription-add-on" to={`/portal/subscriptions/${id}/next-delivery/add-ons`}><ShoppingBag size={15}/>Add one-time extras</Link></Button>}</div></CardHeader>
+            <CardContent className="px-4 pb-4 sm:px-5 sm:pb-5">
+              {deliveries.some(delivery=>delivery.status==='generated' && delivery.oneTimeChanges?.length && !isPastCutoffInstant(delivery.cutoffAt,delivery.isPastCutoff ?? true)) && <p className="mb-3 rounded-md bg-muted/50 p-3 text-sm text-muted-foreground">A delivery has a one-time reduction. Further reductions can be made below; recurring changes may need to wait until its cutoff.</p>}
+              {deliveryPageLoading && <p role="status" className="mb-3 text-sm text-muted-foreground">Loading deliveries…</p>}
+              {deliveries.length===0 ? <p className="py-4 text-sm text-muted-foreground">No upcoming deliveries.</p> : <div className={styles.deliveries}>{deliveries.map((delivery,index)=>{
+                const deliveryId=delivery._id || `delivery-${index}`;
+                const isExpanded=expandedDeliveryId===deliveryId;
+                const recurringItems=getRecurringItemsForDelivery(delivery,subscription);
+                const recurringSubtotal=getRecurringSubtotalForDelivery(delivery,subscription);
+                const addOnTotal=getDeliveryAddOnTotal(delivery);
+                const addOnQuantity=getDeliveryAddOnQuantity(delivery);
+                const deliveryTotal=getTotalForDelivery(delivery,subscription);
+                return <Collapsible key={deliveryId} open={isExpanded} onOpenChange={open=>setExpandedDeliveryId(open ? deliveryId : null)} className={styles.delivery}>
+                  <CollapsibleTrigger asChild><Button size="sm" variant="ghost" id={`delivery-toggle-${deliveryId}`} data-tour="delivery-expand" aria-label={`${isExpanded ? 'Hide' : 'View'} details for ${formatDate(delivery.scheduledDate)}`} className={styles.deliveryTrigger}><span className="min-w-0 text-left"><span className="block text-sm font-medium">{formatDate(delivery.scheduledDate)}</span><span className="mt-1 block text-xs text-muted-foreground">{addOnQuantity>0 ? `${addOnQuantity} one-time extra${addOnQuantity===1 ? '' : 's'}` : 'Regular delivery'}{delivery.oneTimeChanges?.length ? ' · Adjusted' : ''}</span></span><span className={styles.deliveryMeta}><DeliveryStatusBadge status={delivery.status}/><span className="text-sm font-medium tabular-nums">{formatMoney(deliveryTotal)}</span><ChevronDown size={15} className={styles.chevron}/></span></Button></CollapsibleTrigger>
+                  <CollapsibleContent className={styles.collapse}><div className={styles.deliveryContent} role="region" aria-label={`Delivery details for ${formatDate(delivery.scheduledDate)}`}>
+                    {delivery.stockAvailability && delivery.stockAvailability.deferred.length>0 && <p className="mb-3 rounded-md bg-muted/50 p-3 text-sm">Unavailable: {delivery.stockAvailability.deferred.map(item=>`${item.name} × ${item.quantity}`).join(', ')}. {formatMoney(delivery.stockAvailability.notChargedMinor/100)} not charged. Items remain on your recurring plan without catch-up quantities.</p>}
+                                              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                             Subscription items
                           </p>
                           <div className="space-y-1.5 text-sm">
@@ -2599,188 +1864,175 @@ const SubscriptionDetailPage: React.FC = () => {
                               asChild
                               variant="outline"
                               size="sm"
-                              className="mt-3 w-full sm:w-auto"
+                              className="mt-3"
                             >
                               <Link to={`/portal/orders/${delivery.order._id}`}>
                                 View order {delivery.order.orderId || "details"}
                               </Link>
                             </Button>
                           )}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </section>
+                  </div></CollapsibleContent>
+                  <div className="px-3 empty:hidden"><DeliveryReduction key={`${customer?._id}:${deliveryId}`} customerId={customer?._id || ''} subscriptionId={id!} delivery={delivery} onChanged={async result=>{setNotice(`Delivery changed. ${formatMoney(result.creditedMinor/100)} added as store credit. Your regular subscription stays the same.`);await Promise.all([load(true),refreshCustomer()]);}}/></div>
+                </Collapsible>;
+              })}</div>}
+              {deliveryPages.totalPages>1 && <nav aria-label="Delivery history pages" className="mt-4 flex flex-wrap items-center justify-between gap-2 text-sm"><Button size="sm" variant="outline" disabled={deliveryPageLoading || deliveryPages.page<=1} onClick={()=>{void load(true,deliveryPages.page-1).catch(()=>{});}}>Older deliveries</Button><span className="text-xs text-muted-foreground">Page {deliveryPages.page} of {deliveryPages.totalPages}</span><Button size="sm" variant="outline" disabled={deliveryPageLoading || deliveryPages.page>=deliveryPages.totalPages} onClick={()=>{void load(true,deliveryPages.page+1).catch(()=>{});}}>Newer deliveries</Button></nav>}
+              <div className="mt-4"><DeliveryReductionGuide/></div>
+            </CardContent>
+          </Card>
         </div>
-
-        <aside className="xl:col-span-4">
-          <div
-            className="space-y-4 xl:sticky"
-            style={{ top: stickyTopOffset } as React.CSSProperties}
-          >
-            <div className="bg-card border border-border rounded-2xl p-4 sm:p-5">
-              <h3 className="font-semibold text-foreground mb-3 text-base sm:text-lg">
-                Subscription Actions
-              </h3>
-              <div className="space-y-2">
-                {subscription.status === "active" ? (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="w-full"
-                    data-tour="subscription-pause" onClick={() => setPauseOpen(true)}
-                    disabled={saving || !canModify}
-                  >
-                    <Pause className="h-3.5 w-3.5" />
-                    Pause Subscription
-                  </Button>
-                ) : subscription.status === "paused" ? (
-                  <Button
-                    size="sm"
-                    className="w-full"
-                    data-tour="subscription-resume" onClick={() => setResumeOpen(true)}
-                    disabled={saving || subscription.isCancellationScheduled}
-                  >
-                    <Play className="h-3.5 w-3.5" />
-                    Resume Subscription
-                  </Button>
-                ) : null}
-                {subscription.status !== "cancelled" && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="w-full text-destructive hover:bg-destructive/10"
-                    data-tour="subscription-cancel" onClick={() => setCancelOpen(true)}
-                    disabled={saving || subscription.isCancellationScheduled}
-                  >
-                    <X className="h-3.5 w-3.5" />
-                    Cancel Subscription
-                  </Button>
-                )}
-              </div>
-            </div>
-
-            <div className="bg-card border border-border rounded-2xl p-4 sm:p-5">
-              <h4 className="text-sm font-semibold text-foreground mb-2">
-                Snapshot
-              </h4>
-              <div className="space-y-2 text-sm">
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Items</span>
-                  <span className="font-medium text-foreground">
-                    {effectiveProductDraft.length}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Status</span>
-                  <span className="font-medium text-foreground capitalize">
-                    {subscription.isCancellationScheduled
-                      ? "scheduled for cancellation"
-                      : subscription.status}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">
-                    {isMultiDayWeekly
-                      ? hasScheduledProductChanges
-                        ? "Scheduled cycle total"
-                        : "Cycle total"
-                      : hasScheduledProductChanges
-                        ? "Scheduled per delivery"
-                        : "Per delivery"}
-                  </span>
-                  <span className="font-semibold text-foreground">
-                    {isMultiDayWeekly
-                      ? `${formatMoney(totalWithDeliveryFee)} / cycle`
-                      : formatMoney(totalWithDeliveryFee)}
-                  </span>
-                </div>
-                {nextDelivery && nextDeliveryAddOnTotal > 0 && (
-                  <div className="space-y-2 border-t border-border/70 pt-2">
-                    <div className="flex items-center justify-between text-forest">
-                      <span>One-time add-ons</span>
-                      <span className="font-medium">
-                        +{formatMoney(nextDeliveryAddOnTotal)}
-                      </span>
-                    </div>
-                    <ul
-                      aria-label="Items added to next delivery"
-                      className="space-y-1.5 rounded-lg bg-forest/5 p-2.5 dark:bg-emerald-500/10"
-                    >
-                      {nextDeliveryAddOnItems.map((item) => (
-                        <li
-                          key={item.key}
-                          className="flex items-start justify-between gap-3 text-xs"
-                        >
-                          <span className="min-w-0 break-words text-foreground">
-                            {item.name}
-                            <span className="ml-1 text-muted-foreground">
-                              × {item.quantity}
-                            </span>
-                          </span>
-                          <span className="shrink-0 font-medium text-foreground">
-                            {formatMoney(item.subtotal)}
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                    <div className="flex items-center justify-between">
-                      <span className="font-medium text-foreground">
-                        Next delivery total
-                      </span>
-                      <span className="font-bold text-foreground">
-                        {formatMoney(nextDeliveryTotal)}
-                      </span>
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      Includes the one-time add-ons for {formatDate(nextDelivery.scheduledDate)}.
-                    </p>
-                  </div>
-                )}
-                {isMultiDayWeekly ? (
-                  <div className="space-y-1 pt-1 border-t border-border/70">
-                    {perDayPricing.map((entry) => (
-                      <div
-                        key={`snapshot-day-total-${entry.dayName}`}
-                        className="flex items-center justify-between text-xs"
+        <aside className="min-w-0 space-y-5" aria-label="Delivery preferences">
+          <Card data-tour="subscription-delivery-settings" className="shadow-none"><CardHeader className={styles.sectionHeader}><div className="flex items-center justify-between gap-3"><CardTitle className={styles.sectionTitle}>Delivery details</CardTitle>{canModify && <Button size="sm" variant="outline" aria-expanded={deliveryEditorOpen} aria-controls="subscription-delivery-editor" onClick={()=>setDeliveryEditorOpen(open=>!open)}><Settings2 size={14}/>{deliveryEditorOpen ? 'Close' : 'Edit'}</Button>}</div></CardHeader><CardContent className="px-4 pb-4 sm:px-5 sm:pb-5"><dl className={styles.deliveryFacts}><div><dt><MapPin size={15}/>Delivering to</dt><dd>{fullAddress || 'No delivery address configured.'}</dd></div><div><dt><CalendarDays size={15}/>Schedule</dt><dd>{savedDayNames.join(', ')} · {savedFrequencyLabel}</dd></div>{(subscription.pendingChanges?.deliveryAddress || subscription.deliveryAddress)?.deliveryInstructions && <div><dt>Delivery instructions</dt><dd>{(subscription.pendingChanges?.deliveryAddress || subscription.deliveryAddress).deliveryInstructions}</dd></div></dl>{subscription.pendingChanges?.deliveryAddress && <p className="mt-3 text-xs text-forest">Address change scheduled{subscription.pendingChanges.effectiveFrom ? ` from ${formatDate(subscription.pendingChanges.effectiveFrom)}` : ''}.</p>}<Collapsible open={deliveryEditorOpen} onOpenChange={setDeliveryEditorOpen}><CollapsibleContent id="subscription-delivery-editor" className={styles.collapse}><div className="mt-4 border-t border-border pt-4">            <div className="grid gap-5">
+              <div>
+                <h3 className="font-semibold text-foreground mb-3 flex items-center gap-2 text-sm">
+                  <MapPin className="h-4 w-4 text-forest" />
+                  Delivery Address
+                </h3>
+                {addresses.length > 0 ? (
+                  <div className="space-y-3">
+                    <div className="space-y-1.5">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        Saved addresses
+                      </p>
+                      <Select
+                        value={selectedAddressId}
+                        onValueChange={setSelectedAddressId}
+                        disabled={!canModify}
                       >
-                        <span className="text-muted-foreground">
-                          {entry.dayName} (fee {formatMoney(entry.deliveryFee)})
-                        </span>
-                        <span className="font-medium text-foreground">
-                          {formatMoney(entry.totalWithFee)}
-                        </span>
-                      </div>
-                    ))}
-                    <div className="flex items-center justify-between text-xs pt-1 border-t border-border/70">
-                      <span className="text-muted-foreground">
-                        Cycle delivery fees
-                      </span>
-                      <span className="font-medium text-foreground">
-                        {formatMoney(deliveryFeeTotal)}
-                      </span>
+                        <SelectTrigger className="h-9" data-tour="subscription-address">
+                          <SelectValue placeholder="Select an address" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {addresses.map((address) => {
+                            const addressId = getAddressId(address);
+                            const addressLabel = [
+                              address.label || address.fullName,
+                              address.line1,
+                              address.city,
+                              address.postcode,
+                            ]
+                              .filter(Boolean)
+                              .join(" - ");
+
+                            return (
+                              <SelectItem key={addressId} value={addressId}>
+                                {addressLabel}
+                              </SelectItem>
+                            );
+                          })}
+                        </SelectContent>
+                      </Select>
                     </div>
+                    <div className="space-y-1">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        Subscription delivery address
+                      </p>
+                      <p className="text-sm text-foreground leading-relaxed">
+                        {selectedAddressPreview ||
+                          "No delivery address configured."}
+                      </p>
+                    </div>
+                    {canModify ? (
+                      <Button variant="outline" size="sm" asChild>
+                      <Link to="/portal/addresses">Manage addresses</Link>
+                    </Button>
+                    ) : (
+                      <Button variant="outline" size="sm" disabled>Manage addresses</Button>
+                    )}
                   </div>
                 ) : (
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">Delivery fee</span>
-                    <span className="font-medium text-foreground">
-                      {formatMoney(deliveryFeeTotal)}
-                    </span>
-                  </div>
-                )}
-                {hasScheduledProductChanges && (
-                  <div className="flex items-center justify-between text-xs text-blue-700 dark:text-sky-300">
-                    <span>{isMultiDayWeekly ? "Current live products per cycle" : "Current live products per delivery"}</span>
-                    <span>{formatMoney(originalTotal)}</span>
+                  <div className="space-y-3">
+                    <p className="text-sm text-foreground leading-relaxed">
+                      {fullAddress || "No delivery address configured."}
+                    </p>
+                    {canModify ? (
+                      <Button variant="outline" size="sm" asChild>
+                      <Link to="/portal/addresses">Add address</Link>
+                    </Button>
+                    ) : (
+                      <Button variant="outline" size="sm" disabled>Add address</Button>
+                    )}
                   </div>
                 )}
               </div>
+
+              <div>
+                <h3 className="font-semibold text-foreground mb-3 flex items-center gap-2 text-sm">
+                  <CalendarDays className="h-4 w-4 text-forest" />
+                  Delivery Schedule
+                </h3>
+                <div className="space-y-3">
+                  <div className="space-y-1.5">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      {frequency === "weekly"
+                        ? "Preferred Days"
+                        : "Preferred Day"}
+                    </p>
+                    <div data-tour="subscription-days" className="flex flex-wrap gap-2">
+                      {(cutoff?.deliveryDays?.length
+                        ? cutoff.deliveryDays.map((d) => toDayName(d))
+                        : [
+                            "Monday",
+                            "Tuesday",
+                            "Wednesday",
+                            "Thursday",
+                            "Friday",
+                            "Saturday",
+                          ]
+                      ).map((day) => (
+                        <Button
+                          size="sm"
+                          variant={deliveryDays.includes(day) ? "default" : "outline"}
+                          aria-pressed={deliveryDays.includes(day)}
+                          key={day}
+                          type="button"
+                          disabled={!canModify}
+                          onClick={() => {
+                            if (frequency === "weekly") {
+                              setDeliveryDays((prev) => {
+                                if (prev.includes(day)) {
+                                  return prev.length > 1
+                                    ? prev.filter((d) => d !== day)
+                                    : prev;
+                                }
+                                return [...prev, day];
+                              });
+                              return;
+                            }
+
+                            setDeliveryDays([day]);
+                          }}
+                          className={cn(
+                            "whitespace-nowrap",
+                            deliveryDays.includes(day)
+                              ? "border-forest bg-forest text-primary-foreground"
+                              : "border-border hover:border-forest/40",
+                            !canModify &&
+                              "opacity-60 cursor-not-allowed",
+                          )}
+                        >
+                          {day}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
-          </div>
+
+            <div className="pt-4 border-t border-border flex items-center gap-2 flex-wrap">
+              <Button
+                size="sm"
+                data-tour="subscription-save-delivery" onClick={() => void handleSaveDeliveryDetails()}
+                disabled={!canSaveDeliveryDetails}
+              >
+                {saving ? "Saving..." : "Save delivery details"}
+              </Button>
+            </div></div></CollapsibleContent></Collapsible></CardContent></Card>
+          {(subscription.stockDeferralAvailable || subscription.introOffer || subscription.recurringPriceChange) && <Card className="shadow-none"><CardHeader className={styles.sectionHeader}><CardTitle className={styles.sectionTitle}>Plan preferences</CardTitle></CardHeader><CardContent className="px-4 pb-4 text-sm sm:px-5 sm:pb-5">
+            {subscription.status!=='cancelled' && <RecurringPriceNotice change={subscription.recurringPriceChange}/>}
+            {subscription.introOffer && <p className="mb-3 text-sm text-muted-foreground">First payment {formatMoney(subscription.introOffer.firstChargeMinor/100)}, including {formatMoney(subscription.introOffer.discountMinor/100)} introductory savings. Renewals use normal recurring prices.</p>}
+            {subscription.stockDeferralAvailable && <Collapsible><CollapsibleTrigger asChild><Button size="sm" variant="ghost" className="h-auto w-full justify-between whitespace-normal px-0 py-2 text-left"><span>Unavailable products<span className="mt-1 block text-xs font-normal text-muted-foreground">{subscription.stockDeferralEnabled ? 'Available-products-only policy enabled' : 'Choose how future deliveries handle availability'}</span></span><ChevronDown size={15} className={styles.chevron}/></Button></CollapsibleTrigger><CollapsibleContent className={styles.collapse}><div className="space-y-3 pt-3 text-sm text-muted-foreground"><p>You pay for available products only. Unavailable products stay on your recurring plan without catch-up quantities. Already funded deliveries keep their confirmed selection.</p>{!subscription.stockDeferralEnabled && <><label className="flex items-start gap-2" htmlFor="availability-consent"><Checkbox id="availability-consent" className="mt-0.5" checked={stockConsent} onCheckedChange={checked=>setStockConsent(checked===true)} disabled={saving || subscription.status!=='active'}/>I agree to this policy for future unbilled deliveries.</label><Button size="sm" variant="outline" disabled={!stockConsent || saving || subscription.status!=='active'} onClick={async()=>{setSaving(true);try{setError(null);setNotice(null);await portalSubscriptionsApi.enableStockDeferral(subscription._id);await load(true);setNotice('Availability policy saved for future unbilled deliveries.');}catch(error){setNotice(null);setError(error instanceof Error ? error.message : 'Could not save availability policy');}finally{setSaving(false);}}}>Enable availability policy</Button></>}</div></CollapsibleContent></Collapsible>}
+          </CardContent></Card>}
         </aside>
       </div>
 
@@ -2794,7 +2046,7 @@ const SubscriptionDetailPage: React.FC = () => {
           }
         }}
       >
-        <DialogContent data-tour-page="pause-form" data-tour-ready={!saving} className="max-w-md max-h-[90dvh] overflow-y-auto p-6">
+        <DialogContent data-tour-page="pause-form" data-tour-ready={!saving} className="max-w-md max-h-[90dvh] overflow-y-auto p-5">
           <DialogHeader>
             <DialogTitle>Pause Subscription?</DialogTitle>
             <DialogDescription data-tour="pause-policy">
@@ -2855,14 +2107,14 @@ const SubscriptionDetailPage: React.FC = () => {
               )}
             </div>
             <div className="flex justify-end gap-2 pt-2">
-              <Button
+              <Button size="sm"
                 variant="outline"
                 onClick={() => setPauseOpen(false)}
                 disabled={saving}
               >
                 Keep active
               </Button>
-              <Button data-tour="pause-confirm" onClick={() => void handlePause()} disabled={saving}>
+              <Button size="sm" data-tour="pause-confirm" onClick={() => void handlePause()} disabled={saving}>
                 {saving ? "Pausing..." : "Pause subscription"}
               </Button>
             </div>
@@ -2870,26 +2122,29 @@ const SubscriptionDetailPage: React.FC = () => {
         </DialogContent>
       </Dialog>
       <ConfirmationModal
+        buttonSize="sm"
         tourId="resume-confirmation"
         open={resumeOpen}
         onOpenChange={setResumeOpen}
         title="Resume Subscription?"
-        description="Your subscription will resume from the next available delivery date."
+        description="Resume from the next eligible delivery. If its previous payment was refunded or credited, your saved card may be charged to restore the unpaid value. Existing store credit is kept."
         confirmLabel="Resume"
         onConfirm={handleResume}
       />
       <ConfirmationModal
+        buttonSize="sm"
         tourId="cancel-confirmation"
         open={cancelOpen}
         onOpenChange={setCancelOpen}
         title="Cancel Subscription?"
-        description="This will permanently cancel your subscription and stop all future deliveries."
+        description="Eligible future deliveries will stop. A delivery already past its cutoff stays scheduled. Any eligible prepaid value is settled using your refund or store-credit choice."
         confirmLabel="Yes, Cancel"
         cancelLabel="Keep Subscription"
         variant="destructive"
         onConfirm={handleCancelAttempt}
       />
       <ConfirmationModal
+        buttonSize="sm"
         open={Boolean(removeProductId)}
         onOpenChange={(open) => {
           if (!open) setRemoveProductId(null);
@@ -2910,7 +2165,7 @@ const SubscriptionDetailPage: React.FC = () => {
           }
         }}
       >
-        <DialogContent className="max-w-md p-6">
+        <DialogContent className="max-w-md max-h-[90dvh] overflow-y-auto p-5">
           <DialogHeader>
             <DialogTitle>How would you like your refund?</DialogTitle>
             <DialogDescription>
@@ -2928,7 +2183,7 @@ const SubscriptionDetailPage: React.FC = () => {
             </DialogDescription>
           </DialogHeader>
           <div className="flex flex-col gap-3 pt-2">
-            <Button
+            <Button size="sm"
               variant="outline"
               className="h-auto py-3 justify-start text-left"
               disabled={saving}
@@ -2948,7 +2203,7 @@ const SubscriptionDetailPage: React.FC = () => {
                 </div>
               </div>
             </Button>
-            <Button
+            <Button size="sm"
               variant="outline"
               className="h-auto py-3 justify-start text-left"
               disabled={saving}
@@ -2976,7 +2231,7 @@ const SubscriptionDetailPage: React.FC = () => {
         open={cancelRefundChoiceOpen}
         onOpenChange={setCancelRefundChoiceOpen}
       >
-        <DialogContent className="max-w-md p-6">
+        <DialogContent className="max-w-md max-h-[90dvh] overflow-y-auto p-5">
           <DialogHeader>
             <DialogTitle>How should we settle your cancellation?</DialogTitle>
             <DialogDescription>
@@ -2985,7 +2240,7 @@ const SubscriptionDetailPage: React.FC = () => {
             </DialogDescription>
           </DialogHeader>
           <div className="flex flex-col gap-3 pt-2">
-            <Button
+            <Button size="sm"
               variant="outline"
               className="h-auto py-3 justify-start text-left"
               disabled={saving}
@@ -3000,7 +2255,7 @@ const SubscriptionDetailPage: React.FC = () => {
                 </div>
               </div>
             </Button>
-            <Button
+            <Button size="sm"
               variant="outline"
               className="h-auto py-3 justify-start text-left"
               disabled={saving}

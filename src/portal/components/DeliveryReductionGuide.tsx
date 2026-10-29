@@ -1,7 +1,7 @@
 /** Customer-facing guidance only: no API calls or account mutations. */
 export default function DeliveryReductionGuide() {
-  return <details data-tour="delivery-reduction-guide" className="mb-4 rounded-xl border border-border bg-muted/20 p-3 text-sm">
-    <summary className="min-h-11 cursor-pointer py-3 font-medium">How delivery-only changes work</summary>
+  return <details data-tour="delivery-reduction-guide" className="text-sm">
+    <summary className="cursor-pointer py-2 text-sm font-medium text-muted-foreground">How delivery-only changes work</summary>
     <div className="space-y-3 pt-2 text-muted-foreground">
       <p>Reduce or remove recurring items from one eligible paid delivery without changing your regular subscription. Future deliveries keep their regular quantities.</p>
       <ol className="list-decimal space-y-2 pl-5">
