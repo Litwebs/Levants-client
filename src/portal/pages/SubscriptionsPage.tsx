@@ -300,7 +300,6 @@ const SubscriptionsPage: React.FC = () => {
       const msg =
         err instanceof ApiError ? err.message : "Failed to load subscriptions.";
       setError(msg);
-      setSubscriptions([]);
     } finally {
       setLoading(false);
     }
@@ -358,8 +357,9 @@ const SubscriptionsPage: React.FC = () => {
       />
 
       {error && (
-        <div className="mb-4 p-3 bg-destructive/10 text-destructive rounded-lg text-sm">
-          {error}
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 p-3 bg-destructive/10 text-destructive rounded-lg text-sm" role="alert">
+          <span>{error} Your saved subscriptions have not been changed.</span>
+          <Button type="button" size="sm" variant="outline" onClick={() => void loadSubscriptions()}>Retry loading</Button>
         </div>
       )}
 
@@ -368,7 +368,7 @@ const SubscriptionsPage: React.FC = () => {
           <Loader2 className="h-4 w-4 animate-spin" />
           Loading subscriptions...
         </div>
-      ) : (
+      ) : error ? null : (
         <Tabs defaultValue="active">
           <TabsList data-tour="subscription-tabs" className="mb-5">
             <TabsTrigger value="active">Active ({active.length})</TabsTrigger>

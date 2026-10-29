@@ -100,6 +100,17 @@ export type PortalSubscription = {
   customerVersion: number;
 };
 
+export type SubscriptionRefundRecovery = {
+  orderId: string;
+  refundedMinor: number;
+  remainingMinor: number;
+  retryAvailable: boolean;
+  operationId?: string;
+  resumeOn?: string;
+  expectedVersion?: number;
+  refundMethod?: "refund";
+};
+
 export type PortalSubscriptionDelivery = {
   stockAvailability?: { deferred: Array<{name: string; quantity: number}>; notChargedMinor: number; amountMinor: number } | null;
   _id: string;

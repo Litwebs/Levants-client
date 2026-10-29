@@ -1308,7 +1308,20 @@ const NewSubscriptionPage: React.FC = () => {
     if (!pricingQuote || quoteLoading || quoteError) throw new Error("Please wait for a confirmed price before subscribing.");
     if (pricingQuote.canCreate === false || (pricingQuote.stockDeferralAvailable && !deferUnavailable)) throw new Error("Review availability and confirm the stock-deferral policy before subscribing.");
     const payload = { ...buildSubscriptionPayload(), pricingQuoteToken: pricingQuote.quoteToken, ...(pricingQuote.stockDeferralAvailable ? {deferUnavailable} : {}) };
-    await portalSubscriptionsApi.create(payload);
+    try {
+      await portalSubscriptionsApi.create(payload);
+    } catch (error) {
+      const challenge = error instanceof ApiError
+        ? (error.body as { data?: { paymentOutcome?: string; clientSecret?: string } })?.data
+        : null;
+      if (challenge?.paymentOutcome !== "requires_action" || !challenge.clientSecret) throw error;
+      const configured = await portalPaymentsApi.getStripeConfig();
+      const stripe = await loadStripe(String(configured.data?.publishableKey || ""));
+      if (!stripe) throw new Error("Bank confirmation is unavailable. Retry the saved subscription shortly.");
+      const confirmed = await stripe.confirmCardPayment(challenge.clientSecret);
+      if (confirmed.error) throw new Error(confirmed.error.message || "Bank confirmation was not completed. Retry the saved subscription.");
+      await portalSubscriptionsApi.create(payload);
+    }
     clearDraft();
     navigate("/portal/subscriptions");
   };

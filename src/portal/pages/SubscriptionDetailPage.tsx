@@ -64,6 +64,7 @@ import {
   type PortalSubscriptionDelivery,
   type PortalSubscriptionCutoff,
   type SubscriptionRefundMethod,
+  type SubscriptionRefundRecovery,
 } from "@/api/portalSubscriptions";
 import {
   formatCutoffDate,
@@ -409,6 +410,7 @@ const SubscriptionDetailPage: React.FC = () => {
   const [subscription, setSubscription] = useState<PortalSubscription | null>(
     null,
   );
+  const [refundRecovery, setRefundRecovery] = useState<SubscriptionRefundRecovery | null>(null);
   const [deliveries, setDeliveries] = useState<PortalSubscriptionDelivery[]>(
     [],
   );
@@ -541,6 +543,7 @@ const SubscriptionDetailPage: React.FC = () => {
       if (currentId.current !== id || serial !== loadGeneration.current) return;
 
       setSubscription(sub || null);
+      setRefundRecovery(((subRes as any)?.data?.refundRecovery as SubscriptionRefundRecovery) || null);
       setCutoff(nextCutoff);
       setDeliveries(chosen.deliveries);
       deliveryPage.current = chosen.meta.page;
@@ -579,7 +582,7 @@ const SubscriptionDetailPage: React.FC = () => {
       if (currentId.current !== id || serial !== loadGeneration.current) return;
       if (!background) { setNotice(null); setError(message); }
 
-      if (!background) setSubscription(null);
+      if (!background) { setSubscription(null); setRefundRecovery(null); }
       else throw err;
     } finally {
       if (currentId.current === id && serial === loadGeneration.current) {
@@ -620,8 +623,6 @@ const SubscriptionDetailPage: React.FC = () => {
       return;
     }
 
-    if (pauseResumeOn) return;
-
     const defaultResumeOn = new Date();
     defaultResumeOn.setDate(defaultResumeOn.getDate() + 7);
     const maxResumeOn = new Date();
@@ -631,7 +632,7 @@ const SubscriptionDetailPage: React.FC = () => {
         defaultResumeOn > maxResumeOn ? maxResumeOn : defaultResumeOn,
       ),
     );
-  }, [pauseOpen, pauseResumeOn]);
+  }, [pauseOpen]);
 
   const updateQty = (localId: string, quantity: number) => {
     setProductDraft((prev) =>
@@ -725,6 +726,9 @@ const SubscriptionDetailPage: React.FC = () => {
       0,
     );
   }, [effectiveProductDraft]);
+  const hasEmptyProductDraft = isMultiDayWeekly
+    ? deliveryDays.some(day => !(dayProductDraft[day] || []).some(item => Number(item.quantity) > 0))
+    : !productDraft.some(item => Number(item.quantity) > 0);
 
   const perDayPricing = useMemo(() => {
     if (!isMultiDayWeekly)
@@ -751,7 +755,7 @@ const SubscriptionDetailPage: React.FC = () => {
         (sum, item) => sum + Number(item.quantity || 0),
         0,
       );
-      const deliveryFee = SUBSCRIPTION_DELIVERY_FEE;
+      const deliveryFee = includedItems.length ? SUBSCRIPTION_DELIVERY_FEE : 0;
 
       return {
         dayName,
@@ -775,8 +779,8 @@ const SubscriptionDetailPage: React.FC = () => {
   );
 
   const deliveryFeeTotal = useMemo(
-    () => SUBSCRIPTION_DELIVERY_FEE * deliveryFeeCount,
-    [deliveryFeeCount],
+    () => total > 0 ? SUBSCRIPTION_DELIVERY_FEE * deliveryFeeCount : 0,
+    [deliveryFeeCount, total],
   );
 
   const totalWithDeliveryFee = useMemo(
@@ -1175,8 +1179,8 @@ const SubscriptionDetailPage: React.FC = () => {
 
   const handlePause = async () => {
     if (!id) return;
-    if (!pauseResumeOn) {
-      setPauseError("Please choose when the subscription should resume.");
+    if (!pauseResumeOn || pauseResumeOn < pauseMinDate || pauseResumeOn > pauseMaxDate) {
+      setPauseError(`Choose a resume date from ${formatDate(pauseMinDate)} to ${formatDate(pauseMaxDate)}.`);
       return;
     }
     setSaving(true);
@@ -1200,6 +1204,23 @@ const SubscriptionDetailPage: React.FC = () => {
         err instanceof ApiError ? err.message : "Failed to pause subscription.";
       setNotice(null); setError(message);
 
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleRetryPauseRefund = async () => {
+    if (!id || !refundRecovery?.retryAvailable || !refundRecovery.operationId || !refundRecovery.resumeOn) return;
+    setSaving(true);
+    setError(null);
+    try {
+      const response = await portalSubscriptionsApi.pause(id, refundRecovery.resumeOn,
+        refundRecovery.expectedVersion ?? subscription.customerVersion, "refund", refundRecovery.operationId);
+      await load();
+      setNotice((response as any)?.message || "Card refund completed and subscription paused.");
+    } catch (err) {
+      await load();
+      setError(err instanceof ApiError ? err.message : "Card refund recovery could not be completed. Please try again or contact support.");
     } finally {
       setSaving(false);
     }
@@ -1286,6 +1307,10 @@ const SubscriptionDetailPage: React.FC = () => {
   const handleSaveProductChanges = async () => {
     if (!canModify) return;
     if (!id || !subscription || !hasUnsavedProductChanges) return;
+    if (hasEmptyProductDraft) {
+      setError("Keep at least one product on every delivery day, or cancel the subscription.");
+      return;
+    }
 
     if (isMultiDayWeekly) {
       const hasPaidDecrease = getChangedMultiDayIndexes(dayProductDraft, dayPlanBaseline).some(day => {
@@ -1604,6 +1629,15 @@ const SubscriptionDetailPage: React.FC = () => {
     ? cutoff.deliveryDays.map(toDayName)
     : ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
   const savedFrequencyLabel = subscription.frequency === "every_two_weeks" ? "Every 2 weeks" : subscription.frequency === "monthly" ? "Monthly" : "Weekly";
+  const setDeliveryEditorVisible = (open: boolean) => {
+    if (!open) {
+      setFrequency(subscription.frequency);
+      setDeliveryDays(savedDayNames);
+      setDayProductDraft(buildEditableDayPlans(subscription, isProductDeliveryLocked, savedDayNames));
+      setChangedMultiDayIndexes([]);
+    }
+    setDeliveryEditorOpen(open);
+  };
   const savedPlanTotal = originalTotal + SUBSCRIPTION_DELIVERY_FEE * Math.max(1, savedDayNames.length);
   const renderProduct = (item: EditableSubscriptionItem, dayName?: string) => {
     const included = !dayName || item.quantity > 0;
@@ -1634,6 +1668,17 @@ const SubscriptionDetailPage: React.FC = () => {
         <div className="min-w-0"><div className="flex flex-wrap items-center gap-3"><h1 className="font-heading text-xl font-semibold text-foreground sm:text-2xl">Your subscription</h1><SubscriptionStatusBadge className="[&>span:last-child]:text-sm" status={subscription.status} isCancellationScheduled={subscription.isCancellationScheduled}/></div><p className="mt-1 break-words text-sm text-muted-foreground">{subscription.subscriptionNumber || `Subscription ${subscription._id.slice(-6)}`}</p><p className="mt-1 text-xs text-muted-foreground">Started {formatDate(subscription.startDate)}</p></div>
 
       </header>
+
+      {refundRecovery && <Alert variant="destructive" role="alert" data-testid="subscription-refund-recovery" className="mb-4">
+        <Info size={17}/><AlertDescription>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="min-w-0 flex-1">A card refund for this subscription is still unresolved. {formatMoney(refundRecovery.refundedMinor / 100)} is confirmed returned; {formatMoney(refundRecovery.remainingMinor / 100)} still needs reconciliation. The subscription has not been paused.</p>
+            {refundRecovery.retryAvailable
+              ? <Button type="button" size="sm" variant="outline" disabled={saving} onClick={handleRetryPauseRefund}>Retry original card refund</Button>
+              : <p>Please contact support with this subscription number before trying another change.</p>}
+          </div>
+        </AlertDescription>
+      </Alert>}
 
       {(error || notice || showScheduledCancellationAlert) && <div data-testid="subscription-feedback" className="mb-4">
         <Alert variant={error ? "destructive" : "default"} role={error ? "alert" : "status"} className={cn("shadow-none", !error && notice && "border-forest/20 bg-forest/5")}>
@@ -1766,10 +1811,10 @@ const SubscriptionDetailPage: React.FC = () => {
               </div>
             )}
 
-              <div className={styles.productFooter}><div className={styles.productTotal}><p className="text-sm text-muted-foreground">{hasUnsavedProductChanges ? 'Draft total' : hasScheduledProductChanges ? 'Scheduled total' : isMultiDayWeekly ? 'Cycle total' : 'Per delivery'}</p><p className="text-base font-semibold tabular-nums">{formatMoney(totalWithDeliveryFee)}</p><small>Products {formatMoney(total)} + delivery {formatMoney(deliveryFeeTotal)}</small></div>{hasUnsavedProductChanges && <div className="ml-auto flex flex-wrap justify-end gap-2"><Button size="sm" variant="outline" disabled={saving || !canModify} onClick={()=>{if(isMultiDayWeekly){setDayProductDraft(dayPlanBaseline);setChangedMultiDayIndexes([]);}else setProductDraft(editableBaseline);}}>Discard</Button><Button size="sm" data-tour="subscription-save-products" disabled={saving || !canModify} onClick={()=>void handleSaveProductChanges()}>{saving ? 'Saving…' : 'Save product changes'}</Button></div>}</div>
+              <div className={styles.productFooter}><div className={styles.productTotal}><p className="text-sm text-muted-foreground">{hasUnsavedProductChanges ? 'Draft total' : hasScheduledProductChanges ? 'Scheduled total' : isMultiDayWeekly ? 'Cycle total' : 'Per delivery'}</p><p className="text-base font-semibold tabular-nums">{formatMoney(totalWithDeliveryFee)}</p><small>Products {formatMoney(total)} + delivery {formatMoney(deliveryFeeTotal)}</small>{hasUnsavedProductChanges && hasEmptyProductDraft && <small role="alert" className="block text-destructive">Keep at least one product on every delivery day, or cancel the subscription.</small>}</div>{hasUnsavedProductChanges && <div className="ml-auto flex flex-wrap justify-end gap-2"><Button size="sm" variant="outline" disabled={saving || !canModify} onClick={()=>{if(isMultiDayWeekly){setDayProductDraft(dayPlanBaseline);setChangedMultiDayIndexes([]);}else setProductDraft(editableBaseline);}}>Discard</Button><Button size="sm" data-tour="subscription-save-products" disabled={saving || !canModify || hasEmptyProductDraft} onClick={()=>void handleSaveProductChanges()}>{saving ? 'Saving…' : 'Save product changes'}</Button></div>}</div>
             </CardContent>
           </Card>
-          <Card data-tour="subscription-delivery-settings" className="shadow-none"><CardHeader className={styles.sectionHeader}><div className="flex items-center justify-between gap-3"><CardTitle className={styles.sectionTitle}>Delivery details</CardTitle>{canModify && <Button size="sm" variant="outline" aria-expanded={deliveryEditorOpen} aria-controls="subscription-delivery-editor" onClick={()=>setDeliveryEditorOpen(open=>!open)}><Settings2 size={14}/>{deliveryEditorOpen ? 'Close' : 'Edit'}</Button>}</div></CardHeader><CardContent className="px-4 pb-4 sm:px-5 sm:pb-5">{!deliveryEditorOpen && <dl className={styles.deliveryFacts}><div><dt><MapPin size={15}/>Delivering to</dt><dd>{fullAddress || 'No delivery address configured.'}</dd></div><div><dt><CalendarDays size={15}/>Schedule</dt><dd>{savedDayNames.join(', ')} · {savedFrequencyLabel}</dd></div>{(subscription.pendingChanges?.deliveryAddress || subscription.deliveryAddress)?.deliveryInstructions && <div><dt>Delivery instructions</dt><dd>{(subscription.pendingChanges?.deliveryAddress || subscription.deliveryAddress).deliveryInstructions}</dd></div>}</dl>}{subscription.pendingChanges?.deliveryAddress && <p className="mt-3 text-xs text-forest">Address change scheduled{subscription.pendingChanges.effectiveFrom ? ` from ${formatDate(subscription.pendingChanges.effectiveFrom)}` : ''}.</p>}<Collapsible open={deliveryEditorOpen} onOpenChange={setDeliveryEditorOpen}><CollapsibleContent id="subscription-delivery-editor" className={styles.collapse}><div className="pt-1">            <div className="grid gap-6">
+          <Card data-tour="subscription-delivery-settings" className="shadow-none"><CardHeader className={styles.sectionHeader}><div className="flex items-center justify-between gap-3"><CardTitle className={styles.sectionTitle}>Delivery details</CardTitle>{canModify && <Button size="sm" variant="outline" aria-expanded={deliveryEditorOpen} aria-controls="subscription-delivery-editor" onClick={()=>setDeliveryEditorVisible(!deliveryEditorOpen)}><Settings2 size={14}/>{deliveryEditorOpen ? 'Close' : 'Edit'}</Button>}</div></CardHeader><CardContent className="px-4 pb-4 sm:px-5 sm:pb-5">{!deliveryEditorOpen && <dl className={styles.deliveryFacts}><div><dt><MapPin size={15}/>Delivering to</dt><dd>{fullAddress || 'No delivery address configured.'}</dd></div><div><dt><CalendarDays size={15}/>Schedule</dt><dd>{savedDayNames.join(', ')} · {savedFrequencyLabel}</dd></div>{(subscription.pendingChanges?.deliveryAddress || subscription.deliveryAddress)?.deliveryInstructions && <div><dt>Delivery instructions</dt><dd>{(subscription.pendingChanges?.deliveryAddress || subscription.deliveryAddress).deliveryInstructions}</dd></div>}</dl>}{subscription.pendingChanges?.deliveryAddress && <p className="mt-3 text-xs text-forest">Address change scheduled{subscription.pendingChanges.effectiveFrom ? ` from ${formatDate(subscription.pendingChanges.effectiveFrom)}` : ''}.</p>}<Collapsible open={deliveryEditorOpen} onOpenChange={setDeliveryEditorVisible}><CollapsibleContent id="subscription-delivery-editor" className={styles.collapse}><div className="pt-1">            <div className="grid gap-6">
               <div>
                 <h3 className="font-body font-medium text-foreground mb-2 flex items-center gap-2 text-sm">
                   <MapPin className="h-4 w-4 text-forest" />
@@ -2000,7 +2045,7 @@ const SubscriptionDetailPage: React.FC = () => {
           <CardContent className={styles.managementContent}>
             <div><h2 className={styles.sectionTitle}>Manage subscription</h2><p className="mt-2 text-sm text-muted-foreground">{subscription.isCancellationScheduled ? "Cancellation is scheduled. Your protected delivery remains in place." : subscription.status === "paused" ? "Resume deliveries when you are ready, or cancel this plan." : "Pause deliveries temporarily, or cancel your subscription."}</p></div>
         <div className={styles.managementActions}>
-          {subscription.status === "active" ? <Button size="sm" variant="outline" data-tour="subscription-pause" onClick={()=>setPauseOpen(true)} disabled={saving || !canModify}><Pause size={15}/>Pause</Button> : subscription.status === "paused" ? <Button size="sm" data-tour="subscription-resume" onClick={()=>setResumeOpen(true)} disabled={saving || subscription.isCancellationScheduled}><Play size={15}/>Resume subscription</Button> : null}
+          {subscription.status === "active" ? <Button size="sm" variant="outline" data-tour="subscription-pause" onClick={()=>setPauseOpen(true)} disabled={saving || !canModify || Boolean(refundRecovery)}><Pause size={15}/>Pause</Button> : subscription.status === "paused" ? <Button size="sm" data-tour="subscription-resume" onClick={()=>setResumeOpen(true)} disabled={saving || subscription.isCancellationScheduled}><Play size={15}/>Resume subscription</Button> : null}
           <Button size="sm" variant="ghost" className="text-destructive hover:bg-destructive/5 hover:text-destructive" data-tour="subscription-cancel" onClick={()=>setCancelOpen(true)} disabled={saving || subscription.isCancellationScheduled}>Cancel subscription</Button>
         </div>
           </CardContent>
@@ -2037,7 +2082,7 @@ const SubscriptionDetailPage: React.FC = () => {
                 min={pauseMinDate}
                 max={pauseMaxDate}
                 value={pauseResumeOn}
-                onChange={(event) => setPauseResumeOn(event.target.value)}
+                onChange={(event) => { setPauseResumeOn(event.target.value); setPauseError(null); }}
                 disabled={saving}
               />
               <p className="text-xs text-muted-foreground">
@@ -2075,7 +2120,7 @@ const SubscriptionDetailPage: React.FC = () => {
               >
                 Keep active
               </Button>
-              <Button size="sm" data-tour="pause-confirm" onClick={() => void handlePause()} disabled={saving}>
+              <Button size="sm" data-tour="pause-confirm" onClick={() => void handlePause()} disabled={saving || !pauseResumeOn || pauseResumeOn < pauseMinDate || pauseResumeOn > pauseMaxDate}>
                 {saving ? "Pausing..." : "Pause subscription"}
               </Button>
             </div>

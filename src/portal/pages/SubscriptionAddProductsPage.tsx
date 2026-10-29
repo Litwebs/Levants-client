@@ -594,7 +594,7 @@ const SubscriptionAddProductsPage: React.FC = () => {
             sidebarStickyTopOffset={stickyTopOffset}
             cardActionLabel={({ lockedVariantId }) =>
               lockedVariantId && selectedAdds[lockedVariantId]
-                ? "Remove from subscription"
+                ? "Remove from draft"
                 : "Add to subscription"
             }
             cardActionClassName={({ lockedVariantId }) =>

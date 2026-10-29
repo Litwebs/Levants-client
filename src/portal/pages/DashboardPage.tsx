@@ -44,23 +44,23 @@ const formatMoney = (amount: number, currency = "GBP") =>
   }).format(amount || 0);
 
 const getDisplayNextDeliveryDate = (subscription: PortalSubscription) =>
+  subscription.status === "cancelled" ? null :
   subscription.upcomingDeliveryDate ?? subscription.nextDeliveryDate;
 
 const getOrderRefundSummary = (order?: PortalOrder | null) => {
-  if (!order) return { before: 0, refunded: 0, after: 0 };
-  const before = Number(order.amountPaid ?? order.total ?? 0);
+  if (!order) return { refunded: 0 };
   const refundedFromEntries = (order.refunds || []).reduce(
-    (sum, refund) => sum + Number(refund.amount ?? refund.amountMinor ?? 0),
+    (sum, refund) => sum + (refund.status === "succeeded"
+      ? Number(refund.amount ?? Number(refund.amountMinor || 0) / 100) : 0),
     0,
   );
   const refunded =
     refundedFromEntries > 0
       ? refundedFromEntries
-      : order.refund?.refundedAt
-        ? before
+      : order.orderType !== "subscription_generated" && order.refund?.refundedAt
+        ? Number(order.amountPaid ?? order.total ?? 0)
         : 0;
-  const after = Math.max(before - refunded, 0);
-  return { before, refunded, after };
+  return { refunded };
 };
 
 const DashboardPage: React.FC = () => {
@@ -286,8 +286,7 @@ const DashboardPage: React.FC = () => {
                           {sub.frequency === "every_two_weeks"
                             ? "Every 2 weeks"
                             : sub.frequency}
-                          {" · "}Next:{" "}
-                          {formatDate(getDisplayNextDeliveryDate(sub))}
+                          {" · "}{sub.status === "cancelled" ? "No next delivery" : <>Next: {formatDate(getDisplayNextDeliveryDate(sub))}</>}
                         </p>
                       </div>
                       <div className="flex items-center gap-2 ml-3 flex-shrink-0">
@@ -369,19 +368,9 @@ const DashboardPage: React.FC = () => {
                         </p>
                         {refundSummary.refunded > 0 && (
                           <p className="text-xs text-muted-foreground mt-1">
-                            Refunded{" "}
+                            Card refunds to date{" "}
                             {formatMoney(
                               refundSummary.refunded,
-                              order.currency || "GBP",
-                            )}{" "}
-                            · Before{" "}
-                            {formatMoney(
-                              refundSummary.before,
-                              order.currency || "GBP",
-                            )}{" "}
-                            · After{" "}
-                            {formatMoney(
-                              refundSummary.after,
                               order.currency || "GBP",
                             )}
                           </p>

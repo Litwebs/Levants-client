@@ -137,7 +137,7 @@ export default function DeliveryReduction({ customerId, subscriptionId, delivery
 
   return <Dialog open={open} onOpenChange={changeOpen}>
     <DialogTrigger asChild><Button size="sm" type="button" variant="outline" data-tour="delivery-reduction" aria-label={pending ? "Check delivery change" : "Change This Delivery Only"}>
-      {pending ? "Check result" : "Edit delivery"}
+      {pending ? "Check result" : "Change This Delivery Only"}
     </Button></DialogTrigger>
     <DialogContent data-tour-page="delivery-reduction" data-tour-ready={!busy && Boolean(initial || pending || success || error)} onCloseAutoFocus={event => {
       if (success && !delivery.canChangeThisDelivery) {

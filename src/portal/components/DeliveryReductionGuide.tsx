@@ -5,7 +5,7 @@ export default function DeliveryReductionGuide() {
     <div className="space-y-3 pt-2 text-muted-foreground">
       <p>Reduce or remove recurring items from one eligible paid delivery without changing your regular subscription. Future deliveries keep their regular quantities.</p>
       <ol className="list-decimal space-y-2 pl-5">
-        <li>Expand the delivery date below and choose <strong>Edit delivery</strong>. Check the cut-off shown in UK time.</li>
+        <li>Expand the delivery date below and choose <strong>Change This Delivery Only</strong>. Check the cut-off shown in UK time.</li>
         <li>Use whole numbers from zero to the current quantity, or choose Remove. You cannot increase quantities or swap products here.</li>
         <li>Choose <strong>Review change</strong> to check the original total, revised total, delivery fee and store credit. Reviewing does not apply the change.</li>
         <li>Choose <strong>Confirm delivery change</strong> only when ready. Then expand that delivery for its adjusted items and history, or open Store Credit to see the credit entry.</li>

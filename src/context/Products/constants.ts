@@ -84,6 +84,7 @@ export const initialProductsState: ProductsState = {
 
 export interface ProductsQueryParams {
   subscriptionEligible?: boolean;
+  subscriptionCards?: boolean;
   page?: number;
   pageSize?: number;
   category?: string | string[];
