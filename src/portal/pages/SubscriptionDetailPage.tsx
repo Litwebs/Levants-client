@@ -1609,7 +1609,7 @@ const SubscriptionDetailPage: React.FC = () => {
       isProductDeliveryLocked && subscription.pendingChanges?.items?.length &&
       (!liveItem || liveItem.quantity !== item.quantity || liveItem.unitPrice !== item.unitPrice)
         ? `Scheduled from ${subscription.pendingChanges.effectiveFrom ? formatDate(subscription.pendingChanges.effectiveFrom) : "a following delivery"}${liveItem ? ` · ${liveItem.quantity} → ${item.quantity}` : ""}` : null;
-    return <div key={`${dayName || 'single'}:${item.localId}`} className={cn(styles.productRow, !included && styles.excluded)}>
+    return <div key={`${dayName || 'single'}:${item.localId}`} data-day-plan={Boolean(dayName)} className={cn(styles.productRow, !included && styles.excluded)}>
       {item.imageUrl ? <img src={item.imageUrl} alt="" className={styles.productImage}/> : <span className={styles.productImage}><Package size={20} aria-hidden="true"/></span>}
       <div className="min-w-0"><p className="text-sm font-medium text-foreground break-words">{item.name}</p><p className="mt-1 text-xs text-muted-foreground">{formatMoney(item.unitPrice)} each{item.sku ? ` · ${item.sku}` : ''}</p>{scheduled && <p className="mt-1 text-xs text-forest">{scheduled}</p>}</div>
       <div className={styles.productControls}>
@@ -1626,9 +1626,9 @@ const SubscriptionDetailPage: React.FC = () => {
 
   return (
     <div data-tour-page="subscription-detail" data-tour-ready={true} className={cn(styles.page, "mx-auto w-full max-w-6xl")}>
-      <nav aria-label="Breadcrumb" className="mb-5 flex flex-wrap items-center gap-2 text-sm text-muted-foreground"><Link className="hover:text-foreground" to="/portal/subscriptions">My subscriptions</Link><ChevronRight size={14} aria-hidden="true"/><span aria-current="page" className="text-foreground">Subscription details</span></nav>
+      <nav aria-label="Breadcrumb" className="mb-4 flex flex-wrap items-center gap-2 text-sm text-muted-foreground"><Link className="hover:text-foreground" to="/portal/subscriptions">My subscriptions</Link><ChevronRight size={14} aria-hidden="true"/><span aria-current="page" className="text-foreground">Subscription details</span></nav>
       <header className={styles.pageHeader}>
-        <div className="min-w-0"><div className="mb-2 flex flex-wrap items-center gap-3"><p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Your subscription</p><SubscriptionStatusBadge className="[&>span:last-child]:text-sm" status={subscription.status} isCancellationScheduled={subscription.isCancellationScheduled}/></div><h1 className="break-words font-heading text-2xl font-semibold text-foreground sm:text-3xl">{subscription.subscriptionNumber || `Subscription ${subscription._id.slice(-6)}`}</h1><p className="mt-2 text-sm text-muted-foreground">Started {formatDate(subscription.startDate)}</p></div>
+        <div className="min-w-0"><div className="flex flex-wrap items-center gap-3"><h1 className="font-heading text-xl font-semibold text-foreground sm:text-2xl">Your subscription</h1><SubscriptionStatusBadge className="[&>span:last-child]:text-sm" status={subscription.status} isCancellationScheduled={subscription.isCancellationScheduled}/></div><p className="mt-1 break-words text-sm text-muted-foreground">{subscription.subscriptionNumber || `Subscription ${subscription._id.slice(-6)}`}</p><p className="mt-1 text-xs text-muted-foreground">Started {formatDate(subscription.startDate)}</p></div>
         <div className={styles.headerActions}>
           {subscription.status === "active" ? <Button size="sm" variant="outline" data-tour="subscription-pause" onClick={()=>setPauseOpen(true)} disabled={saving || !canModify}><Pause size={15}/>Pause</Button> : subscription.status === "paused" ? <Button size="sm" data-tour="subscription-resume" onClick={()=>setResumeOpen(true)} disabled={saving || subscription.isCancellationScheduled}><Play size={15}/>Resume subscription</Button> : null}
           {subscription.status !== "cancelled" && <Button size="sm" variant="ghost" className="text-destructive hover:bg-destructive/5 hover:text-destructive" data-tour="subscription-cancel" onClick={()=>setCancelOpen(true)} disabled={saving || subscription.isCancellationScheduled}>Cancel subscription</Button>}
@@ -1644,12 +1644,12 @@ const SubscriptionDetailPage: React.FC = () => {
       {subscription.status === "paused" && <div data-tour="subscription-state" className="mb-4 flex items-start gap-2 border-l-2 border-amber-400 bg-amber-500/5 px-4 py-3 text-sm text-foreground"><Pause size={16} className="mt-0.5 shrink-0 text-amber-600"/><p>Paused{subscription.pausedUntil ? ` until ${formatDate(subscription.pausedUntil)}` : ''}. Your plan cannot be edited while paused.{subscription.pausedUntil ? ' It resumes automatically when the pause ends, or you can resume it now.' : ''}</p></div>}
       {subscription.status === "cancelled" && <p data-tour="subscription-state" className="mb-4 border-l-2 border-muted-foreground/40 bg-muted/40 px-4 py-3 text-sm text-muted-foreground">This subscription is cancelled and cannot be changed.</p>}
 
-      <Card className={cn(styles.hero, "mb-5 shadow-none")}>
+      <Card className={cn(styles.hero, "mb-4 shadow-none")}>
         <CardContent data-tour="subscription-summary" className={styles.heroContent}>
-          <div><p className="mb-2 flex items-center gap-2 text-sm text-muted-foreground"><CalendarDays size={16} className="text-forest"/>{subscription.status === "paused" ? 'Next scheduled delivery' : 'Next delivery'}</p><p className="font-heading text-2xl font-semibold text-foreground">{displayNextDeliveryDate ? formatDate(displayNextDeliveryDate) : 'None scheduled'}</p><p className="mt-2 text-sm text-muted-foreground">{savedFrequencyLabel} · {savedDayNames.join(', ')}</p></div>
-          <div className={styles.heroPrice}><p className="mb-2 text-sm text-muted-foreground">{nextDelivery ? 'Next delivery total' : 'Regular plan total'}</p><p className="text-2xl font-semibold tabular-nums text-foreground">{formatMoney(nextDelivery ? nextDeliveryTotal : savedPlanTotal)}</p><p className="mt-2 text-xs text-muted-foreground">{nextDelivery ? 'Includes delivery' : `${savedDayNames.length > 1 ? 'Per cycle' : 'Per delivery'} · includes delivery`}{nextDeliveryAddOnTotal > 0 ? ` and ${formatMoney(nextDeliveryAddOnTotal)} one-time extras` : ''}</p></div>
+          <div><p className="mb-2 flex items-center gap-2 text-sm text-muted-foreground"><CalendarDays size={16} className="text-forest"/>{subscription.status === "paused" ? 'Next scheduled delivery' : 'Next delivery'}</p><p className="font-body text-lg font-semibold text-foreground sm:text-xl">{displayNextDeliveryDate ? formatDate(displayNextDeliveryDate) : 'None scheduled'}</p><p className="mt-2 text-sm text-muted-foreground">{savedFrequencyLabel} · {savedDayNames.join(', ')}</p></div>
+          <div className={styles.heroPrice}><p className="mb-2 text-sm text-muted-foreground">{nextDelivery ? 'Next delivery total' : 'Regular plan total'}</p><p className="text-lg font-semibold tabular-nums text-foreground sm:text-xl">{formatMoney(nextDelivery ? nextDeliveryTotal : savedPlanTotal)}</p><p className="mt-2 text-xs text-muted-foreground">{nextDelivery ? 'Includes delivery' : `${savedDayNames.length > 1 ? 'Per cycle' : 'Per delivery'} · includes delivery`}{nextDeliveryAddOnTotal > 0 ? ` and ${formatMoney(nextDeliveryAddOnTotal)} one-time extras` : ''}</p></div>
         </CardContent>
-        {cutoff && canModify && !error && !notice && <Collapsible className={styles.cutoff}><CollapsibleTrigger asChild><Button size="sm" variant="ghost" className="h-auto w-full justify-between whitespace-normal rounded-none px-4 py-3 text-left sm:px-5"><span className="flex items-center gap-2"><Clock3 size={15}/>{isMultiDayWeekly ? 'Delivery cutoffs & payment timing' : getDeliveryDayCutoff(cutoff, subscription.preferredDeliveryDay)?.lockedForFulfilment ? 'Upcoming delivery is being fulfilled' : cutoff.isPastCutoff ? 'Changes apply after the upcoming delivery' : 'Changes are open for your upcoming delivery'}</span><ChevronDown size={15} className={styles.chevron}/></Button></CollapsibleTrigger><CollapsibleContent className={styles.collapse}><div data-tour="subscription-cutoff" className="px-4 pb-4 text-sm leading-relaxed text-muted-foreground sm:px-5">          {isMultiDayWeekly ? (
+        {cutoff && canModify && !error && !notice && <Collapsible className={styles.cutoff}><CollapsibleTrigger asChild><Button size="sm" variant="ghost" className={styles.cutoffTrigger}><span className="flex min-w-0 items-center gap-2"><Clock3 size={14}/><span className="truncate">{isMultiDayWeekly ? 'Delivery cutoffs' : getDeliveryDayCutoff(cutoff, subscription.preferredDeliveryDay)?.lockedForFulfilment ? 'Upcoming delivery locked' : cutoff.isPastCutoff ? 'Upcoming delivery cutoff passed' : cutoff.cutoffAt ? `Edit until ${new Date(cutoff.cutoffAt).toLocaleString('en-GB',{timeZone:cutoff.timeZone || 'Europe/London',day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}` : 'Delivery cutoff'}</span></span><ChevronDown size={14} className={styles.chevron}/></Button></CollapsibleTrigger><CollapsibleContent className={styles.collapse}><div data-tour="subscription-cutoff" className="px-4 pb-4 text-sm leading-relaxed text-muted-foreground sm:px-5">          {isMultiDayWeekly ? (
             <>
               <div className="font-medium">
                 Each delivery day has its own cut-off:
@@ -1699,9 +1699,9 @@ const SubscriptionDetailPage: React.FC = () => {
           )}</div></CollapsibleContent></Collapsible>}
       </Card>
       <div className={styles.layout}>
-        <div className="min-w-0 space-y-5" aria-label="Subscription products and deliveries">
-          <Card data-tour="subscription-products" className="shadow-none">
-            <CardHeader className={styles.sectionHeader}><div className="flex flex-wrap items-center justify-between gap-3"><div><CardTitle className={styles.sectionTitle}>Your regular products</CardTitle><CardDescription className="mt-1">{hasUnsavedProductChanges ? 'You have unsaved product changes.' : hasScheduledProductChanges ? 'Includes changes scheduled for a future delivery.' : 'Your recurring selection for each delivery.'}</CardDescription></div>{canModify && <Button size="sm" variant="outline" asChild><Link data-tour="subscription-add" to={`/portal/subscriptions/${id}/add-products`}><Plus size={15}/>Add products</Link></Button>}</div></CardHeader>
+        <div className={styles.mainColumn} aria-label="Subscription products and deliveries">
+          <Card data-tour="subscription-products" className={cn(styles.productsPanel,"shadow-none")}>
+            <CardHeader className={styles.sectionHeader}><div className="flex items-center justify-between gap-2"><CardTitle className={styles.sectionTitle}>Products</CardTitle>{canModify && <Button size="sm" variant="outline" asChild><Link data-tour="subscription-add" to={`/portal/subscriptions/${id}/add-products`}><Plus size={14}/>Add products</Link></Button>}</div><CardDescription>{hasUnsavedProductChanges ? 'Unsaved changes — review before saving.' : hasScheduledProductChanges ? 'Includes scheduled changes.' : 'Your regular selection.'}</CardDescription></CardHeader>
             <CardContent className="px-4 pb-4 sm:px-5 sm:pb-5">
               {isMultiDayWeekly ? deliveryDays.map(dayName=><section key={dayName} className={styles.dayGroup}><div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/70 pb-2"><h3 className="font-body text-sm font-semibold">{dayName} delivery</h3><span className="text-xs text-muted-foreground">{formatMoney(perDayPricingByDay.get(dayName)?.totalWithFee || SUBSCRIPTION_DELIVERY_FEE)} incl. delivery</span></div>{(dayProductDraft[dayName] || []).map(item=>renderProduct(item,dayName))}{(scheduledRemovedDayItems[dayName] || []).map(item=><p key={getDayPlanItemKey(item)} className="border-t border-border/60 py-3 text-sm text-muted-foreground"><span className="line-through">{item.name}</span> · removal scheduled from {getDayScheduledFromLabel(dayNameToIndex(dayName),cutoff)}</p>)}</section>) : <div>{productDraft.map(item=>renderProduct(item))}{scheduledRemovedItems.map(item=><p key={item._id} className="border-t border-border/60 py-3 text-sm text-muted-foreground"><span className="line-through">{item.name}</span> · removal scheduled from {subscription.pendingChanges?.effectiveFrom ? formatDate(subscription.pendingChanges.effectiveFrom) : 'a following delivery'}</p>)}</div>}
                           {hasUnsavedProductChanges && (
@@ -1767,12 +1767,12 @@ const SubscriptionDetailPage: React.FC = () => {
               </div>
             )}
 
-              <div className={styles.productFooter}><div><p className="text-xs text-muted-foreground">{hasUnsavedProductChanges ? 'Draft total' : hasScheduledProductChanges ? 'Scheduled plan total' : isMultiDayWeekly ? 'Regular cycle total' : 'Regular delivery total'}</p><p className="mt-1 text-lg font-semibold tabular-nums">{formatMoney(totalWithDeliveryFee)}</p><p className="mt-1 text-xs text-muted-foreground">Products {formatMoney(total)} + delivery {formatMoney(deliveryFeeTotal)}</p></div>{hasUnsavedProductChanges && <div className="flex flex-wrap gap-2"><Button size="sm" variant="outline" disabled={saving || !canModify} onClick={()=>{if(isMultiDayWeekly){setDayProductDraft(dayPlanBaseline);setChangedMultiDayIndexes([]);}else setProductDraft(editableBaseline);}}>Discard</Button><Button size="sm" data-tour="subscription-save-products" disabled={saving || !canModify} onClick={()=>void handleSaveProductChanges()}>{saving ? 'Saving…' : 'Save product changes'}</Button></div>}</div>
+              <div className={styles.productFooter}><div className={styles.productTotal}><p className="text-sm text-muted-foreground">{hasUnsavedProductChanges ? 'Draft total' : hasScheduledProductChanges ? 'Scheduled total' : isMultiDayWeekly ? 'Cycle total' : 'Per delivery'}</p><p className="text-base font-semibold tabular-nums">{formatMoney(totalWithDeliveryFee)}</p><small>Products {formatMoney(total)} + delivery {formatMoney(deliveryFeeTotal)}</small></div>{hasUnsavedProductChanges && <div className="flex flex-wrap gap-2"><Button size="sm" variant="outline" disabled={saving || !canModify} onClick={()=>{if(isMultiDayWeekly){setDayProductDraft(dayPlanBaseline);setChangedMultiDayIndexes([]);}else setProductDraft(editableBaseline);}}>Discard</Button><Button size="sm" data-tour="subscription-save-products" disabled={saving || !canModify} onClick={()=>void handleSaveProductChanges()}>{saving ? 'Saving…' : 'Save product changes'}</Button></div>}</div>
             </CardContent>
           </Card>
 
-          <Card data-tour="subscription-upcoming" className="shadow-none">
-            <CardHeader className={styles.sectionHeader}><div className="flex flex-wrap items-start justify-between gap-3"><div><CardTitle className={styles.sectionTitle}>Upcoming deliveries</CardTitle><CardDescription className="mt-1">View each delivery or make a one-time change.</CardDescription></div>{canModify && deliveries.length>0 && <Button size="sm" variant="outline" asChild><Link data-tour="subscription-add-on" to={`/portal/subscriptions/${id}/next-delivery/add-ons`}><ShoppingBag size={15}/>Add one-time extras</Link></Button>}</div></CardHeader>
+          <Card data-tour="subscription-upcoming" className={cn(styles.upcomingPanel,"shadow-none")}>
+            <CardHeader className={styles.sectionHeader}><div className="flex items-center justify-between gap-2"><CardTitle className={styles.sectionTitle}>Deliveries</CardTitle>{canModify && deliveries.length>0 && <Button size="sm" variant="outline" asChild><Link data-tour="subscription-add-on" to={`/portal/subscriptions/${id}/next-delivery/add-ons`}><ShoppingBag size={14}/>Add extras</Link></Button>}</div><CardDescription>Expand a delivery for its details and actions.</CardDescription></CardHeader>
             <CardContent className="px-4 pb-4 sm:px-5 sm:pb-5">
               {deliveries.some(delivery=>delivery.status==='generated' && delivery.oneTimeChanges?.length && !isPastCutoffInstant(delivery.cutoffAt,delivery.isPastCutoff ?? true)) && <p className="mb-3 rounded-md bg-muted/50 p-3 text-sm text-muted-foreground">A delivery has a one-time reduction. Further reductions can be made below; recurring changes may need to wait until its cutoff.</p>}
               {deliveryPageLoading && <p role="status" className="mb-3 text-sm text-muted-foreground">Loading deliveries…</p>}
@@ -1785,10 +1785,10 @@ const SubscriptionDetailPage: React.FC = () => {
                 const addOnQuantity=getDeliveryAddOnQuantity(delivery);
                 const deliveryTotal=getTotalForDelivery(delivery,subscription);
                 return <Collapsible key={deliveryId} open={isExpanded} onOpenChange={open=>setExpandedDeliveryId(open ? deliveryId : null)} className={styles.delivery}>
-                  <CollapsibleTrigger asChild><Button size="sm" variant="ghost" id={`delivery-toggle-${deliveryId}`} data-tour="delivery-expand" aria-label={`${isExpanded ? 'Hide' : 'View'} details for ${formatDate(delivery.scheduledDate)}`} className={styles.deliveryTrigger}><span className="min-w-0 text-left"><span className="block text-sm font-medium">{formatDate(delivery.scheduledDate)}</span><span className="mt-1 block text-xs text-muted-foreground">{addOnQuantity>0 ? `${addOnQuantity} one-time extra${addOnQuantity===1 ? '' : 's'}` : 'Regular delivery'}{delivery.oneTimeChanges?.length ? ' · Adjusted' : ''}</span></span><span className={styles.deliveryMeta}><DeliveryStatusBadge status={delivery.status}/><span className="text-sm font-medium tabular-nums">{formatMoney(deliveryTotal)}</span><ChevronDown size={15} className={styles.chevron}/></span></Button></CollapsibleTrigger>
+                  <CollapsibleTrigger asChild><Button size="sm" variant="ghost" id={`delivery-toggle-${deliveryId}`} data-tour="delivery-expand" aria-label={`${isExpanded ? 'Hide' : 'View'} details for ${formatDate(delivery.scheduledDate)}`} className={styles.deliveryTrigger}><span className="min-w-0 text-left"><span className="block text-sm font-medium">{formatDate(delivery.scheduledDate)}</span><span className={styles.deliverySubline}><DeliveryStatusBadge status={delivery.status}/>{addOnQuantity>0 && <span className="text-xs">{addOnQuantity} extra{addOnQuantity===1 ? '' : 's'}</span>}{Boolean(delivery.oneTimeChanges?.length) && <span className="text-xs">Adjusted</span>}</span></span><span className={styles.deliveryMeta}><span className="text-sm font-medium tabular-nums">{formatMoney(deliveryTotal)}</span><ChevronDown size={14} className={styles.chevron}/></span></Button></CollapsibleTrigger>
                   <CollapsibleContent className={styles.collapse}><div className={styles.deliveryContent} role="region" aria-label={`Delivery details for ${formatDate(delivery.scheduledDate)}`}>
                     {delivery.stockAvailability && delivery.stockAvailability.deferred.length>0 && <p className="mb-3 rounded-md bg-muted/50 p-3 text-sm">Unavailable: {delivery.stockAvailability.deferred.map(item=>`${item.name} × ${item.quantity}`).join(', ')}. {formatMoney(delivery.stockAvailability.notChargedMinor/100)} not charged. Items remain on your recurring plan without catch-up quantities.</p>}
-                                              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                                              <p className="mb-2 text-xs font-medium text-muted-foreground">
                             Subscription items
                           </p>
                           <div className="space-y-1.5 text-sm">
@@ -1859,20 +1859,8 @@ const SubscriptionDetailPage: React.FC = () => {
 
                           <DeliveryReductionHistory changes={delivery.oneTimeChanges} />
 
-                          {delivery.order?._id && (
-                            <Button
-                              asChild
-                              variant="outline"
-                              size="sm"
-                              className="mt-3"
-                            >
-                              <Link to={`/portal/orders/${delivery.order._id}`}>
-                                View order {delivery.order.orderId || "details"}
-                              </Link>
-                            </Button>
-                          )}
+                    <div className={styles.deliveryActions}>{delivery.order?._id && <Button size="sm" variant="outline" asChild><Link aria-label={`View order ${delivery.order.orderId || 'details'}`} to={`/portal/orders/${delivery.order._id}`}>View order</Link></Button>}<DeliveryReduction key={`${customer?._id}:${deliveryId}`} customerId={customer?._id || ''} subscriptionId={id!} delivery={delivery} onChanged={async result=>{setNotice(`Delivery changed. ${formatMoney(result.creditedMinor/100)} added as store credit. Your regular subscription stays the same.`);await Promise.all([load(true),refreshCustomer()]);}}/></div>
                   </div></CollapsibleContent>
-                  <div className="px-3 empty:hidden"><DeliveryReduction key={`${customer?._id}:${deliveryId}`} customerId={customer?._id || ''} subscriptionId={id!} delivery={delivery} onChanged={async result=>{setNotice(`Delivery changed. ${formatMoney(result.creditedMinor/100)} added as store credit. Your regular subscription stays the same.`);await Promise.all([load(true),refreshCustomer()]);}}/></div>
                 </Collapsible>;
               })}</div>}
               {deliveryPages.totalPages>1 && <nav aria-label="Delivery history pages" className="mt-4 flex flex-wrap items-center justify-between gap-2 text-sm"><Button size="sm" variant="outline" disabled={deliveryPageLoading || deliveryPages.page<=1} onClick={()=>{void load(true,deliveryPages.page-1).catch(()=>{});}}>Older deliveries</Button><span className="text-xs text-muted-foreground">Page {deliveryPages.page} of {deliveryPages.totalPages}</span><Button size="sm" variant="outline" disabled={deliveryPageLoading || deliveryPages.page>=deliveryPages.totalPages} onClick={()=>{void load(true,deliveryPages.page+1).catch(()=>{});}}>Newer deliveries</Button></nav>}
@@ -1880,17 +1868,17 @@ const SubscriptionDetailPage: React.FC = () => {
             </CardContent>
           </Card>
         </div>
-        <aside className="min-w-0 space-y-5" aria-label="Delivery preferences">
-          <Card data-tour="subscription-delivery-settings" className="shadow-none"><CardHeader className={styles.sectionHeader}><div className="flex items-center justify-between gap-3"><CardTitle className={styles.sectionTitle}>Delivery details</CardTitle>{canModify && <Button size="sm" variant="outline" aria-expanded={deliveryEditorOpen} aria-controls="subscription-delivery-editor" onClick={()=>setDeliveryEditorOpen(open=>!open)}><Settings2 size={14}/>{deliveryEditorOpen ? 'Close' : 'Edit'}</Button>}</div></CardHeader><CardContent className="px-4 pb-4 sm:px-5 sm:pb-5"><dl className={styles.deliveryFacts}><div><dt><MapPin size={15}/>Delivering to</dt><dd>{fullAddress || 'No delivery address configured.'}</dd></div><div><dt><CalendarDays size={15}/>Schedule</dt><dd>{savedDayNames.join(', ')} · {savedFrequencyLabel}</dd></div>{(subscription.pendingChanges?.deliveryAddress || subscription.deliveryAddress)?.deliveryInstructions && <div><dt>Delivery instructions</dt><dd>{(subscription.pendingChanges?.deliveryAddress || subscription.deliveryAddress).deliveryInstructions}</dd></div>}</dl>{subscription.pendingChanges?.deliveryAddress && <p className="mt-3 text-xs text-forest">Address change scheduled{subscription.pendingChanges.effectiveFrom ? ` from ${formatDate(subscription.pendingChanges.effectiveFrom)}` : ''}.</p>}<Collapsible open={deliveryEditorOpen} onOpenChange={setDeliveryEditorOpen}><CollapsibleContent id="subscription-delivery-editor" className={styles.collapse}><div className="mt-4 border-t border-border pt-4">            <div className="grid gap-5">
+        <aside className={styles.sideColumn} aria-label="Delivery preferences">
+          <Card data-tour="subscription-delivery-settings" className={cn(styles.detailsPanel,"shadow-none")}><CardHeader className={styles.sectionHeader}><div className="flex items-center justify-between gap-3"><CardTitle className={styles.sectionTitle}>Delivery details</CardTitle>{canModify && <Button size="sm" variant="outline" aria-expanded={deliveryEditorOpen} aria-controls="subscription-delivery-editor" onClick={()=>setDeliveryEditorOpen(open=>!open)}><Settings2 size={14}/>{deliveryEditorOpen ? 'Close' : 'Edit'}</Button>}</div></CardHeader><CardContent className="px-4 pb-4 sm:px-5 sm:pb-5">{!deliveryEditorOpen && <dl className={styles.deliveryFacts}><div><dt><MapPin size={15}/>Delivering to</dt><dd>{fullAddress || 'No delivery address configured.'}</dd></div><div><dt><CalendarDays size={15}/>Schedule</dt><dd>{savedDayNames.join(', ')} · {savedFrequencyLabel}</dd></div>{(subscription.pendingChanges?.deliveryAddress || subscription.deliveryAddress)?.deliveryInstructions && <div><dt>Delivery instructions</dt><dd>{(subscription.pendingChanges?.deliveryAddress || subscription.deliveryAddress).deliveryInstructions}</dd></div>}</dl>}{subscription.pendingChanges?.deliveryAddress && <p className="mt-3 text-xs text-forest">Address change scheduled{subscription.pendingChanges.effectiveFrom ? ` from ${formatDate(subscription.pendingChanges.effectiveFrom)}` : ''}.</p>}<Collapsible open={deliveryEditorOpen} onOpenChange={setDeliveryEditorOpen}><CollapsibleContent id="subscription-delivery-editor" className={styles.collapse}><div className="pt-1">            <div className="grid gap-4">
               <div>
-                <h3 className="font-semibold text-foreground mb-3 flex items-center gap-2 text-sm">
+                <h3 className="font-body font-medium text-foreground mb-2 flex items-center gap-2 text-sm">
                   <MapPin className="h-4 w-4 text-forest" />
                   Delivery Address
                 </h3>
                 {addresses.length > 0 ? (
                   <div className="space-y-3">
                     <div className="space-y-1.5">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      <p className="text-xs font-medium text-muted-foreground">
                         Saved addresses
                       </p>
                       <Select
@@ -1923,7 +1911,7 @@ const SubscriptionDetailPage: React.FC = () => {
                       </Select>
                     </div>
                     <div className="space-y-1">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      <p className="text-xs font-medium text-muted-foreground">
                         Subscription delivery address
                       </p>
                       <p className="text-sm text-foreground leading-relaxed">
@@ -1956,13 +1944,13 @@ const SubscriptionDetailPage: React.FC = () => {
               </div>
 
               <div>
-                <h3 className="font-semibold text-foreground mb-3 flex items-center gap-2 text-sm">
+                <h3 className="font-body font-medium text-foreground mb-2 flex items-center gap-2 text-sm">
                   <CalendarDays className="h-4 w-4 text-forest" />
                   Delivery Schedule
                 </h3>
                 <div className="space-y-3">
                   <div className="space-y-1.5">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    <p className="text-xs font-medium text-muted-foreground">
                       {frequency === "weekly"
                         ? "Preferred Days"
                         : "Preferred Day"}
@@ -2028,7 +2016,7 @@ const SubscriptionDetailPage: React.FC = () => {
                 {saving ? "Saving..." : "Save delivery details"}
               </Button>
             </div></div></CollapsibleContent></Collapsible></CardContent></Card>
-          {(subscription.stockDeferralAvailable || subscription.introOffer || subscription.recurringPriceChange) && <Card className="shadow-none"><CardHeader className={styles.sectionHeader}><CardTitle className={styles.sectionTitle}>Plan preferences</CardTitle></CardHeader><CardContent className="px-4 pb-4 text-sm sm:px-5 sm:pb-5">
+          {(subscription.stockDeferralAvailable || subscription.introOffer || subscription.recurringPriceChange) && <Card className={cn(styles.preferencesPanel,"shadow-none")}><CardHeader className={styles.sectionHeader}><CardTitle className={styles.sectionTitle}>Plan preferences</CardTitle></CardHeader><CardContent className="px-4 pb-4 text-sm sm:px-5 sm:pb-5">
             {subscription.status!=='cancelled' && <RecurringPriceNotice change={subscription.recurringPriceChange}/>}
             {subscription.introOffer && <p className="mb-3 text-sm text-muted-foreground">First payment {formatMoney(subscription.introOffer.firstChargeMinor/100)}, including {formatMoney(subscription.introOffer.discountMinor/100)} introductory savings. Renewals use normal recurring prices.</p>}
             {subscription.stockDeferralAvailable && <Collapsible><CollapsibleTrigger asChild><Button size="sm" variant="ghost" className="h-auto w-full justify-between whitespace-normal px-0 py-2 text-left"><span>Unavailable products<span className="mt-1 block text-xs font-normal text-muted-foreground">{subscription.stockDeferralEnabled ? 'Available-products-only policy enabled' : 'Choose how future deliveries handle availability'}</span></span><ChevronDown size={15} className={styles.chevron}/></Button></CollapsibleTrigger><CollapsibleContent className={styles.collapse}><div className="space-y-3 pt-3 text-sm text-muted-foreground"><p>You pay for available products only. Unavailable products stay on your recurring plan without catch-up quantities. Already funded deliveries keep their confirmed selection.</p>{!subscription.stockDeferralEnabled && <><label className="flex items-start gap-2" htmlFor="availability-consent"><Checkbox id="availability-consent" className="mt-0.5" checked={stockConsent} onCheckedChange={checked=>setStockConsent(checked===true)} disabled={saving || subscription.status!=='active'}/>I agree to this policy for future unbilled deliveries.</label><Button size="sm" variant="outline" disabled={!stockConsent || saving || subscription.status!=='active'} onClick={async()=>{setSaving(true);try{setError(null);setNotice(null);await portalSubscriptionsApi.enableStockDeferral(subscription._id);await load(true);setNotice('Availability policy saved for future unbilled deliveries.');}catch(error){setNotice(null);setError(error instanceof Error ? error.message : 'Could not save availability policy');}finally{setSaving(false);}}}>Enable availability policy</Button></>}</div></CollapsibleContent></Collapsible>}

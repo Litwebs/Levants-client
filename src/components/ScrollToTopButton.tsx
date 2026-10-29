@@ -4,7 +4,8 @@ import { useLocation } from "react-router-dom";
 
 export const ScrollToTopButton = () => {
   const { pathname } = useLocation();
-  if (pathname === "/component-catalog") return null;
+  const subscriptionDetails = /^\/portal\/subscriptions\/[^/]+\/?$/.test(pathname) && pathname !== "/portal/subscriptions/new";
+  if (pathname === "/component-catalog" || subscriptionDetails) return null;
 
   return (
     <div className="fixed left-1/2 -translate-x-1/2 bottom-4 sm:bottom-6 z-50">

@@ -137,15 +137,15 @@ export default function DeliveryReduction({ customerId, subscriptionId, delivery
   const addonMinor = initial ? initial.originalTotalMinor - initial.before.reduce((sum, item) => sum + Math.round(item.unitPrice * 100) * item.quantity, 0) - initial.deliveryFeeMinor : 0;
 
   return <Dialog open={open} onOpenChange={changeOpen}>
-    <DialogTrigger asChild><Button size="sm" type="button" variant="outline" data-tour="delivery-reduction" className="w-full whitespace-normal sm:w-auto">
-      {pending ? "Check delivery change" : "Change This Delivery Only"}
+    <DialogTrigger asChild><Button size="sm" type="button" variant="outline" data-tour="delivery-reduction" aria-label={pending ? "Check delivery change" : "Change This Delivery Only"}>
+      {pending ? "Check result" : "Edit delivery"}
     </Button></DialogTrigger>
     <DialogContent data-tour-page="delivery-reduction" data-tour-ready={!busy && Boolean(initial || pending || success || error)} onCloseAutoFocus={event => {
       if (success && !delivery.canChangeThisDelivery) {
         const fallback = document.getElementById(`delivery-toggle-${delivery._id}`);
         if (fallback) { event.preventDefault(); fallback.focus(); }
       }
-    }} className="max-h-[90dvh] w-[calc(100%_-_2rem)] max-w-lg overflow-y-auto rounded-xl p-4 sm:p-6 [&>button:last-child]:right-1 [&>button:last-child]:top-1 [&>button:last-child]: [&>button:last-child]:min-w-11">
+    }} className="max-h-[90dvh] w-[calc(100%_-_2rem)] max-w-lg overflow-y-auto rounded-xl p-4 sm:p-6 [&>button:last-child]:right-1 [&>button:last-child]:top-1 [&>button:last-child]:min-w-8">
       <DialogHeader className="pr-8">
         <DialogTitle>{success ? "Delivery changed" : "Change this delivery only"}</DialogTitle>
         <DialogDescription>{success ? "Your regular subscription stays the same." : `Reduce or remove recurring items for ${date(delivery.scheduledDate)} (UK time). Future deliveries keep your regular quantities.`}</DialogDescription>
