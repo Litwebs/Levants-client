@@ -1121,13 +1121,13 @@ const SubscriptionDetailPage: React.FC = () => {
       setSaving(true);
       setError(null); setNotice(null);
       setNotice(null);
-      await portalSubscriptionsApi.update(id, {
+      const response = await portalSubscriptionsApi.update(id, {
         ...payload,
         ...(refundMethod ? { refundMethod } : {}),
         expectedVersion: subscription.customerVersion,
       });
       await load();
-      setNotice("Delivery details updated.");
+      setNotice(response.message || "Delivery details updated.");
 
     };
 
@@ -1154,13 +1154,13 @@ const SubscriptionDetailPage: React.FC = () => {
       setSaving(true);
       setError(null); setNotice(null);
       setNotice(null);
-      await portalSubscriptionsApi.update(id, {
+      const response = await portalSubscriptionsApi.update(id, {
         ...pendingDeliveryDetailsSave,
         refundMethod,
         expectedVersion: subscription.customerVersion,
       });
       await load();
-      setNotice("Delivery details updated.");
+      setNotice(response.message || "Delivery details updated.");
 
     } catch (err) {
       const message =
