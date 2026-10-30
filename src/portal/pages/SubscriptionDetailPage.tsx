@@ -443,6 +443,7 @@ const SubscriptionDetailPage: React.FC = () => {
   const isProductDeliveryLocked = Boolean(cutoff?.isPastCutoff || (!((subscription?.preferredDeliveryDays?.length || 0) > 1) && cutoff?.deliveryDayCutoffs?.some(day => day.lockedForFulfilment)));
   const [refundChoiceOpen, setRefundChoiceOpen] = useState(false);
   const [cancelRefundChoiceOpen, setCancelRefundChoiceOpen] = useState(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
   const [pendingDeliveryDetailsSave, setPendingDeliveryDetailsSave] = useState<{
     preferredDeliveryDay: number;
     preferredDeliveryDays: number[];
@@ -1208,14 +1209,21 @@ const SubscriptionDetailPage: React.FC = () => {
   };
 
   const handleRetryPauseRefund = async () => {
-    if (!id || !refundRecovery?.retryAvailable || !refundRecovery.operationId || !refundRecovery.resumeOn) return;
+    if (!id || !refundRecovery?.retryAvailable || !refundRecovery.operationId) return;
+    if (refundRecovery.action !== "cancel" && !refundRecovery.resumeOn) return;
     setSaving(true);
     setError(null);
     try {
-      const response = await portalSubscriptionsApi.pause(id, refundRecovery.resumeOn,
-        refundRecovery.expectedVersion ?? subscription.customerVersion, "refund", refundRecovery.operationId);
+      const response = refundRecovery.action === "cancel"
+        ? await portalSubscriptionsApi.cancel(id, {
+            expectedVersion: refundRecovery.expectedVersion ?? subscription.customerVersion,
+            refundMethod: "refund", operationId: refundRecovery.operationId,
+            ...(refundRecovery.reason ? { reason: refundRecovery.reason } : {}),
+          })
+        : await portalSubscriptionsApi.pause(id, refundRecovery.resumeOn!,
+            refundRecovery.expectedVersion ?? subscription.customerVersion, "refund", refundRecovery.operationId);
       await load();
-      setNotice((response as any)?.message || "Card refund completed and subscription paused.");
+      setNotice((response as any)?.message || "Your original subscription request is complete.");
     } catch (err) {
       await load();
       setError(err instanceof ApiError ? err.message : "Card refund recovery could not be completed. Please try again or contact support.");
@@ -1252,6 +1260,8 @@ const SubscriptionDetailPage: React.FC = () => {
   const handleCancel = async (refundMethod: SubscriptionRefundMethod) => {
     if (!id) return;
     setSaving(true);
+    setCancelError(null);
+    setError(null); setNotice(null);
     try {
       const res = await portalSubscriptionsApi.cancel(id, {
         refundMethod,
@@ -1267,7 +1277,8 @@ const SubscriptionDetailPage: React.FC = () => {
       const message =
         err instanceof ApiError
           ? err.message
-          : "Failed to cancel subscription.";
+          : "We could not confirm your cancellation. Retry the original cancellation so we can check its payment and refund safely.";
+      setCancelError(message);
       setNotice(null); setError(message);
 
     } finally {
@@ -1670,7 +1681,7 @@ const SubscriptionDetailPage: React.FC = () => {
       {refundRecovery && <Alert variant="destructive" role="alert" data-testid="subscription-refund-recovery" className="mb-4">
         <Info size={17}/><AlertDescription>
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="min-w-0 flex-1">A card refund for this subscription is still unresolved. {formatMoney(refundRecovery.refundedMinor / 100)} is confirmed returned; {formatMoney(refundRecovery.remainingMinor / 100)} still needs reconciliation. The subscription has not been paused.</p>
+            <p className="min-w-0 flex-1">Your {refundRecovery.action === "cancel" ? "cancellation" : refundRecovery.action === "pause" ? "pause" : "subscription change"} is not complete. {refundRecovery.refundedMinor > 0 ? <>{formatMoney(refundRecovery.refundedMinor / 100)} is confirmed refunded. </> : <>The payment provider may already have processed your refund, but we have not confirmed it yet. </>}Retry the original request so we can finish safely. Store credit is unavailable while this card refund needs confirmation.</p>
             {refundRecovery.retryAvailable
               ? <Button type="button" size="sm" variant="outline" disabled={saving} onClick={handleRetryPauseRefund}>Retry original card refund</Button>
               : <p>Please contact support with this subscription number before trying another change.</p>}
@@ -2243,6 +2254,7 @@ const SubscriptionDetailPage: React.FC = () => {
               Choose store credit or a refund to your card.
             </DialogDescription>
           </DialogHeader>
+          {cancelError && <p role="alert" data-testid="subscription-cancel-error" className="text-sm text-destructive">{cancelError}</p>}
           <div className="flex flex-col gap-3 pt-2">
             <Button size="sm"
               variant="outline"

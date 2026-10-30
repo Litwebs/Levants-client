@@ -103,6 +103,8 @@ export type PortalSubscription = {
 };
 
 export type SubscriptionRefundRecovery = {
+  action?: "pause" | "cancel" | null;
+  reason?: string;
   orderId: string;
   refundedMinor: number;
   remainingMinor: number;
