@@ -297,18 +297,6 @@ const SubscriptionAddProductsPage: React.FC = () => {
     );
   };
 
-  const getItemPerDeliveryTotal = (item: SelectedAddItem) =>
-    Number(item.unitPrice || 0) * Number(item.quantity || 0);
-
-  const selectedPerDeliveryTotal = useMemo(
-    () =>
-      selectedList.reduce(
-        (sum, item) => sum + getItemPerDeliveryTotal(item),
-        0,
-      ),
-    [selectedList],
-  );
-
   const selectedChargeTotal = useMemo(
     () =>
       selectedList.reduce((sum, item) => sum + getItemAssignedTotal(item), 0),
@@ -763,24 +751,24 @@ const SubscriptionAddProductsPage: React.FC = () => {
               <div className="mt-4 pt-3 border-t border-border space-y-1.5">
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">
-                    Current per delivery
+                    {isMultiDayWeekly ? "Current products per week" : "Current products per delivery"}
                   </span>
                   <span className="text-foreground">
                     {formatMoney(currentPerDelivery)}
                   </span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Add-on</span>
+                  <span className="text-muted-foreground">Added recurring products</span>
                   <span className="text-forest font-medium">
                     +{formatMoney(selectedChargeTotal)}
                   </span>
                 </div>
                 <div className="flex items-center justify-between pt-1.5 border-t border-border">
                   <span className="text-sm font-medium text-foreground">
-                    New per delivery
+                    {isMultiDayWeekly ? "New products per week" : "New products per delivery"}
                   </span>
                   <span className="text-lg font-semibold text-foreground">
-                    {formatMoney(currentPerDelivery + selectedPerDeliveryTotal)}
+                    {formatMoney(currentPerDelivery + selectedChargeTotal)}
                   </span>
                 </div>
               </div>
@@ -873,4 +861,5 @@ const SubscriptionAddProductsPage: React.FC = () => {
 };
 
 export default SubscriptionAddProductsPage;
+
 
