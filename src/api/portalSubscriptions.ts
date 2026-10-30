@@ -34,6 +34,7 @@ export type PortalSubscriptionItem = {
 };
 
 export type PortalSubscription = {
+  paidDeliveryRecoveryNotice?: { status: "review_required" | "check_pending"; reference: string; message: string } | null;
   monthlyBillingAlignment?: { status: "pending" | "scheduled"; chargeAt: string; deliveryDate: string } | null;
   stockDeferralEnabled?: boolean;
   stockDeferralAvailable?: boolean;

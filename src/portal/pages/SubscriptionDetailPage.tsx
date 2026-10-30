@@ -1664,6 +1664,9 @@ const SubscriptionDetailPage: React.FC = () => {
 
       </header>
 
+      {subscription.paidDeliveryRecoveryNotice && <Alert variant="destructive" role="alert" data-testid="subscription-paid-delivery-recovery" className="mb-4">
+        <Info size={17}/><AlertDescription><div className="flex flex-wrap items-center justify-between gap-3"><p className="min-w-0 flex-1">{subscription.paidDeliveryRecoveryNotice.message}</p><Button size="sm" variant="outline" asChild><Link to="/contact">Contact support</Link></Button></div></AlertDescription>
+      </Alert>}
       {refundRecovery && <Alert variant="destructive" role="alert" data-testid="subscription-refund-recovery" className="mb-4">
         <Info size={17}/><AlertDescription>
           <div className="flex flex-wrap items-center justify-between gap-3">
