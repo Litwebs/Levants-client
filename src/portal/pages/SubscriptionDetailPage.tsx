@@ -1277,9 +1277,10 @@ const SubscriptionDetailPage: React.FC = () => {
   const handleCancelAttempt = async () => {
     if (!id) return;
 
-    const shouldAskRefundMethod = isMultiDayWeekly
-      ? hasAnyRefundEligibleDeliveryOnCancel
-      : Boolean(cutoff && !cutoff.isPastCutoff);
+    const nextOrderProtected = nextDelivery?.order &&
+      !["ordered", "cancelled"].includes(String(nextDelivery.order.deliveryStatus));
+    const shouldAskRefundMethod = hasAnyRefundEligibleDeliveryOnCancel ||
+      (!isMultiDayWeekly && Boolean(cutoff && !cutoff.isPastCutoff) && !nextOrderProtected);
 
     if (shouldAskRefundMethod) {
       setCancelOpen(false);
@@ -1498,10 +1499,9 @@ const SubscriptionDetailPage: React.FC = () => {
       .filter(
         (delivery) =>
           ["scheduled", "generated"].includes(String(delivery.status)) &&
-          delivery.order &&
-          ["paid", "partially_refunded"].includes(
-            String(delivery.order.status || ""),
-          ),
+          (!delivery.order || ["ordered", "cancelled"].includes(String(delivery.order.deliveryStatus))) &&
+          ((delivery.order && ["paid", "partially_refunded"].includes(String(delivery.order.status || ""))) ||
+            getDeliveryAddOnTotal(delivery) > 0),
       )
       .some((delivery) => {
         const deliveryDate = new Date(delivery.scheduledDate);
@@ -2061,7 +2061,7 @@ const SubscriptionDetailPage: React.FC = () => {
             <DialogTitle>Pause Subscription?</DialogTitle>
             <DialogDescription data-tour="pause-policy">
               Skip eligible deliveries until your resume date (up to 28 days).
-              Deliveries past cutoff stay scheduled. Editing is unavailable while paused.
+              Deliveries already on their way or past cutoff remain in place. Editing is unavailable while paused.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3 pt-2">
@@ -2137,7 +2137,7 @@ const SubscriptionDetailPage: React.FC = () => {
         open={cancelOpen}
         onOpenChange={setCancelOpen}
         title="Cancel Subscription?"
-        description="Stop future deliveries. Deliveries past cutoff stay scheduled. Eligible prepayments can be refunded or credited."
+        description="Stop future deliveries. Deliveries already on their way or past cutoff remain in place. Only eligible unused payments can be refunded or credited."
         confirmLabel="Yes, Cancel"
         cancelLabel="Keep Subscription"
         variant="destructive"
