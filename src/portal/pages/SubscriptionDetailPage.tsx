@@ -689,7 +689,9 @@ const SubscriptionDetailPage: React.FC = () => {
     [deliveryDays],
   );
   const isMultiDayWeekly =
-    frequency === "weekly" && selectedDayIndexes.length > 1;
+    frequency === "weekly" &&
+    (selectedDayIndexes.length > 1 ||
+      (subscription?.preferredDeliveryDays?.length || 0) > 1);
 
   const mergedDayDraft = useMemo(() => {
     if (!isMultiDayWeekly) return [] as EditableSubscriptionItem[];
