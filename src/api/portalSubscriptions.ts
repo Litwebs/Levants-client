@@ -34,6 +34,7 @@ export type PortalSubscriptionItem = {
 };
 
 export type PortalSubscription = {
+  monthlyBillingAlignment?: { status: "pending" | "scheduled"; chargeAt: string; deliveryDate: string } | null;
   stockDeferralEnabled?: boolean;
   stockDeferralAvailable?: boolean;
   recurringPriceChange?: {
