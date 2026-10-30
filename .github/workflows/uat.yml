@@ -18,6 +18,9 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
+      - name: Check recurring product preview types
+        if: contains(github.event.head_commit.message, '[subscription-product-preview]')
+        run: npm run typecheck
       - name: Check subscription discount feedback and renewal wording
         if: contains(github.event.head_commit.message, '[subscription-code-ui]')
         run: npm run typecheck && npx vitest run tests/subscription-discount-feedback.test.tsx tests/subscription-intro-offer.test.tsx tests/subscription-stock-availability.test.tsx

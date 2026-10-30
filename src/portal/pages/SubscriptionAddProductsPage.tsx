@@ -297,6 +297,9 @@ const SubscriptionAddProductsPage: React.FC = () => {
     );
   };
 
+  const getItemPerDeliveryTotal = (item: SelectedAddItem) =>
+    Number(item.unitPrice || 0) * Number(item.quantity || 0);
+
   const selectedChargeTotal = useMemo(
     () =>
       selectedList.reduce((sum, item) => sum + getItemAssignedTotal(item), 0),
