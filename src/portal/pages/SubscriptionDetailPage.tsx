@@ -1260,10 +1260,7 @@ const SubscriptionDetailPage: React.FC = () => {
       setCancelOpen(false);
       setCancelRefundChoiceOpen(false);
       const message = (res as any)?.message || "Subscription cancelled.";
-      const isScheduledCancellation = Boolean(
-        (res as any)?.data?.subscription?.isCancellationScheduled,
-      );
-      setNotice(isScheduledCancellation ? null : message);
+      setNotice(message);
 
     } catch (err) {
       const message =
@@ -2280,6 +2277,7 @@ const SubscriptionDetailPage: React.FC = () => {
 };
 
 export default SubscriptionDetailPage;
+
 
 
 
