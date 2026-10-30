@@ -1681,7 +1681,7 @@ const SubscriptionDetailPage: React.FC = () => {
       {refundRecovery && <Alert variant="destructive" role="alert" data-testid="subscription-refund-recovery" className="mb-4">
         <Info size={17}/><AlertDescription>
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="min-w-0 flex-1">Your {refundRecovery.action === "cancel" ? "cancellation" : refundRecovery.action === "pause" ? "pause" : "subscription change"} is not complete. {refundRecovery.refundedMinor > 0 ? <>{formatMoney(refundRecovery.refundedMinor / 100)} is confirmed refunded. </> : <>The payment provider may already have processed your refund, but we have not confirmed it yet. </>}Retry the original request so we can finish safely. Store credit is unavailable while this card refund needs confirmation.</p>
+            <p className="min-w-0 flex-1">Your {refundRecovery.action === "cancel" ? "cancellation" : refundRecovery.action === "pause" ? "pause" : "subscription change"} is not complete. {refundRecovery.refundedMinor > 0 ? <>{formatMoney(refundRecovery.refundedMinor / 100)} is confirmed refunded. </> : <>The payment provider may already have processed your refund, but we have not confirmed it yet. </>}Retry the original request so we can finish safely. Store credit cannot replace this card refund.</p>
             {refundRecovery.retryAvailable
               ? <Button type="button" size="sm" variant="outline" disabled={saving} onClick={handleRetryPauseRefund}>Retry original card refund</Button>
               : <p>Please contact support with this subscription number before trying another change.</p>}
