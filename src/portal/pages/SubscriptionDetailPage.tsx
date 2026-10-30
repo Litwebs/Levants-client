@@ -1198,7 +1198,8 @@ const SubscriptionDetailPage: React.FC = () => {
 
     } catch (err) {
       const message =
-        err instanceof ApiError ? err.message : "Failed to pause subscription.";
+        err instanceof ApiError ? err.message : "We could not confirm your pause. Retry the original pause request so we can check its result safely.";
+      setPauseError(message);
       setNotice(null); setError(message);
 
     } finally {

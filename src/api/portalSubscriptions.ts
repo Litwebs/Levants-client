@@ -353,15 +353,9 @@ export const portalSubscriptionsApi = {
     refundMethod: SubscriptionRefundMethod = "refund",
     operationId?: string,
   ) =>
-    api.post<ApiEnvelope<SubscriptionResponse>>(
-      `${base}/${subscriptionId}/pause`,
-      ensureOperationId({
-        resumeOn,
-        refundMethod,
-        expectedVersion,
-        operationId,
-      }),
-    ),
+    withSubscriptionMutationRetry(`post:${subscriptionId}/pause`,
+      { resumeOn, refundMethod, expectedVersion, operationId },
+      (body) => api.post<ApiEnvelope<SubscriptionResponse>>(`${base}/${subscriptionId}/pause`, body)),
 
   resume: (
     subscriptionId: string,
@@ -465,6 +459,7 @@ export const portalSubscriptionsApi = {
       query,
     ),
 };
+
 
 
 
