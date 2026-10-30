@@ -34,6 +34,7 @@ export type PortalSubscriptionItem = {
 };
 
 export type PortalSubscription = {
+  renewalPaymentRecoveryNotice?: { status: string; message: string; amountMinor?: number; hostedInvoiceUrl?: string | null; retryAvailable?: boolean; operationId?: string; expectedVersion?: number } | null;
   paidDeliveryRecoveryNotice?: { status: "review_required" | "check_pending"; reference: string; message: string } | null;
   monthlyBillingAlignment?: { status: "pending" | "scheduled"; chargeAt: string; deliveryDate: string } | null;
   stockDeferralEnabled?: boolean;
@@ -366,10 +367,8 @@ export const portalSubscriptionsApi = {
     expectedVersion: number,
     operationId?: string,
   ) =>
-    api.post<ApiEnvelope<SubscriptionResponse>>(
-      `${base}/${subscriptionId}/resume`,
-      ensureOperationId({ expectedVersion, operationId }),
-    ),
+    withSubscriptionMutationRetry(`post:${subscriptionId}/resume`, { expectedVersion, operationId },
+      (body) => api.post<ApiEnvelope<SubscriptionResponse>>(`${base}/${subscriptionId}/resume`, body)),
 
   cancel: (
     subscriptionId: string,

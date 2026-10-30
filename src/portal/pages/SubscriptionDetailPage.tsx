@@ -1257,6 +1257,20 @@ const SubscriptionDetailPage: React.FC = () => {
     }
   };
 
+  const handleRetryFailedRenewal = async () => {
+    const recovery = subscription.renewalPaymentRecoveryNotice;
+    if (!id || !recovery?.retryAvailable || !recovery.operationId || recovery.expectedVersion === undefined) return;
+    setSaving(true); setError(null); setNotice(null);
+    try {
+      const result = await portalSubscriptionsApi.resume(id, recovery.expectedVersion, recovery.operationId);
+      await load();
+      setNotice((result as any)?.message || "Your original renewal request is complete.");
+    } catch (error) {
+      await load();
+      setError(error instanceof ApiError ? error.message : "We could not confirm your original renewal. Please retry safely.");
+    } finally { setSaving(false); }
+  };
+
   const handleCancel = async (refundMethod: SubscriptionRefundMethod) => {
     if (!id) return;
     setSaving(true);
@@ -1678,6 +1692,14 @@ const SubscriptionDetailPage: React.FC = () => {
       {subscription.paidDeliveryRecoveryNotice && <Alert variant="destructive" role="alert" data-testid="subscription-paid-delivery-recovery" className="mb-4">
         <Info size={17}/><AlertDescription><div className="flex flex-wrap items-center justify-between gap-3"><p className="min-w-0 flex-1">{subscription.paidDeliveryRecoveryNotice.message}</p><Button size="sm" variant="outline" asChild><Link to="/contact">Contact support</Link></Button></div></AlertDescription>
       </Alert>}
+      {subscription.renewalPaymentRecoveryNotice && <Alert variant="destructive" role="alert" data-testid="subscription-renewal-payment-recovery" className="mb-4">
+        <Info size={17}/><AlertDescription><div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="min-w-0 flex-1">{subscription.renewalPaymentRecoveryNotice.message}</p>
+          <Button size="sm" variant="outline" asChild><Link to="/portal/payments">Update payment card</Link></Button>
+          {subscription.renewalPaymentRecoveryNotice.retryAvailable && <Button size="sm" variant="outline" disabled={saving} onClick={handleRetryFailedRenewal}>Retry original renewal</Button>}
+          {subscription.renewalPaymentRecoveryNotice.hostedInvoiceUrl && <Button size="sm" variant="outline" asChild><a href={subscription.renewalPaymentRecoveryNotice.hostedInvoiceUrl} target="_blank" rel="noopener noreferrer">View unpaid bill</a></Button>}
+        </div></AlertDescription>
+      </Alert>}
       {refundRecovery && <Alert variant="destructive" role="alert" data-testid="subscription-refund-recovery" className="mb-4">
         <Info size={17}/><AlertDescription>
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -2055,7 +2077,7 @@ const SubscriptionDetailPage: React.FC = () => {
           <CardContent className={styles.managementContent}>
             <div><h2 className={styles.sectionTitle}>Manage subscription</h2><p className="mt-2 text-sm text-muted-foreground">{subscription.isCancellationScheduled ? "Cancellation is scheduled. Your protected delivery remains in place." : subscription.status === "paused" ? "Resume deliveries when you are ready, or cancel this plan." : "Pause deliveries temporarily, or cancel your subscription."}</p></div>
         <div className={styles.managementActions}>
-          {subscription.status === "active" ? <Button size="sm" variant="outline" data-tour="subscription-pause" onClick={()=>setPauseOpen(true)} disabled={saving || !canModify || Boolean(refundRecovery)}><Pause size={15}/>Pause</Button> : subscription.status === "paused" ? <Button size="sm" data-tour="subscription-resume" onClick={()=>setResumeOpen(true)} disabled={saving || subscription.isCancellationScheduled}><Play size={15}/>Resume subscription</Button> : null}
+          {subscription.status === "active" ? <Button size="sm" variant="outline" data-tour="subscription-pause" onClick={()=>setPauseOpen(true)} disabled={saving || !canModify || Boolean(refundRecovery)}><Pause size={15}/>Pause</Button> : subscription.status === "paused" ? <Button size="sm" data-tour="subscription-resume" onClick={()=>setResumeOpen(true)} disabled={saving || subscription.isCancellationScheduled || subscription.renewalPaymentRecoveryNotice?.status === "cancellation_pending"}><Play size={15}/>Resume subscription</Button> : null}
           <Button size="sm" variant="ghost" className="text-destructive hover:bg-destructive/5 hover:text-destructive" data-tour="subscription-cancel" onClick={()=>setCancelOpen(true)} disabled={saving || subscription.isCancellationScheduled}>Cancel subscription</Button>
         </div>
           </CardContent>
@@ -2143,7 +2165,7 @@ const SubscriptionDetailPage: React.FC = () => {
         open={resumeOpen}
         onOpenChange={setResumeOpen}
         title="Resume Subscription?"
-        description="Restart from the next eligible delivery. Your card may be charged to restore refunded or credited payments. Existing store credit is kept."
+        description={subscription.renewalPaymentRecoveryNotice ? (subscription.renewalPaymentRecoveryNotice.status === "confirmation_pending" ? "Your renewal bill is already paid. Finish confirming its delivery dates without creating another bill." : `Retry your original unpaid renewal bill${subscription.renewalPaymentRecoveryNotice.amountMinor ? ` of ${formatMoney(subscription.renewalPaymentRecoveryNotice.amountMinor / 100)}` : ""} using your default card. Deliveries are confirmed only after payment succeeds. Another bill will not be created.`) : "Restart from the next eligible delivery. Your card may be charged to restore refunded or credited payments. Existing store credit is kept."}
         confirmLabel="Resume"
         onConfirm={handleResume}
       />
