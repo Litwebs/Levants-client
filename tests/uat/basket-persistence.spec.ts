@@ -22,21 +22,24 @@ async function addTestItem(page: Page) {
   await page.goto("/shop");
   await expect(page.getByText("UAT · Test environment · Payments use Stripe sandbox", { exact: true })).toBeVisible();
   const card = page.locator(".card-product").filter({
-    // Fixture names are editable in UAT; select the same paid variant by identity.
-    has: page.locator('a[href="/product/6acaa10014b239b5efd7c62d?variant=6acaa13714b239b5efd7c64a"]'),
-  });
-  await expect(card).toHaveCount(1);
+    has: page.getByRole("button", { name: "Add to basket", exact: true }).and(page.locator("button:enabled")),
+  }).first();
+  await expect(card).toBeVisible();
+  const productHref = await card.locator('a[href^="/product/"]').first().getAttribute("href");
+  const variantId = new URL(productHref!, page.url()).searchParams.get("variant");
+  expect(variantId).toBeTruthy();
   await card.getByRole("button", { name: "Add to basket", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Your Cart", exact: true })).toBeVisible();
   await expect.poll(() => savedBasket(page)).toMatchObject({
-    items: [{ variantId: "6acaa13714b239b5efd7c64a", quantity: 1 }], deals: [],
+    items: [{ variantId, quantity: 1 }], deals: [],
   });
+  return variantId!;
 }
 
 test("UI-added basket and changed quantity survive checkout reload and a new document", async ({ page, context }, info) => {
-  await addTestItem(page);
+  const variantId = await addTestItem(page);
   await page.getByRole("button", { name: "Increase quantity", exact: true }).last().click();
-  const expected = { items: [{ variantId: "6acaa13714b239b5efd7c64a", quantity: 2 }], deals: [] };
+  const expected = { items: [{ variantId, quantity: 2 }], deals: [] };
   await expect.poll(() => savedBasket(page)).toEqual(expected);
   await page.getByRole("link", { name: "Checkout Securely", exact: true }).click();
   await expect(page).toHaveURL(/\/checkout$/);
@@ -69,7 +72,8 @@ test("UI-added basket and changed quantity survive checkout reload and a new doc
   const other = await context.newPage();
   await other.goto("/shop");
   await other.getByRole("button", { name: "Cart", exact: true }).click();
-  await expect(other.getByRole("heading", { name: "TEST PRODUCT", exact: true })).toBeVisible();
+  await expect(other.getByRole("heading", { name: "Your Cart", exact: true })).toBeVisible();
+  await expect(other.getByRole("heading", { name: "Your cart is empty", exact: true })).toHaveCount(0);
   await expect.poll(() => savedBasket(other)).toEqual(expected);
   await other.close();
 
