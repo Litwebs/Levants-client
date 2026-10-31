@@ -1,4 +1,4 @@
-import api from "@/api/client";
+import api, { ApiError } from "@/api/client";
 import { withSubscriptionMutationRetry } from "./subscriptionMutationRetry";
 import { withSubscriptionCreationRetry } from "./subscriptionCreationRetry";
 import { portalAuthApi } from "./portalAuth";
@@ -34,6 +34,9 @@ export type PortalSubscriptionItem = {
 };
 
 export type PortalSubscription = {
+  renewalPaymentRecoveryNotice?: { status: string; message: string; amountMinor?: number; hostedInvoiceUrl?: string | null; retryAvailable?: boolean; operationId?: string; expectedVersion?: number } | null;
+  paidDeliveryRecoveryNotice?: { status: "review_required" | "check_pending"; reference: string; message: string } | null;
+  monthlyBillingAlignment?: { status: "pending" | "scheduled"; chargeAt: string; deliveryDate: string } | null;
   stockDeferralEnabled?: boolean;
   stockDeferralAvailable?: boolean;
   recurringPriceChange?: {
@@ -98,6 +101,19 @@ export type PortalSubscription = {
   createdAt: string;
   updatedAt: string;
   customerVersion: number;
+};
+
+export type SubscriptionRefundRecovery = {
+  action?: "pause" | "cancel" | null;
+  reason?: string;
+  orderId: string;
+  refundedMinor: number;
+  remainingMinor: number;
+  retryAvailable: boolean;
+  operationId?: string;
+  resumeOn?: string;
+  expectedVersion?: number;
+  refundMethod?: "refund";
 };
 
 export type PortalSubscriptionDelivery = {
@@ -198,6 +214,7 @@ export type PortalSubscriptionCutoff = {
     effectiveFrom?: string | null;
     isPastCutoff: boolean;
     paymentState?: "paid" | "unpaid";
+    lockedForFulfilment?: boolean;
   }>;
 };
 
@@ -259,6 +276,26 @@ export type CreateSubscriptionPayload = {
 };
 
 const base = "/portal/subscriptions";
+const listRetryDelaysMs = [200, 600];
+
+async function listSubscriptionsWithRetry(
+  query: { status?: PortalSubscriptionStatus; page?: number; pageSize?: number },
+): Promise<ApiEnvelope<ListSubscriptionsResponse>> {
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      const response = await api.get<ApiEnvelope<ListSubscriptionsResponse>>(base, query);
+      if (!response?.success || !Array.isArray(response.data?.subscriptions)) {
+        throw new Error("Subscription list response was incomplete.");
+      }
+      return response;
+    } catch (error) {
+      const transient = !(error instanceof ApiError) || error.status === 408 ||
+        error.status === 429 || error.status >= 500;
+      if (!transient || attempt >= listRetryDelaysMs.length) throw error;
+      await new Promise(resolve => setTimeout(resolve, listRetryDelaysMs[attempt]));
+    }
+  }
+}
 
 export const portalSubscriptionsApi = {
   enableStockDeferral: (id: string) => api.post<ApiEnvelope<{subscription: PortalSubscription}>>(`${base}/${id}/stock-deferral`, {accept: true, operationId: crypto.randomUUID()}),
@@ -272,7 +309,7 @@ export const portalSubscriptionsApi = {
     api.post<ApiEnvelope<DeliveryReductionResult>>(`${base}/${subscriptionId}/deliveries/${deliveryId}/one-time-change/confirm`, payload),
 
   list: (query: { status?: PortalSubscriptionStatus; page?: number; pageSize?: number } = {}) =>
-    api.get<ApiEnvelope<ListSubscriptionsResponse>>(base, query),
+    listSubscriptionsWithRetry(query),
 
   getSettings: () =>
     api.get<ApiEnvelope<SubscriptionSettingsResponse>>(`${base}/settings`),
@@ -321,25 +358,17 @@ export const portalSubscriptionsApi = {
     refundMethod: SubscriptionRefundMethod = "refund",
     operationId?: string,
   ) =>
-    api.post<ApiEnvelope<SubscriptionResponse>>(
-      `${base}/${subscriptionId}/pause`,
-      ensureOperationId({
-        resumeOn,
-        refundMethod,
-        expectedVersion,
-        operationId,
-      }),
-    ),
+    withSubscriptionMutationRetry(`post:${subscriptionId}/pause`,
+      { resumeOn, refundMethod, expectedVersion, operationId },
+      (body) => api.post<ApiEnvelope<SubscriptionResponse>>(`${base}/${subscriptionId}/pause`, body)),
 
   resume: (
     subscriptionId: string,
     expectedVersion: number,
     operationId?: string,
   ) =>
-    api.post<ApiEnvelope<SubscriptionResponse>>(
-      `${base}/${subscriptionId}/resume`,
-      ensureOperationId({ expectedVersion, operationId }),
-    ),
+    withSubscriptionMutationRetry(`post:${subscriptionId}/resume`, { expectedVersion, operationId },
+      (body) => api.post<ApiEnvelope<SubscriptionResponse>>(`${base}/${subscriptionId}/resume`, body)),
 
   cancel: (
     subscriptionId: string,
@@ -433,6 +462,7 @@ export const portalSubscriptionsApi = {
       query,
     ),
 };
+
 
 
 

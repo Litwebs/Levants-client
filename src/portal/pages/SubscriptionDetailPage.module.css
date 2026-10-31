@@ -1,0 +1,65 @@
+.page { min-width:0; }
+/* Scope compound selectors so component utility defaults cannot reset the layout. */
+.page .pageHeader { display:flex; flex-wrap:wrap; align-items:flex-start; justify-content:space-between; gap:12px; margin-bottom:20px; }
+
+.page .hero { overflow:hidden; }
+.page .heroContent { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:start; gap:16px; padding:16px; background:hsl(var(--forest)/.035); }
+.page .heroPrice { padding-left:16px; border-left:1px solid hsl(var(--border)); min-width:0; }
+.page .cutoff { border-top:1px solid hsl(var(--border)); padding:6px 12px; }
+.page .cutoffTrigger { display:flex; width:100%; justify-content:space-between; text-align:left; padding-left:4px; padding-right:4px; }
+.page .layout { display:grid; grid-template-columns:minmax(0,1fr); gap:20px; align-items:start; }
+
+.page .sectionHeader { padding:20px 20px 16px; gap:8px; margin:0; }
+.page .sectionTitle { font-family:inherit; font-size:16px; line-height:1.4; font-weight:600; letter-spacing:0; }
+.page .sectionHeader p { font-size:13px; line-height:1.5; }
+.page .productRow { display:grid; grid-template-columns:36px minmax(0,1fr); gap:12px; align-items:center; padding:16px 8px; }
+.page .productRow + .productRow { border-top:1px solid hsl(var(--border)/.65); }
+.page .productImage { display:flex; justify-content:center; align-items:center; width:36px; height:40px; object-fit:contain; border-radius:4px; background:hsl(var(--muted)/.6); color:hsl(var(--muted-foreground)); }
+.page .productControls { display:flex; flex-wrap:nowrap; align-items:center; justify-content:flex-end; gap:4px; grid-column:2/-1; min-width:0; }
+.page .quantity { display:inline-flex; align-items:center; flex-shrink:0; border:1px solid hsl(var(--border)); border-radius:6px; background:hsl(var(--background)); }
+.page .excluded { opacity:.65; }
+.page .dayGroup + .dayGroup { margin-top:16px; padding-top:12px; border-top:1px solid hsl(var(--border)); }
+.page .productFooter { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px; margin-top:4px; padding-top:12px; border-top:1px solid hsl(var(--border)); }
+.page .productTotal { display:flex; flex-wrap:wrap; align-items:baseline; justify-content:space-between; gap:4px 16px; flex:1; }
+.page .productTotal small { flex-basis:100%; font-size:12px; color:hsl(var(--muted-foreground)); }
+.page .deliveries { border-top:1px solid hsl(var(--border)); }
+.page .delivery { min-width:0; }
+.page .delivery + .delivery { border-top:1px solid hsl(var(--border)); }
+.page .deliveryTrigger { display:flex; width:100%; height:auto; min-height:72px; justify-content:space-between; align-items:center; gap:16px; padding:16px; white-space:normal; text-align:left; border-radius:6px; }
+.page .deliveryMeta { display:flex; flex-wrap:nowrap; justify-content:flex-end; align-items:center; gap:10px; }
+.page .deliverySubline { display:flex; flex-wrap:wrap; align-items:center; gap:5px 8px; margin-top:4px; color:hsl(var(--muted-foreground)); }
+.page .deliveryContent { border-top:1px solid hsl(var(--border)/.6); padding:16px; }
+.page .deliveryActions { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:8px; margin-top:16px; }
+.page .deliveryFacts { margin:0; display:grid; gap:20px; }
+.page .deliveryFacts dt { display:flex; align-items:center; gap:6px; margin-bottom:5px; font-size:12px; color:hsl(var(--muted-foreground)); }
+.page .deliveryFacts dd { margin:0; font-size:14px; line-height:1.5; color:hsl(var(--foreground)); overflow-wrap:anywhere; }
+.page .dayFieldset { min-width:0; margin:0; padding:0; border:0; }
+.page .dayOptions { display:grid; grid-template-columns:minmax(0,1fr); gap:4px; }
+.page .dayOption { display:flex; align-items:center; gap:12px; min-height:48px; padding:12px 14px; border-radius:6px; cursor:pointer; font-size:14px; line-height:1.5; transition:background-color .15s ease; }
+.page .dayOption[data-selected=true] { background:hsl(var(--forest)/.05); }
+.page .dayOption[data-disabled=true] { cursor:not-allowed; opacity:.6; }
+.page .preferenceTrigger { display:flex; width:100%; height:auto; min-height:64px; align-items:center; justify-content:space-between; gap:16px; padding:12px; white-space:normal; text-align:left; line-height:1.5; }
+.page .preferenceTrigger > span { min-width:0; }
+@media(hover:hover) { .page .dayOption:not([data-disabled=true]):hover { background:hsl(var(--forest)/.1); } }
+.page .chevron { flex-shrink:0; transition:transform .2s ease; }
+.page [data-state=open] > .chevron,.page [data-state=open] > span > .chevron { transform:rotate(180deg); }
+.page .collapse { overflow:hidden; }
+.page .collapse[data-state=open] { animation:sectionOpen .24s cubic-bezier(.2,.7,.2,1); }
+.page .collapse[data-state=closed] { animation:sectionClose .18s ease-in; }
+@keyframes sectionOpen { from { height:0;opacity:0; } to { height:var(--radix-collapsible-content-height);opacity:1; } }
+@keyframes sectionClose { from { height:var(--radix-collapsible-content-height);opacity:1; } to { height:0;opacity:0; } }
+@media(min-width:375px) { .page .productRow { grid-template-columns:40px minmax(0,1fr) auto; } .page .productImage { width:40px;height:44px; } .page .productControls { grid-column:auto; } }
+@media(max-width:639px) { .page .productRow[data-day-plan=true] { grid-template-columns:36px minmax(0,1fr); } .page .productRow[data-day-plan=true] .productControls { grid-column:2/-1; } }
+.page .managementContent { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:20px; padding:20px; }
+.page .managementContent > div:first-child { flex:1; min-width:200px; }
+.page .managementActions { display:flex; flex-wrap:wrap; justify-content:flex-end; align-items:center; gap:8px; margin-left:auto; }
+@media(max-width:479px) {
+  .page .pageHeader { margin-bottom:16px; }
+  .page .heroContent { gap:12px;padding:14px; }
+  .page .heroPrice { padding-left:12px; }
+  .page .sectionHeader { padding:18px 16px 14px; }
+  .page .productControls { margin-top:2px; }
+  .page .managementContent { padding:18px 16px;gap:16px; }
+  .page .managementActions { width:100%; }
+}
+@media(prefers-reduced-motion:reduce) { .page .collapse[data-state] { animation:none; } .page .chevron { transition:none; } }

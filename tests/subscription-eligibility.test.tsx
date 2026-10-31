@@ -23,7 +23,7 @@ beforeEach(() => vi.clearAllMocks());
 afterEach(cleanup);
 test("recurring selector filters individual variants and keeps the eligible sibling of a mixed product", async () => {
   render(<MemoryRouter><ShopPage embedded subscriptionOnly /></MemoryRouter>);
-  await waitFor(() => expect(fetchProducts).toHaveBeenCalledWith(expect.objectContaining({ subscriptionEligible: true })));
+  await waitFor(() => expect(fetchProducts).toHaveBeenCalledWith(expect.objectContaining({ subscriptionEligible: true, subscriptionCards: true })));
   expect(screen.getByRole("heading", { name: "Milk 1 litre" })).toBeTruthy();
   expect(screen.getByRole("heading", { name: "Eggs Box" })).toBeTruthy();
   expect(screen.queryByRole("heading", { name: "Milk 500ml" })).toBeNull();

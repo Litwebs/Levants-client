@@ -528,8 +528,7 @@ const SubscriptionDeliveryAddOnPage: React.FC = () => {
             <AlertDialogTitle>Confirm your one-time add-on</AlertDialogTitle>
             <AlertDialogDescription className="space-y-3 text-left">
               <span className="block">
-                This purchase cannot be changed or reversed after you confirm
-                it. Your saved card will be charged immediately.
+                Your saved card is charged now. This one-time purchase cannot be changed or reversed.
               </span>
               <span className="block rounded-lg bg-muted/60 p-3 text-foreground">
                 <span className="flex justify-between gap-4 font-medium">

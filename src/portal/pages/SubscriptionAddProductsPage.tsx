@@ -12,7 +12,6 @@ import {
   type PortalSubscriptionCutoff,
   type PortalSubscription,
 } from "@/api/portalSubscriptions";
-import { toast } from "sonner";
 import {
   formatCutoffDate,
   getDeliveryDayCutoff,
@@ -197,7 +196,7 @@ const SubscriptionAddProductsPage: React.FC = () => {
         const message =
           err instanceof ApiError ? err.message : "Failed to load products.";
         setError(message);
-        toast.error(message);
+
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -301,15 +300,6 @@ const SubscriptionAddProductsPage: React.FC = () => {
   const getItemPerDeliveryTotal = (item: SelectedAddItem) =>
     Number(item.unitPrice || 0) * Number(item.quantity || 0);
 
-  const selectedPerDeliveryTotal = useMemo(
-    () =>
-      selectedList.reduce(
-        (sum, item) => sum + getItemPerDeliveryTotal(item),
-        0,
-      ),
-    [selectedList],
-  );
-
   const selectedChargeTotal = useMemo(
     () =>
       selectedList.reduce((sum, item) => sum + getItemAssignedTotal(item), 0),
@@ -385,6 +375,7 @@ const SubscriptionAddProductsPage: React.FC = () => {
     try {
       setSaving(true);
       setError(null);
+      const messages: string[] = [];
 
       if (isMultiDayWeekly && subscriptionSnapshot) {
         const sourcePlans =
@@ -486,13 +477,14 @@ const SubscriptionAddProductsPage: React.FC = () => {
         if (!subscriptionSnapshot) {
           throw new Error("Subscription changed while loading. Please reload.");
         }
-        await portalSubscriptionsApi.update(id, {
+        const response = await portalSubscriptionsApi.update(id, {
           ...updatePayload,
           expectedVersion: subscriptionSnapshot.customerVersion,
           operationId: operationIdFor(
             `multi-day-add:${JSON.stringify(updatePayload)}`,
           ),
         });
+        if (response.message) messages.push(response.message);
       } else {
         if (!subscriptionSnapshot) {
           throw new Error("Subscription changed while loading. Please reload.");
@@ -507,6 +499,7 @@ const SubscriptionAddProductsPage: React.FC = () => {
               `single-day-add:${item.variantId}:${item.quantity}`,
             ),
           });
+          if (response.message) messages.push(response.message);
           expectedVersion = Number(
             (response as any)?.data?.subscription?.customerVersion ??
               expectedVersion + 1,
@@ -515,14 +508,14 @@ const SubscriptionAddProductsPage: React.FC = () => {
       }
 
       operationIdsRef.current.clear();
-      navigate(`/portal/subscriptions/${id}`);
+      navigate(`/portal/subscriptions/${id}`, { state: { subscriptionNotice: [...new Set(messages)].join(" ") || "Products added to your subscription." } });
     } catch (err) {
       const message =
         err instanceof ApiError
           ? err.message
           : "Failed to add selected products.";
       setError(message);
-      toast.error(message);
+
     } finally {
       setSaving(false);
     }
@@ -592,7 +585,7 @@ const SubscriptionAddProductsPage: React.FC = () => {
             sidebarStickyTopOffset={stickyTopOffset}
             cardActionLabel={({ lockedVariantId }) =>
               lockedVariantId && selectedAdds[lockedVariantId]
-                ? "Remove from subscription"
+                ? "Remove from draft"
                 : "Add to subscription"
             }
             cardActionClassName={({ lockedVariantId }) =>
@@ -761,24 +754,24 @@ const SubscriptionAddProductsPage: React.FC = () => {
               <div className="mt-4 pt-3 border-t border-border space-y-1.5">
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">
-                    Current per delivery
+                    {isMultiDayWeekly ? "Current products per week" : "Current products per delivery"}
                   </span>
                   <span className="text-foreground">
                     {formatMoney(currentPerDelivery)}
                   </span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Add-on</span>
+                  <span className="text-muted-foreground">Added recurring products</span>
                   <span className="text-forest font-medium">
                     +{formatMoney(selectedChargeTotal)}
                   </span>
                 </div>
                 <div className="flex items-center justify-between pt-1.5 border-t border-border">
                   <span className="text-sm font-medium text-foreground">
-                    New per delivery
+                    {isMultiDayWeekly ? "New products per week" : "New products per delivery"}
                   </span>
                   <span className="text-lg font-semibold text-foreground">
-                    {formatMoney(currentPerDelivery + selectedPerDeliveryTotal)}
+                    {formatMoney(currentPerDelivery + selectedChargeTotal)}
                   </span>
                 </div>
               </div>
@@ -819,7 +812,7 @@ const SubscriptionAddProductsPage: React.FC = () => {
                     : deliveryDays.slice(0, 1)
                   ).map(dayName => {
                     const dayCutoff = cutoff ? getDeliveryDayCutoff(cutoff, dayNameToIndex(dayName)) : undefined;
-                    const locked = isPastCutoffInstant(dayCutoff?.cutoffAt, dayCutoff?.isPastCutoff ?? cutoff?.isPastCutoff ?? false);
+                    const locked = isPastCutoffInstant(dayCutoff?.cutoffAt, dayCutoff?.lockedForFulfilment || dayCutoff?.isPastCutoff || cutoff?.isPastCutoff || false);
                     const extra = isMultiDayWeekly
                       ? selectedList.filter(item => selectedAddDays[item.variantId]?.includes(dayName))
                         .reduce((sum, item) => sum + item.unitPrice * item.quantity, 0)
@@ -871,4 +864,5 @@ const SubscriptionAddProductsPage: React.FC = () => {
 };
 
 export default SubscriptionAddProductsPage;
+
 

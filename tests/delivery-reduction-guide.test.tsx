@@ -23,7 +23,7 @@ test("guide distinguishes a preview, confirmation, recurring plan, paid extras a
 test("guide explains recovery after cut-off and eligibility without promising an unsupported change", () => {
   const { container } = render(<DeliveryReductionGuide />);
   const text = container.textContent!;
-  for (const copy of ["Check delivery change", "Check result", "same saved request", "including after the cut-off",
+  for (const copy of ["Check result", "same saved request", "including after the cut-off",
     "Do not start a replacement", "Unpaid forecasts", "stock reconciliation", "reload it and review", "may be blocked"])
     expect(text).toContain(copy);
 });

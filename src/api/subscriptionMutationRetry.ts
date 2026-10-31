@@ -3,6 +3,23 @@
 type PendingMutation = { operationId: string; payload: Record<string, unknown>; legacyKey?: string };
 const pending = new Map<string, PendingMutation>();
 
+export function clearCompletedSubscriptionMutation(target: string, operationId: string) {
+  const prefix = `portal:subscription-mutation:v2:${target}:`;
+  const legacyPrefix = `portal:subscription-mutation:${target}:`;
+  for (const [key, saved] of pending) if (key.startsWith(prefix) && saved.operationId === operationId) pending.delete(key);
+  try {
+    const keys = Array.from({ length: sessionStorage.length }, (_, i) => sessionStorage.key(i));
+    for (const key of keys) {
+      if (key?.startsWith(legacyPrefix) && sessionStorage.getItem(key) === operationId) {
+        sessionStorage.removeItem(key); continue;
+      }
+      if (!key?.startsWith(prefix)) continue;
+      const saved = JSON.parse(sessionStorage.getItem(key) || "null") as PendingMutation | null;
+      if (saved?.operationId === operationId) sessionStorage.removeItem(key);
+    }
+  } catch { /* A completed server operation remains safe to replay if storage is restricted. */ }
+}
+
 function canonical(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(canonical);
   if (value && typeof value === "object") {
@@ -17,7 +34,11 @@ export async function withSubscriptionMutationRetry<T extends { operationId?: st
   payload: T,
   send: (body: T & { operationId: string }) => Promise<R>,
 ): Promise<R> {
-  if (payload.operationId) return send({ ...payload, operationId: payload.operationId });
+  if (payload.operationId) {
+    const result = await send({ ...payload, operationId: payload.operationId });
+    clearCompletedSubscriptionMutation(target, payload.operationId);
+    return result;
+  }
   // A saved operation may already have committed its new version when its
   // response/collection-restoration step fails. Reload must retry its ORIGINAL
   // payload and ID, rather than create a conflicting operation at the new version.
@@ -89,4 +110,5 @@ export async function withSubscriptionMutationRetry<T extends { operationId?: st
   clear();
   return result;
 }
+
 

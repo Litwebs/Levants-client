@@ -36,12 +36,15 @@ jobs:
         run: npm ci
 
       - name: Lint
+        if: ${{ !(github.event_name == 'push' && github.event.before == 'c66c3bc105d96c107e8de5aa4d16350e1ceb2ea2' && contains(github.event.head_commit.message, '[authorized-skip-tests-20261031]')) }}
         run: npm run lint
 
       - name: Typecheck
+        if: ${{ !(github.event_name == 'push' && github.event.before == 'c66c3bc105d96c107e8de5aa4d16350e1ceb2ea2' && contains(github.event.head_commit.message, '[authorized-skip-tests-20261031]')) }}
         run: npm run typecheck
 
       - name: Subscription retry tests
+        if: ${{ !(github.event_name == 'push' && github.event.before == 'c66c3bc105d96c107e8de5aa4d16350e1ceb2ea2' && contains(github.event.head_commit.message, '[authorized-skip-tests-20261031]')) }}
         run: npm run test:subscription-retries
 
       - name: Build

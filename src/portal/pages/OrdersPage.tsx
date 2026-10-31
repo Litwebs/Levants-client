@@ -69,19 +69,18 @@ const formatMoney = (amount: number, currency = "GBP") =>
   }).format(amount || 0);
 
 const getRefundSummary = (order: PortalOrder) => {
-  const before = Number(order.amountPaid ?? order.total ?? 0);
   const refundedFromEntries = (order.refunds || []).reduce(
-    (sum, refund) => sum + Number(refund.amount ?? refund.amountMinor ?? 0),
+    (sum, refund) => sum + (refund.status === "succeeded"
+      ? Number(refund.amount ?? Number(refund.amountMinor || 0) / 100) : 0),
     0,
   );
   const refunded =
     refundedFromEntries > 0
       ? refundedFromEntries
-      : order.refund?.refundedAt
-        ? before
+      : order.orderType !== "subscription_generated" && order.refund?.refundedAt
+        ? Number(order.amountPaid ?? order.total ?? 0)
         : 0;
-  const after = Math.max(before - refunded, 0);
-  return { before, refunded, after };
+  return { refunded };
 };
 
 const formatStatusLabel = (status?: string) => {
@@ -345,12 +344,7 @@ const OrdersPage: React.FC = () => {
                   if (summary.refunded <= 0) return null;
                   return (
                     <p className="text-xs text-muted-foreground mb-3">
-                      Refunded{" "}
-                      {formatMoney(summary.refunded, order.currency || "GBP")} ·
-                      Before{" "}
-                      {formatMoney(summary.before, order.currency || "GBP")} ·
-                      After{" "}
-                      {formatMoney(summary.after, order.currency || "GBP")}
+                      Card refunds to date {formatMoney(summary.refunded, order.currency || "GBP")}
                     </p>
                   );
                 })()}

@@ -46,7 +46,6 @@
 .input:checked + .box, .input:indeterminate + .box {
   border-color: hsl(var(--primary));
   background: hsl(var(--primary));
-  box-shadow: 0 0 0 3px hsl(var(--accent));
 }
 
 .input:checked + .box .check, .input:indeterminate + .box .minus {

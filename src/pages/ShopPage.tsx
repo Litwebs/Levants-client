@@ -201,6 +201,7 @@ const ShopPage: React.FC<ShopPageProps> = ({
 
     fetchProducts({
       subscriptionEligible: subscriptionOnly || undefined,
+      subscriptionCards: subscriptionOnly || undefined,
       page: currentPage,
       pageSize: PAGE_SIZE,
       category: categoryFilter,

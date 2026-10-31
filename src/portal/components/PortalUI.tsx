@@ -115,10 +115,10 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 
-import { PortalTourButton } from "@/portal/tours/PortalTour";
 
 interface ConfirmationModalProps {
   tourId?: string;
+  buttonSize?: "sm" | "default";
   open: boolean;
   onOpenChange: (open: boolean) => void;
   title: string;
@@ -141,6 +141,7 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
   onConfirm,
   isLoading = false,
   tourId,
+  buttonSize = "sm",
 }) => {
   const [isProcessing, setIsProcessing] = React.useState(false);
 
@@ -156,14 +157,14 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent data-tour-page={tourId} data-tour-ready={Boolean(tourId)} className="max-w-xl max-h-[90dvh] overflow-y-auto p-8">
+      <DialogContent data-tour-page={tourId} data-tour-ready={Boolean(tourId)} className="max-w-md p-5">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription data-tour="confirmation-policy">{description}</DialogDescription>
         </DialogHeader>
-        {tourId && <PortalTourButton />}
-        <DialogFooter className="gap-1">
+        <DialogFooter>
           <Button
+            size={buttonSize}
             variant="outline"
             onClick={() => onOpenChange(false)}
             disabled={isProcessing || isLoading}
@@ -171,6 +172,7 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
             {cancelLabel}
           </Button>
           <Button
+            size={buttonSize}
             variant={variant === "destructive" ? "destructive" : "default"}
             data-tour="confirmation-confirm"
             onClick={handleConfirm}

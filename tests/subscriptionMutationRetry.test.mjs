@@ -93,3 +93,24 @@ test("corrupt saved state cannot silently create a different financial operation
   assert.equal(sent, false);
 });
 
+
+test("an explicit successful recovery clears the original pending request after reload", async () => {
+  const storage = new Map(); let original;
+  await assert.rejects(load(storage)("post:sub/resume", { expectedVersion: 2 }, async body => { original = body.operationId; throw Error("lost"); }));
+  await load(storage)("post:sub/resume", { operationId: original, expectedVersion: 2 }, async () => "completed");
+  assert.equal(storage.size, 0);
+  assert.notEqual(await load(storage)("post:sub/resume", { expectedVersion: 4 }, async body => body.operationId), original);
+});
+test("an explicit failed recovery retains the original pending request", async () => {
+  const storage = new Map(); let original;
+  await assert.rejects(load(storage)("post:sub/resume", { expectedVersion: 2 }, async body => { original = body.operationId; throw Error("lost"); }));
+  await assert.rejects(load(storage)("post:sub/resume", { operationId: original, expectedVersion: 2 }, async () => { throw Error("still pending"); }));
+  assert.equal(storage.size, 1);
+  assert.equal(await load(storage)("post:sub/resume", { expectedVersion: 3 }, async body => body.operationId), original);
+});
+test("explicit recovery also retires the matching legacy request", async () => {
+  const storage = new Map();
+  storage.set('portal:subscription-mutation:post:sub/resume:{"expectedVersion":2}', "legacy-resume");
+  await load(storage)("post:sub/resume", { operationId: "legacy-resume", expectedVersion: 2 }, async () => "completed");
+  assert.equal(storage.size, 0);
+});

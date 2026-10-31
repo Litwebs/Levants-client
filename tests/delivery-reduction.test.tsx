@@ -99,7 +99,7 @@ test("removing every item previews cancellation and return of the eligible fee",
   api.previewDeliveryReduction.mockResolvedValue({ success: true, data: { ...quote, after: [], revisedTotalMinor: 0, creditedMinor: 1100, deliveryFeeMinor: 0, cancelsDelivery: true } });
   mount(); const user = await open(); await user.click(screen.getByRole("button", { name: "Remove" }));
   await user.click(screen.getByRole("button", { name: "Review change" }));
-  await screen.findByText(/This delivery will be cancelled/);
+  await screen.findByText(/this delivery will be cancelled/i);
   expect(api.previewDeliveryReduction).toHaveBeenCalledWith("subscription", "delivery", [{ variant: "variant", quantity: 0 }]);
   expect(screen.getByRole("region", { name: "Review delivery change" }).textContent).toContain("£11.00");
   expect(api.confirmDeliveryReduction).not.toHaveBeenCalled();

@@ -1,4 +1,3 @@
-import { PortalTourButton } from "@/portal/tours/PortalTour";
 import React, { useState, useEffect, useRef } from "react";
 import { MapPin, Plus, Pencil, Trash2, Check, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -113,7 +112,6 @@ const AddressForm: React.FC<{
 
   return (
     <div data-tour-page="address-form" data-tour-ready={!isDisabled} className="space-y-4">
-      <PortalTourButton />
       {error && (
         <div className="p-3 bg-destructive/10 text-destructive rounded-lg text-sm">
           {error}
@@ -493,7 +491,7 @@ const AddressesPage: React.FC = () => {
 
       {/* Add modal */}
       <Dialog open={addOpen} onOpenChange={setAddOpen}>
-        <DialogContent className="max-w-xl max-h-[90dvh] overflow-y-auto">
+        <DialogContent className="max-w-xl max-h-[calc(100dvh_-_2rem)] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Add New Address</DialogTitle>
           </DialogHeader>
@@ -510,7 +508,7 @@ const AddressesPage: React.FC = () => {
         open={!!editAddress}
         onOpenChange={(v) => !v && setEditAddress(null)}
       >
-        <DialogContent className="max-w-xl max-h-[90dvh] overflow-y-auto">
+        <DialogContent className="max-w-xl max-h-[calc(100dvh_-_2rem)] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Address</DialogTitle>
           </DialogHeader>
