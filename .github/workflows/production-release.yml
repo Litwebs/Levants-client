@@ -12,7 +12,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   build:
-    if: github.event.workflow_run.conclusion == 'success' && contains(github.event.workflow_run.head_commit.message, '[production-release-20261026]')
+    if: github.event.workflow_run.conclusion == 'success' && contains(github.event.workflow_run.head_commit.message, '[production-release-20261031]')
     runs-on: ubuntu-latest
     timeout-minutes: 12
     env:
@@ -28,7 +28,7 @@ jobs:
         run: |
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "$RELEASE_SHA"
-          git diff --exit-code ce4977c26a479a9aefdf33bd0b4cefc97a9db897 HEAD -- . ':(exclude).github/workflows/production-release.yml'
+          git diff --exit-code 5cacc2f89fc9a67029222b1f9cd66064de22850b HEAD -- . ':(exclude).github/workflows/production-release.yml'
       - uses: actions/setup-node@v5
         with:
           node-version: 24
