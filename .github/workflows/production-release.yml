@@ -28,7 +28,7 @@ jobs:
         run: |
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "$RELEASE_SHA"
-          git diff --exit-code aee64c090dbce54e78663ab43d6a13e6c7dbebba HEAD -- . ':(exclude).github/workflows/production-release.yml'
+          git diff --exit-code d15c946bf2dd0846d57184579a170508e60548e9 HEAD -- . ':(exclude).github/workflows/production-release.yml'
       - uses: actions/setup-node@v5
         with:
           node-version: 24
