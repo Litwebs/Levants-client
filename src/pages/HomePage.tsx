@@ -219,7 +219,7 @@ const HomePage: React.FC = () => {
           <img
             src={heroImage}
             alt=""
-            className="h-full w-full object-cover"
+            className="h-[210%] w-full object-cover object-top"
             {...{ fetchpriority: "high" }}
           />
           <div className="absolute inset-0 bg-gradient-to-r from-black/75 via-black/55 to-black/30" />
@@ -230,11 +230,10 @@ const HomePage: React.FC = () => {
               <Leaf className="h-4 w-4" aria-hidden="true" /> Fresh from the farm
             </p>
             <h1 id="home-heading" className="font-heading text-4xl font-semibold leading-[1.08] tracking-tight text-white sm:text-5xl lg:text-5xl xl:text-6xl">
-              Farm fresh.<br />
-              To your doorstep.
+              Farm-fresh milk, dairy and more delivered to your doorstep! 🥛 🚪
             </h1>
             <p className="mb-7 mt-5 max-w-md text-base leading-relaxed text-white/85 sm:text-lg">
-              Milk, dairy and everyday favourites, delivered fresh. Order once or make it a weekly ritual.
+              Milk, Eggs, Butter, Cream, Honey and more - Fresh and Local
             </p>
             <div className="flex flex-wrap items-center gap-3">
                 <Link

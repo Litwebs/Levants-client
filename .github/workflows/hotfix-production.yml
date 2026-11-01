@@ -1,0 +1,41 @@
+name: Build production hotfix
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+concurrency:
+  group: approved-production-storefront
+  cancel-in-progress: false
+jobs:
+  build:
+    if: ${{ github.event.before == '9b81f9bd0df66e1801f605b398e2b0add8e65f8d' && contains(github.event.head_commit.message, 'hotfix-subscription-guide-delivery-20261101') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Build production assets without CI tests
+        env:
+          VITE_API_BASE_URL: https://api.levantsdairy.co.uk/api
+        run: |
+          npm run build
+          touch dist/.nojekyll
+      - name: Stage exact hotfix assets for publishing
+        run: |
+          set -euo pipefail
+          git fetch origin gh-pages
+          BUILD_DIR="$RUNNER_TEMP/production-pages"
+          git worktree add --detach "$BUILD_DIR" origin/gh-pages
+          git -C "$BUILD_DIR" switch -c "release/hotfix-build-${{ github.sha }}"
+          rsync -a --delete --exclude=.git dist/ "$BUILD_DIR/"
+          git -C "$BUILD_DIR" add --all
+          git -C "$BUILD_DIR" -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m "Production hotfix ${{ github.sha }}"
+          git -C "$BUILD_DIR" push origin "HEAD:refs/heads/release/hotfix-build-${{ github.sha }}"

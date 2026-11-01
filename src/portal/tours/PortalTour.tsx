@@ -4,7 +4,7 @@ import { CircleHelp, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { portalTours, type PortalTour, type TourStep } from "./definitions";
 import "./tour.css";
-import { hasSeenTour, rememberTour, tourProgressKey } from "./progress";
+import { rememberTour, tourProgressKey } from "./progress";
 
 type VisibleStep = TourStep & { element: HTMLElement };
 type Snapshot = { id: string; root: HTMLElement; definition: PortalTour; steps: VisibleStep[] };
@@ -38,14 +38,43 @@ function viewport(): Viewport {
 
 export function PortalTourButton() {
   const tour = useContext(TourContext);
-  if (!tour) return null;
+  if (!tour?.ready) return null;
   return <Button data-portal-tour-launcher type="button" variant="outline" size="sm" disabled={!tour.ready} onClick={tour.start}
     title={tour.ready ? "Replay the walkthrough for this page or form" : "The tour will be available when this page finishes loading"}>
     <CircleHelp className="h-4 w-4" aria-hidden="true" />Take a tour
   </Button>;
 }
 
+
+const TOUR_PREFERENCE_KEY = "levants:portalToursEnabled";
+const TOUR_PREFERENCE_EVENT = "levants:portal-tours-preference";
+export function usePortalToursPreference() {
+  const [enabled, setEnabled] = useState(() => {
+    try { return window.localStorage.getItem(TOUR_PREFERENCE_KEY) === "true"; }
+    catch { return false; }
+  });
+  useEffect(() => {
+    const read = () => {
+      try { setEnabled(window.localStorage.getItem(TOUR_PREFERENCE_KEY) === "true"); }
+      catch { setEnabled(false); }
+    };
+    window.addEventListener(TOUR_PREFERENCE_EVENT, read);
+    window.addEventListener("storage", read);
+    return () => {
+      window.removeEventListener(TOUR_PREFERENCE_EVENT, read);
+      window.removeEventListener("storage", read);
+    };
+  }, []);
+  const update = (value: boolean) => {
+    try { window.localStorage.setItem(TOUR_PREFERENCE_KEY, String(value)); } catch { /* Browser storage unavailable. */ }
+    setEnabled(value);
+    window.dispatchEvent(new Event(TOUR_PREFERENCE_EVENT));
+  };
+  return [enabled, update] as const;
+}
+
 export function PortalTourProvider({ children, customerId, routeKey }: { children: React.ReactNode; customerId?: string; routeKey: string }) {
+  const [enabled] = usePortalToursPreference();
   const [model, setModel] = useState<Snapshot | null>(null);
   const modelRef = useRef<Snapshot | null>(null);
   const [open, setOpen] = useState(false);
@@ -81,6 +110,7 @@ export function PortalTourProvider({ children, customerId, routeKey }: { childre
 
   useLayoutEffect(() => {
     openRef.current = false; setOpen(false);
+    if (!enabled) { modelRef.current = null; setModel(null); return; }
     scan();
     const observer = new MutationObserver(records => {
       if (records.every(record => record.target instanceof Element && record.target.closest("[data-portal-tour-ui]"))) return;
@@ -89,7 +119,7 @@ export function PortalTourProvider({ children, customerId, routeKey }: { childre
     observer.observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ["data-tour-page", "data-tour-ready", "data-tour", "hidden", "style", "class"] });
     window.addEventListener("resize", scan);
     return () => { observer.disconnect(); window.removeEventListener("resize", scan); };
-  }, [routeKey, customerId, scan]);
+  }, [routeKey, customerId, scan, enabled]);
 
   const begin = useCallback((next: Snapshot) => {
     returnFocus.current = document.activeElement instanceof HTMLElement && document.activeElement !== document.body
@@ -103,16 +133,7 @@ export function PortalTourProvider({ children, customerId, routeKey }: { childre
   }, [select]);
   const start = useCallback(() => { const next = scan(); if (next) begin(next); }, [begin, scan]);
   const key = customerId && model ? tourProgressKey(customerId, model.definition.group || model.id) : null;
-  useEffect(() => {
-    if (!model || !key || open || hasSeenTour(key)) return;
-    // Let content/layout settle; never interrupt another account confirmation.
-    const timer = window.setTimeout(() => {
-      const activeDialog = document.querySelector('[role="alertdialog"], [role="dialog"][data-state="open"]');
-      if (activeDialog && !activeDialog.contains(model.root)) return;
-      begin(model);
-    }, 500);
-    return () => window.clearTimeout(timer);
-  }, [model, key, open, begin]);
+  // Walkthroughs only start from an explicit click, even after opting in.
 
   const close = useCallback(() => {
     if (key) rememberTour(key);
