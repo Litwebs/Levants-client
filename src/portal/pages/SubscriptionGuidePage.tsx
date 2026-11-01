@@ -21,7 +21,7 @@ const guides: Guide[] = [
   { id: "regular-order", title: "Change my regular order", note: "Changes apply to future eligible deliveries. Check the effective date before saving.", steps: [
     { title: "Open your subscription", text: "Tap View details on the subscription you want to change.", image: "subscriptions" },
     { title: "Change your products", text: "Adjust quantities, or tap Add products for something new.", image: "products" },
-    { title: "Review before saving", text: "Review the change and any charge or credit shown, then confirm.", image: "products" },
+    { title: "Review before saving", text: "Check the change and any charge or credit shown. Tap Save product changes.", image: "products-review" },
   ] },
   { id: "extras", title: "Add a one-off extra", note: "Extras arrive once with the selected delivery. Your regular order stays the same. Paid extras cannot be edited here.", steps: [
     { title: "Open Deliveries", text: "In your subscription, tap Add extras.", image: "delivery" },
@@ -31,7 +31,7 @@ const guides: Guide[] = [
   { id: "one-delivery", title: "Change just one delivery", note: "Before the cut-off, you can reduce or remove recurring items. You cannot increase or swap them here. Any credit stays in your account; paid extras stay unchanged.", steps: [
     { title: "Open the delivery", text: "Expand its date. Tap Change This Delivery Only.", image: "delivery" },
     { title: "Reduce or remove items", text: "Lower a quantity, or remove the item.", image: "reduce" },
-    { title: "Review and confirm", text: "Tap Review change. Check the credit, then Confirm delivery change.", image: "reduce" },
+    { title: "Review and confirm", text: "Tap Review change. Check the credit, then Confirm delivery change.", image: "reduce-review" },
   ] },
   { id: "pause", title: "Pause deliveries", note: "Deliveries past their cut-off may still arrive. You cannot edit your regular order while paused.", steps: [
     { title: "Open subscription controls", text: "Scroll to the bottom of your subscription. Tap Pause.", image: "management" },
