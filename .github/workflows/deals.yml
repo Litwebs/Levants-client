@@ -8,7 +8,7 @@ permissions:
   contents: read
 jobs:
   storefront:
-    if: ${{ !(github.event_name == 'pull_request' && github.base_ref == 'main' && github.head_ref == 'hotfix/subscription-guide-20261101' && github.event.pull_request.base.sha == '9b81f9bd0df66e1801f605b398e2b0add8e65f8d') }}
+    if: ${{ !(github.event_name == 'pull_request' && github.base_ref == 'main' && github.head_ref == 'hotfix/home-background-deals-20261101' && github.event.pull_request.base.sha == 'a65ca50d4e86468f6ca94ba409390f8286fac40b') }}
     name: Storefront deals, typecheck and build
     runs-on: ubuntu-latest
     # Match the exact Playwright version in package-lock.json.
