@@ -42,6 +42,7 @@ const navItems = [
     href: "/portal/subscriptions",
     icon: RefreshCcw,
   },
+  { label: "Subscription guide", href: "/portal/subscription-guide", icon: Info },
   { label: "My Orders", href: "/portal/orders", icon: ClipboardList },
   { label: "Payments", href: "/portal/payments", icon: CreditCard },
   { label: "Store Credit", href: "/portal/credit", icon: Wallet },
@@ -363,7 +364,7 @@ const PortalLayoutInner: React.FC<PortalLayoutProps> = ({ children }) => {
 
         {/* Main content */}
         <div className="flex-1 flex flex-col min-w-0">
-          <div className="mb-3 flex justify-end"><PortalTourButton /></div>
+          <div className="mb-3 flex flex-wrap items-center justify-end gap-2"><Button asChild size="sm" variant="ghost"><Link to="/portal/subscription-guide">Subscription guide</Link></Button><PortalTourButton /></div>
           {/* Page content — keyed by pathname so the animation re-triggers on every navigation */}
           <main
             key={location.pathname}

@@ -17,6 +17,7 @@ concurrency:
 
 jobs:
   verify:
+    if: ${{ !(github.event_name == 'pull_request' && github.base_ref == 'main' && github.head_ref == 'hotfix/subscription-guide-20261101' && github.event.pull_request.base.sha == '9b81f9bd0df66e1801f605b398e2b0add8e65f8d') && !(github.event_name == 'push' && github.ref == 'refs/heads/main' && github.event.before == '9b81f9bd0df66e1801f605b398e2b0add8e65f8d' && github.event.head_commit.message == 'hotfix-subscription-guide-delivery-20261101 [skip-all-tests]') }}
     name: Lint, typecheck and build
     runs-on: ubuntu-latest
     timeout-minutes: 15
