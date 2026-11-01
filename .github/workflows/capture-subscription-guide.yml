@@ -1,0 +1,44 @@
+name: Capture subscription guide screenshots
+on:
+  push:
+    branches: [hotfix/visual-subscription-guide-20261101]
+    paths-ignore: ['public/guides/subscriptions/**']
+permissions:
+  contents: write
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    container:
+      image: mcr.microsoft.com/playwright:v1.58.2-noble
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.ref }}
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Capture the real portal with sample API data
+        env:
+          VITE_API_BASE_URL: /api
+        run: |
+          npm run dev -- --host 127.0.0.1 --port 4183 --strictPort > /tmp/guide-vite.log 2>&1 &
+          GUIDE_VITE_PID=$!
+          trap 'kill "$GUIDE_VITE_PID"' EXIT
+          node scripts/capture-subscription-guide.mjs
+      - name: Keep screenshots with their source
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          git add public/guides/subscriptions
+          git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m 'Add actual portal screenshots with sample data'
+          git push origin HEAD:hotfix/visual-subscription-guide-20261101
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: subscription-guide-screenshots
+          path: |
+            public/guides/subscriptions
+            /tmp/guide-vite.log
+          retention-days: 7

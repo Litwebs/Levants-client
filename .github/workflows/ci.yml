@@ -17,7 +17,7 @@ concurrency:
 
 jobs:
   verify:
-    if: ${{ !(github.event_name == 'pull_request' && github.base_ref == 'main' && github.head_ref == 'hotfix/home-background-deals-20261101' && github.event.pull_request.base.sha == 'a65ca50d4e86468f6ca94ba409390f8286fac40b') && !(github.event_name == 'push' && github.ref == 'refs/heads/main' && github.event.before == 'a65ca50d4e86468f6ca94ba409390f8286fac40b' && github.event.head_commit.message == 'hotfix-home-background-deals-20261101 [skip-all-tests]') }}
+    if: ${{ !(github.event_name == 'pull_request' && github.base_ref == 'main' && github.head_ref == 'hotfix/visual-subscription-guide-20261101' && github.event.pull_request.base.sha == '640d442c82742fbfdd2bd5cbc3a0b5f5e6a4227b') && !(github.event_name == 'push' && github.ref == 'refs/heads/main' && github.event.before == '640d442c82742fbfdd2bd5cbc3a0b5f5e6a4227b' && contains(github.event.head_commit.message, 'hotfix-visual-subscription-guide-20261101 [skip-all-tests]')) }}
     name: Lint, typecheck and build
     runs-on: ubuntu-latest
     timeout-minutes: 15
