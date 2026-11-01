@@ -9,7 +9,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   build:
-    if: ${{ github.event.before == '9b81f9bd0df66e1801f605b398e2b0add8e65f8d' && contains(github.event.head_commit.message, 'hotfix-subscription-guide-delivery-20261101') }}
+    if: ${{ github.event.before == 'a65ca50d4e86468f6ca94ba409390f8286fac40b' && contains(github.event.head_commit.message, 'hotfix-home-background-deals-20261101') }}
     runs-on: ubuntu-latest
     timeout-minutes: 12
     steps:
