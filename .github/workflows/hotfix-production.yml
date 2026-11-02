@@ -9,7 +9,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   build:
-    if: ${{ github.event.before == '640d442c82742fbfdd2bd5cbc3a0b5f5e6a4227b' && contains(github.event.head_commit.message, 'hotfix-visual-subscription-guide-20261101') }}
+    if: ${{ github.event.before == '8f86a50454f81f2fbec5d59e2d18c503381fd951' && contains(github.event.head_commit.message, 'hotfix-status-service-bypass-20261102') }}
     runs-on: ubuntu-latest
     timeout-minutes: 12
     steps:
