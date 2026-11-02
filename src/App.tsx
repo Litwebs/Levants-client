@@ -59,11 +59,14 @@ import { portalAuthApi } from "@/api/portalAuth";
 
 const queryClient = new QueryClient();
 
+// Temporary availability hotfix: restore this flag when the external status service is reliable.
+const EXTERNAL_SITE_STATUS_CHECK_ENABLED = false;
+
 const SITE_STATUS_ENDPOINT = "https://admin.litwebs.co.uk/api/websites/status";
 const SITE_URL_TO_CHECK = "https://levantsdairy.co.uk";
 
 const App = () => {
-  const [checking, setChecking] = useState(true);
+  const [checking, setChecking] = useState(EXTERNAL_SITE_STATUS_CHECK_ENABLED);
   const [isLive, setIsLive] = useState(true);
   const [portalAuthReady, setPortalAuthReady] = useState(false);
   const [portalAuthenticated, setPortalAuthenticated] =
@@ -101,7 +104,7 @@ const App = () => {
   }, []);
 
   useEffect(() => {
-    if (import.meta.env.DEV || import.meta.env.MODE === "uat") {
+    if (!EXTERNAL_SITE_STATUS_CHECK_ENABLED || import.meta.env.DEV || import.meta.env.MODE === "uat") {
       setChecking(false);
       return;
     }
