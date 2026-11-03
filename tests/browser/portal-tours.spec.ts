@@ -143,7 +143,7 @@ test("loading and failed pages do not offer an unusable tour",async({page})=>{
  await page.route("**/api/portal/subscriptions?**",async route=>{await gate;await route.fulfill({status:500,json:{success:false,message:"Unavailable"}});});
  await page.goto("/portal/subscriptions");
  await expect(page.getByRole("button",{name:"Take a tour",exact:true})).toHaveCount(0);
- release();await expect(page.getByText("Unavailable",{exact:true})).toBeVisible();
+ release();await expect(page.getByRole("alert")).toContainText("Unavailable");
  await expect(tour(page)).toHaveCount(0);
  await expect(page.getByRole("button",{name:"Take a tour",exact:true})).toHaveCount(0);
 });

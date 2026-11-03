@@ -167,7 +167,7 @@ export default function DeliveryReduction({ customerId, subscriptionId, delivery
               <input id={`reduction-${delivery._id}-${item.variant}`} type="number" inputMode="numeric" min={0} max={item.quantity} step={1}
                 value={quantities[item.variant] ?? ""} disabled={busy}
                 onChange={event => { setQuantities(current => ({ ...current, [item.variant]: event.target.value })); setReview(null); setError(""); }}
-                className=" w-24 rounded-md border border-input bg-background px-3 text-base" />
+                className="h-8 w-24 rounded-md border border-input bg-background px-3 text-base" />
               <Button size="sm" type="button" variant="outline" disabled={busy || quantities[item.variant] === "0"} onClick={() => {
                 setQuantities(current => ({ ...current, [item.variant]: "0" })); setReview(null); setError("");
               }}>Remove</Button>

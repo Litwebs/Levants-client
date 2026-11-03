@@ -79,6 +79,7 @@ async function expandDelivery(page: Page, index = 0) {
   const toggle = page.locator('[data-tour="delivery-expand"]').nth(index);
   await expect(toggle).toBeVisible();
   if (await toggle.getAttribute("aria-expanded") !== "true") await toggle.click();
+  await expect.poll(() => toggle.locator("..").evaluate(element => element.getAnimations({ subtree: true }).every(animation => animation.playState !== "running"))).toBe(true);
 }
 
 async function open(page: Page) {
@@ -127,7 +128,8 @@ test("recovery leaves the identical saved confirmation for explicit retry", asyn
   await dialog.getByRole("button", { name: "Confirm delivery change", exact: true }).click();
   await expect(dialog.getByRole("alert")).toBeVisible();
   await page.reload(); await expandDelivery(page); await page.getByRole("button", { name: "Check delivery change", exact: true }).click();
-  const editor = page.locator('[data-tour-page="delivery-reduction"]');
+  const editor = page.getByRole("dialog", { name: "Change this delivery only", exact: true });
+  await expect(editor).toBeVisible();
   const before = await page.evaluate(() => JSON.stringify(Object.entries(sessionStorage)));
   await expect(editor.getByRole("button", { name: "Take a tour", exact: true })).toHaveCount(0);
   expect(await page.evaluate(() => JSON.stringify(Object.entries(sessionStorage)))).toBe(before);
