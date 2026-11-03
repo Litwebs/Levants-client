@@ -100,7 +100,8 @@ for (const width of [320, 390, 1440]) {
     await page.locator('[data-tour="delivery-reduction-guide"]').click();
     await expect(page).toHaveURL(/subscription-guide#one-delivery$/);
     await expect(page.getByRole("heading", { name: "Subscription help", exact: true })).toBeVisible();
-    const guide = page.locator("#one-delivery");
+    const guide = page.getByRole("region", { name: "Change just one delivery", exact: true });
+    await guide.locator("summary").click();
     await expect(guide).toContainText("Before the cut-off");
     await expect(guide).toContainText("paid extras stay unchanged");
     expect(state.previews).toHaveLength(0); expect(state.confirmations).toHaveLength(0);
