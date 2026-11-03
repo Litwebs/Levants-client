@@ -1,0 +1,58 @@
+name: Stage approved subscription refund storefront
+on:
+  push:
+    branches: [release/subscription-refund-production-20261103]
+permissions:
+  contents: write
+  pages: read
+concurrency:
+  group: stage-subscription-refund-production-20261103
+  cancel-in-progress: false
+jobs:
+  stage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      SOURCE_SHA: 5800e6100a5398166b05685e7bebd5b800efe025
+      RELEASE_SHA: 5800e6100a5398166b05685e7bebd5b800efe025
+      GH_REPOSITORY: ${{ github.repository }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Require the approved application source unchanged
+        run: git diff --exit-code "$SOURCE_SHA" HEAD -- . ':(exclude).github/workflows/stage-refund-production.yml'
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run lint && npm run typecheck && npm run test:subscription-retries
+      - name: Build the tested application against the production API
+        env:
+          VITE_API_BASE_URL: https://api.levantsdairy.co.uk/api
+        run: npm run build && touch dist/.nojekyll
+      - name: Validate production environment and Pages source
+        run: node scripts/prepare-production.mjs
+      - name: Stage assets without publishing production
+        run: |
+          set -euo pipefail
+          git fetch origin gh-pages
+          BEFORE_SHA="$(git rev-parse origin/gh-pages)"
+          BUILD_DIR="$RUNNER_TEMP/refund-production-assets"
+          BUILD_BRANCH="release/refund-production-assets-$SOURCE_SHA"
+          git worktree add --detach "$BUILD_DIR" origin/gh-pages
+          git -C "$BUILD_DIR" switch -c "$BUILD_BRANCH"
+          rsync -a --delete --exclude=.git dist/ "$BUILD_DIR/"
+          git -C "$BUILD_DIR" add --all
+          git -C "$BUILD_DIR" -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m "Production storefront $SOURCE_SHA"
+          git -C "$BUILD_DIR" push origin "HEAD:refs/heads/$BUILD_BRANCH"
+          echo "Staged $BUILD_BRANCH from $BEFORE_SHA; production remains unchanged." >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: refund-production-storefront
+          path: |
+            dist
+            production-preparation.json
+          retention-days: 14
