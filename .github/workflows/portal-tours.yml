@@ -1,5 +1,11 @@
 name: Portal guided tours
 on:
+  push:
+    branches: [uat]
+    paths:
+      - 'src/portal/tours/**'
+      - 'tests/browser/portal-tours.spec.ts'
+      - '.github/workflows/portal-tours.yml'
   pull_request:
     branches: [uat]
     paths:

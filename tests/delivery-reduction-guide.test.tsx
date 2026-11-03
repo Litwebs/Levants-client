@@ -1,29 +1,31 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, expect, test } from "vitest";
+import { MemoryRouter } from "react-router-dom";
+import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import DeliveryReductionGuide from "@/portal/components/DeliveryReductionGuide";
+import SubscriptionGuidePage from "@/portal/pages/SubscriptionGuidePage";
 
-afterEach(cleanup);
-test("the customer guide starts collapsed and expands without account controls", () => {
-  const { container } = render(<DeliveryReductionGuide />);
-  const details = container.querySelector("details")!;
-  expect(details.open).toBe(false);
-  fireEvent.click(screen.getByText("How delivery-only changes work"));
-  expect(details.open).toBe(true);
-  expect(screen.queryByRole("button")).toBeNull();
+const originalScroll = HTMLElement.prototype.scrollIntoView;
+beforeEach(() => { HTMLElement.prototype.scrollIntoView = vi.fn(); });
+afterEach(() => { cleanup(); if (originalScroll) HTMLElement.prototype.scrollIntoView = originalScroll; else Reflect.deleteProperty(HTMLElement.prototype, "scrollIntoView"); });
+test("delivery help links to the dedicated one-delivery guide without account controls", () => {
+  render(<MemoryRouter><DeliveryReductionGuide /></MemoryRouter>);
+  expect(screen.getByRole("link", { name: "How delivery-only changes work" }).getAttribute("href")).toBe("/portal/subscription-guide#one-delivery");
   expect(screen.queryByRole("spinbutton")).toBeNull();
   expect(screen.queryByRole("textbox")).toBeNull();
 });
-test("guide distinguishes a preview, confirmation, recurring plan, paid extras and credit", () => {
-  const { container } = render(<DeliveryReductionGuide />);
-  const text = container.textContent!;
-  for (const copy of ["UK time", "Reviewing does not apply the change", "Future deliveries keep their regular quantities",
-    "not a card or cash refund", "Paid one-time add-ons stay unchanged", "eligible delivery fee", "saved prices", "cannot increase quantities"])
-    expect(text).toContain(copy);
+test("the one-delivery guide explains credit, retained extras and confirmation without changing an order", () => {
+  render(<MemoryRouter initialEntries={["/portal/subscription-guide#one-delivery"]}><SubscriptionGuidePage /></MemoryRouter>);
+  expect(screen.getByRole("heading", { name: "1. Open the delivery" })).toBeTruthy();
+  expect(screen.getByText(/Any credit stays in your account; paid extras stay unchanged/)).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Next", exact: true }));
+  expect(screen.getByRole("heading", { name: "2. Reduce or remove items" })).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Next", exact: true }));
+  expect(screen.getByRole("heading", { name: "3. Review and confirm" })).toBeTruthy();
+  expect(screen.getByText("Tap Review change. Check the credit, then Confirm delivery change.")).toBeTruthy();
+  expect(screen.queryByRole("spinbutton")).toBeNull();
 });
-test("guide explains recovery after cut-off and eligibility without promising an unsupported change", () => {
-  const { container } = render(<DeliveryReductionGuide />);
-  const text = container.textContent!;
-  for (const copy of ["Check result", "same saved request", "including after the cut-off",
-    "Do not start a replacement", "Unpaid forecasts", "stock reconciliation", "reload it and review", "may be blocked"])
-    expect(text).toContain(copy);
+test("help retains interrupted-change guidance and offers a route to support", () => {
+  render(<MemoryRouter><SubscriptionGuidePage /></MemoryRouter>);
+  expect(screen.getByText(/use Check result before trying again/)).toBeTruthy();
+  expect(screen.getByRole("link", { name: "Contact the dairy" }).getAttribute("href")).toBe("/contact");
 });
