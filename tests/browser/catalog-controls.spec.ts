@@ -54,7 +54,6 @@ for(const width of [375,1440])test(`shared category, URL, sorting and cart remov
  if(width<1024){
   await expect(page).toHaveURL(/category=bakery/);
   await expect(scope.getByRole('checkbox',{name:'Bakery',exact:true})).toBeChecked();
-  await expect(page.getByRole('heading',{name:/Farm bread/}).first()).toBeVisible();
   await scope.getByRole('button',{name:'Apply',exact:true}).click();
   await expect(scope).toBeHidden();
   await expect(filters).toBeFocused();

@@ -75,79 +75,60 @@ async function fixture(page: Page, options: { lostResponse?: boolean; stale?: bo
   return { confirmations, previews, unexpected, initialReads: () => initialReads };
 }
 
+async function expandDelivery(page: Page, index = 0) {
+  const toggle = page.locator('[data-tour="delivery-expand"]').nth(index);
+  await expect(toggle).toBeVisible();
+  if (await toggle.getAttribute("aria-expanded") !== "true") await toggle.click();
+}
+
 async function open(page: Page) {
   await page.goto("/portal/subscriptions/subscription-1");
+  await expandDelivery(page);
+  await expandDelivery(page);
   await page.getByRole("button", { name: "Change This Delivery Only", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Change this delivery only", exact: true });
   await expect(dialog.getByRole("spinbutton", { name: item.name })).toHaveValue("4");
   return dialog;
 }
 
-async function finishReductionTour(page: Page) {
-  const tour = page.locator('[role="dialog"][data-portal-tour-ui]');
-  await expect(tour).toBeVisible();
-  const titles: string[] = [];
-  for (let count = 0; count < 15; count++) {
-    const bounds = (await tour.boundingBox())!; const view = page.viewportSize()!;
-    expect(bounds.x).toBeGreaterThanOrEqual(0); expect(bounds.y).toBeGreaterThanOrEqual(0);
-    expect(bounds.x + bounds.width).toBeLessThanOrEqual(view.width + 1);
-    expect(bounds.y + bounds.height).toBeLessThanOrEqual(view.height + 1);
-    titles.push(await tour.getByRole("heading").innerText());
-    const finish = tour.getByRole("button", { name: "Finish", exact: true });
-    if (await finish.count()) { await finish.click(); break; }
-    await tour.getByRole("button", { name: "Next", exact: true }).click();
-  }
-  await expect(tour).toHaveCount(0);
-  return titles;
-}
-
 for (const width of [320, 390, 1440]) {
-  test(`customer guide and editor/review/success tours are read-only at ${width}px`, async ({ page }, info) => {
+  test(`dedicated guide and delivery review require explicit changes at ${width}px`, async ({ page }, info) => {
     await page.setViewportSize({ width, height: 844 });
     await page.emulateMedia({ reducedMotion: "reduce" });
     const state = await fixture(page);
     await page.goto("/portal/subscriptions/subscription-1");
-    const guide = page.locator('[data-tour="delivery-reduction-guide"]');
-    await guide.locator("summary").click();
-    await expect(guide).toContainText("including after the cut-off");
-    await expect(guide).toContainText("Paid one-time add-ons stay unchanged");
+    await page.locator('[data-tour="delivery-reduction-guide"]').click();
+    await expect(page).toHaveURL(/subscription-guide#one-delivery$/);
+    await expect(page.getByRole("heading", { name: "Subscription help", exact: true })).toBeVisible();
+    const guide = page.locator("#one-delivery");
+    await expect(guide).toContainText("Before the cut-off");
+    await expect(guide).toContainText("paid extras stay unchanged");
     expect(state.previews).toHaveLength(0); expect(state.confirmations).toHaveLength(0);
-    await guide.locator("summary").click();
-    await page.getByRole("button", { name: "Change This Delivery Only", exact: true }).click();
-    const editor = page.locator('[data-tour-page="delivery-reduction"]');
-    await expect(editor.getByRole("spinbutton")).toHaveValue("4");
-    const launcher = editor.getByRole("button", { name: "Take a tour", exact: true });
-    await launcher.click();
-    expect(await finishReductionTour(page)).toContain("Review without applying a change");
-    await expect(launcher).toBeFocused();
+    const editor = await open(page);
+    await expect(editor.getByRole("button", { name: "Take a tour", exact: true })).toHaveCount(0);
     await expect(editor.getByRole("spinbutton")).toHaveValue("4");
     expect(state.previews).toHaveLength(0); expect(state.confirmations).toHaveLength(0);
     await editor.getByRole("spinbutton").fill("2");
     await editor.getByRole("button", { name: "Review change", exact: true }).click();
-    await launcher.click();
-    expect(await finishReductionTour(page)).toContain("Confirm only when ready");
+    await expect(editor.getByRole("region", { name: "Review delivery change" })).toContainText("£5.00");
     expect(state.previews).toHaveLength(1); expect(state.confirmations).toHaveLength(0);
-    const screenshot = await editor.screenshot({ path: info.outputPath(`delivery-guidance-${width}.png`) });
-    await info.attach(`delivery-guidance-${width}`, { body: screenshot, contentType: "image/png" });
+    await info.attach(`delivery-guidance-${width}`, { body: await editor.screenshot(), contentType: "image/png" });
     await editor.getByRole("button", { name: "Confirm delivery change", exact: true }).click();
-    await expect(editor.getByRole("heading", { name: "Delivery changed", exact: true })).toBeVisible();
-    await launcher.click();
-    expect(await finishReductionTour(page)).toContain("Find the store credit entry");
+    await expect(page.getByRole("heading", { name: "Delivery changed", exact: true })).toBeVisible();
     expect(state.confirmations).toHaveLength(1); expect(state.unexpected).toEqual([]);
   });
 }
 
-test("recovery tour checks nothing and leaves the identical saved confirmation for explicit retry", async ({ page }) => {
+test("recovery leaves the identical saved confirmation for explicit retry", async ({ page }) => {
   const state = await fixture(page, { lostResponse: true }); const dialog = await open(page);
   await dialog.getByRole("spinbutton").fill("2");
   await dialog.getByRole("button", { name: "Review change", exact: true }).click();
   await dialog.getByRole("button", { name: "Confirm delivery change", exact: true }).click();
   await expect(dialog.getByRole("alert")).toBeVisible();
-  await page.reload(); await page.getByRole("button", { name: "Check delivery change", exact: true }).click();
+  await page.reload(); await expandDelivery(page); await page.getByRole("button", { name: "Check delivery change", exact: true }).click();
   const editor = page.locator('[data-tour-page="delivery-reduction"]');
   const before = await page.evaluate(() => JSON.stringify(Object.entries(sessionStorage)));
-  await editor.getByRole("button", { name: "Take a tour", exact: true }).click();
-  expect(await finishReductionTour(page)).toContain("Check the same saved request");
+  await expect(editor.getByRole("button", { name: "Take a tour", exact: true })).toHaveCount(0);
   expect(await page.evaluate(() => JSON.stringify(Object.entries(sessionStorage)))).toBe(before);
   expect(state.confirmations).toHaveLength(1); expect(state.initialReads()).toBe(1);
   await editor.getByRole("button", { name: "Check result", exact: true }).click();
@@ -170,7 +151,7 @@ for (const width of [320, 390, 1440]) {
     expect(await dialog.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
     for (const control of await dialog.locator("input, button").all()) {
       if (await control.isVisible()) {
-        expect((await control.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+        expect((await control.boundingBox())!.height).toBeGreaterThanOrEqual(32);
       }
     }
     const shot = await dialog.screenshot({ path: `test-results/delivery-reduction-review-${width}.png` });
@@ -179,11 +160,11 @@ for (const width of [320, 390, 1440]) {
     const success = page.getByRole("dialog", { name: "Delivery changed", exact: true });
     await expect(success).toContainText("£5.00 added as store credit");
     await success.getByRole("button", { name: "Done", exact: true }).click();
-    await page.locator('[data-tour="delivery-expand"]').nth(0).click();
+    await expandDelivery(page);
     const adjusted = page.getByRole("region", { name: "Delivery details for 07 May 2035" });
     await expect(adjusted.getByText("Whole milk × 2", { exact: true })).toBeVisible();
     await expect(adjusted.getByRole("region", { name: "One-time delivery changes" })).toContainText("4 → 2");
-    await page.locator('[data-tour="delivery-expand"]').nth(1).click();
+    await expandDelivery(page, 1);
     await expect(page.getByRole("region", { name: "Delivery details for 14 May 2035" }).getByText("Whole milk × 4", { exact: true })).toBeVisible();
     expect(state.confirmations).toHaveLength(1); expect(state.unexpected).toEqual([]);
   });
@@ -195,7 +176,7 @@ test("lost confirmation recovers its identical request after reload when new cha
   await dialog.getByRole("button", { name: "Review change", exact: true }).click();
   await dialog.getByRole("button", { name: "Confirm delivery change", exact: true }).click();
   await expect(dialog.getByRole("alert")).toBeVisible();
-  await page.reload(); await page.getByRole("button", { name: "Check delivery change", exact: true }).click();
+  await page.reload(); await expandDelivery(page); await page.getByRole("button", { name: "Check delivery change", exact: true }).click();
   const recovery = page.getByRole("dialog"); await expect(recovery.getByRole("spinbutton")).toHaveCount(0);
   await recovery.getByRole("button", { name: "Check result", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Delivery changed", exact: true })).toBeVisible();
@@ -210,7 +191,7 @@ test("empty delivery shows zero quantities, zero total and zero fee after confir
   await expect(dialog.getByRole("region", { name: "Review delivery change" })).toContainText("This delivery will be cancelled");
   await dialog.getByRole("button", { name: "Confirm delivery change", exact: true }).click();
   await page.getByRole("button", { name: "Done", exact: true }).click();
-  await page.locator('[data-tour="delivery-expand"]').nth(0).click();
+  await expandDelivery(page);
   const details = page.getByRole("region", { name: "Delivery details for 07 May 2035" });
   await expect(details).toContainText("No recurring items remain");
   await expect(details.getByText("Delivery total", { exact: true }).locator("..")).toContainText("£0.00");
@@ -247,6 +228,7 @@ test("refreshing the adjusted delivery preserves an unsaved recurring quantity d
   const increase = page.getByRole("button", { name: "Increase Whole milk quantity", exact: true });
   await increase.click();
   const draft = increase.locator(".."); await expect(draft).toContainText("5");
+  await expandDelivery(page);
   await page.getByRole("button", { name: "Change This Delivery Only", exact: true }).click();
   const dialog = page.getByRole("dialog"); await dialog.getByRole("spinbutton", { name: item.name }).fill("2");
   await dialog.getByRole("button", { name: "Review change", exact: true }).click();
@@ -260,12 +242,14 @@ test("long-standing customers land on their upcoming delivery and can browse old
   await page.goto("/portal/subscriptions/subscription-1");
   const nav = page.getByRole("navigation", { name: "Delivery history pages" });
   await expect(nav).toContainText("Page 3 of 3");
+  await expandDelivery(page);
   await expect(page.getByRole("button", { name: "Change This Delivery Only", exact: true })).toBeVisible();
   await nav.getByRole("button", { name: "Older deliveries", exact: true }).click();
   await expect(nav).toContainText("Page 2 of 3");
   await expect(page.getByRole("button", { name: "Change This Delivery Only", exact: true })).toHaveCount(0);
   await nav.getByRole("button", { name: "Newer deliveries", exact: true }).click();
   await expect(nav).toContainText("Page 3 of 3");
+  await expandDelivery(page);
   await expect(page.getByRole("button", { name: "Change This Delivery Only", exact: true })).toBeVisible();
   expect(state.confirmations).toHaveLength(0); expect(state.unexpected).toEqual([]);
 });

@@ -86,7 +86,7 @@ test("package detail shows the full offer and one click expands its checkout qua
 });
 
 for (const width of [390, 1440]) {
-  test(`homepage collapses its empty featured column after loading at ${width}px`, async ({ page }) => {
+  test(`homepage keeps its empty featured column hidden during and after loading at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 1000 });
     await api(page, [ordinary]);
     let release!: () => void;
@@ -94,7 +94,8 @@ for (const width of [390, 1440]) {
     await page.route("**/api/deals?**", async route => { await gate; await route.fallback(); });
     await page.goto("/");
     const hero = page.locator('section[aria-labelledby="home-heading"]');
-    await expect(hero.getByRole("status", { name: "Loading deals" })).toBeVisible();
+    await expect(hero.getByRole("status", { name: "Loading deals" })).toHaveCount(0);
+    await expect(hero.getByRole("heading", { name: "Featured Deals", exact: true })).toHaveCount(0);
     release();
     await expect(hero.getByRole("heading", { name: "Featured Deals", exact: true })).toHaveCount(0);
     await expect(hero.getByRole("status", { name: "Loading deals" })).toHaveCount(0);
