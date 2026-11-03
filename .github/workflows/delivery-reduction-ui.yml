@@ -1,5 +1,11 @@
 name: One-time delivery change UI
 on:
+  push:
+    branches: [uat]
+    paths:
+      - 'src/portal/components/DeliveryReduction.tsx'
+      - 'tests/browser/delivery-reduction.spec.ts'
+      - '.github/workflows/delivery-reduction-ui.yml'
   pull_request:
     branches: [uat]
     paths:
