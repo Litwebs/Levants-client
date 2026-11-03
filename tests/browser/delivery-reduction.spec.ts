@@ -135,7 +135,7 @@ test("recovery leaves the identical saved confirmation for explicit retry", asyn
   expect(await page.evaluate(() => JSON.stringify(Object.entries(sessionStorage)))).toBe(before);
   expect(state.confirmations).toHaveLength(1); expect(state.initialReads()).toBe(1);
   await editor.getByRole("button", { name: "Check result", exact: true }).click();
-  await expect(editor.getByRole("heading", { name: "Delivery changed", exact: true })).toBeVisible();
+  await expect(page.getByRole("dialog", { name: "Delivery changed", exact: true })).toBeVisible();
   expect(state.confirmations).toHaveLength(2); expect(state.confirmations[1]).toEqual(state.confirmations[0]);
   expect(state.unexpected).toEqual([]);
 });
