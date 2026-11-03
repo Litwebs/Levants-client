@@ -8,8 +8,8 @@ const order = { _id: "order-1", customer: "tour-customer", orderId: "ORD-100", s
 const product = { id: "milk", name: "Whole milk", category: "Dairy", description: "Fresh milk", galleryImages: [], thumbnailImage: null, isActive: true, variants: [{ id: "milk-v", name: "1 litre", sku: "MILK", price: 2, currency: "GBP", stockQuantity: 100, availableStock: 100, isSubscriptionEligible: true }], pricing: { min: 2, max: 2, currency: "GBP" } };
 const meta = { page: 1, pageSize: 20, total: 1, totalPages: 1 };
 
-async function api(page: Page, options: { status?: string; empty?: boolean; customerId?: string } = {}) {
-  await page.addInitScript(() => localStorage.setItem("levants:portalToursEnabled", "true"));
+async function api(page: Page, options: { status?: string; empty?: boolean; customerId?: string; toursEnabled?: boolean } = {}) {
+  await page.addInitScript(enabled => localStorage.setItem("levants:portalToursEnabled", String(enabled)), options.toursEnabled !== false);
   const writes: string[] = [];
   await page.route("**/api/**", async route => {
     const request = route.request();
@@ -133,9 +133,8 @@ for(const status of ["active","paused","cancelled"]){
  });
 }
 test("tours stay off by default",async({page})=>{
- const writes=await api(page);
- await page.addInitScript(()=>localStorage.removeItem("levants:portalToursEnabled"));
- await page.goto("/portal/dashboard");await expect(page.getByRole("heading",{name:/dashboard/i})).toBeVisible();
+ const writes=await api(page,{toursEnabled:false});
+ await page.goto("/portal/dashboard");await expect(page.locator('[data-tour-page="dashboard"][data-tour-ready="true"]')).toBeVisible();
  await expect(page.getByRole("button",{name:"Take a tour",exact:true})).toHaveCount(0);
  await expect(tour(page)).toHaveCount(0);expect(writes).toEqual([]);
 });
