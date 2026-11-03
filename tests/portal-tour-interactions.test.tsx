@@ -50,17 +50,19 @@ test("explicit tour supports Back, Skip and replay without invoking real actions
   expect((screen.getByRole("textbox", { name: "Unsaved value" }) as HTMLInputElement).value).toBe("Keep this draft");
 });
 
-test("delayed page readiness gates auto tours and replay", async () => {
+test("delayed page readiness gates explicit tours and replay", async () => {
   const { rerender } = render(<Fixture customerId="unit-loading" ready={false} />);
   expect(screen.queryByRole("button", { name: "Take a tour", exact: true })).toBeNull();
   expect(screen.queryByRole("dialog")).toBeNull();
   rerender(<Fixture customerId="unit-loading" ready />);
+  fireEvent.click(await screen.findByRole("button", { name: "Take a tour", exact: true }));
   await screen.findByRole("dialog");
 });
 
 test("Escape dismisses the tour and restores focus to its replay button", async () => {
   const user = userEvent.setup();
   render(<Fixture customerId="unit-escape" />);
+  fireEvent.click(await screen.findByRole("button", { name: "Take a tour", exact: true }));
   await screen.findByRole("dialog");
   await user.keyboard("{Escape}");
   await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
