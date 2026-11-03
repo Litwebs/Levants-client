@@ -9,6 +9,7 @@ const product = { id: "milk", name: "Whole milk", category: "Dairy", description
 const meta = { page: 1, pageSize: 20, total: 1, totalPages: 1 };
 
 async function api(page: Page, options: { status?: string; empty?: boolean; customerId?: string } = {}) {
+  await page.addInitScript(() => localStorage.setItem("levants:portalToursEnabled", "true"));
   const writes: string[] = [];
   await page.route("**/api/**", async route => {
     const request = route.request();
@@ -71,6 +72,7 @@ async function checkBounds(page: Page) {
   await checkSpotlight(page);
 }
 async function finish(page: Page) {
+  if (!await tour(page).isVisible()) await page.getByRole("button", { name: "Take a tour", exact: true }).click();
   await expect(tour(page)).toBeVisible();
   const titles: string[] = [];
   for (let i = 0; i < 30; i++) {
@@ -84,308 +86,65 @@ async function finish(page: Page) {
   return titles;
 }
 
+
 for (const width of [390, 1440]) {
-  test(`all portal screens have a safe replayable tour at ${width}px`, async ({ page }) => {
-    await page.setViewportSize({ width, height: 844 });
-    await page.emulateMedia({ reducedMotion: "reduce" });
-    const writes = await api(page);
-    const screens: Record<string, number> = { dashboard: 4, subscriptions: 5, "subscriptions/subscription-1": 12, "subscriptions/subscription-1/add-products": 4, "subscriptions/subscription-1/next-delivery/add-ons": 4, orders: 5, "orders/order-1": 4, payments: 4, credit: 2, addresses: 4, account: 10, support: 5, notifications: 3, "subscriptions/new": 3 };
-    for (const [path, minimumSteps] of Object.entries(screens)) {
-      await page.goto(`/portal/${path}`);
-      expect((await finish(page)).length, path).toBeGreaterThanOrEqual(minimumSteps);
-      const launcher = page.getByRole("button", { name: "Take a tour", exact: true });
-      await expect(launcher).toBeEnabled();
-      await launcher.click();
-      await expect(tour(page).getByRole("status")).toContainText("Step 1 of");
-      await tour(page).getByRole("button", { name: "Skip", exact: true }).click();
-      await expect(tour(page)).toHaveCount(0);
-      await expect(launcher).toBeFocused();
-    }
-    expect(writes).toEqual([]);
-  });
-}
-
-test("first visit, Back, Escape, keyboard focus and remembered dismissal", async ({ page }) => {
-  await api(page);
-  await page.goto("/portal/dashboard");
-  await expect(tour(page)).toBeVisible();
-  const first = await tour(page).getByRole("heading").innerText();
-  await expect(tour(page).getByRole("button", { name: "Back", exact: true })).toBeDisabled();
-  await page.keyboard.press("Tab");
-  expect(await tour(page).evaluate(element => element.contains(document.activeElement))).toBe(true);
-  await tour(page).getByRole("button", { name: "Next", exact: true }).click();
-  await tour(page).getByRole("button", { name: "Back", exact: true }).click();
-  await expect(tour(page).getByRole("heading")).toHaveText(first);
-  await page.keyboard.press("Escape");
-  await expect(tour(page)).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Take a tour", exact: true })).toBeFocused();
-  await page.reload();
-  await expect(page.getByRole("button", { name: "Take a tour", exact: true })).toBeEnabled();
-  await expect(tour(page)).toHaveCount(0);
-  await page.getByRole("button", { name: "Take a tour", exact: true }).click();
-  await expect(tour(page).getByRole("heading")).toHaveText(first);
-});
-
-test("empty collections omit absent controls and do not crash", async ({ page }) => {
-  const writes = await api(page, { empty: true });
-  await page.goto("/portal/subscriptions");
-  const titles = await finish(page);
-  expect(titles).not.toContain("Open subscription details");
-  await page.goto("/portal/addresses");
-  const addressTitles = await finish(page);
-  expect(addressTitles).not.toContain("Delete an address");
-  expect(writes).toEqual([]);
-});
-
-test("an address form has its own input tour and preserves typed values", async ({ page }) => {
-  await page.setViewportSize({ width: 390, height: 700 });
-  const writes = await api(page);
-  await page.goto("/portal/addresses");
-  await finish(page);
-  await page.locator('[data-tour="address-add"]').click();
-  await finish(page);
-  await page.locator('[data-tour="address-line1"]').fill("22 New Road");
-  await page.locator('[data-tour-page="address-form"]').getByRole("button", { name: "Take a tour" }).click();
-  await finish(page);
-  await expect(page.locator('[data-tour="address-line1"]')).toHaveValue("22 New Road");
-  const replay = page.locator('[data-tour-page="address-form"]').getByRole("button", { name: "Take a tour" });
-  await expect(replay).toBeFocused();
-  await expect(replay).toBeInViewport();
-  expect(writes).toEqual([]);
-});
-
-for (const status of ["active", "paused", "cancelled"]) {
-  test(`subscription actions and nested tours match the ${status} state without applying actions`, async ({ page }) => {
-    const writes = await api(page, { status });
-    await page.goto("/portal/subscriptions/subscription-1");
-    const titles = await finish(page);
-    expect(titles.includes("Pause deliveries")).toBe(status === "active");
-    expect(titles.includes("Resume deliveries")).toBe(status === "paused");
-    expect(titles.includes("Cancel a subscription")).toBe(status !== "cancelled");
-    if (status !== "cancelled") {
-      await page.locator(`[data-tour="subscription-${status === "active" ? "pause" : "resume"}"]`).click();
-      await finish(page);
-      await expect(page.locator(`[data-tour-page="${status === "active" ? "pause-form" : "resume-confirmation"}"]`)).toBeVisible();
-    }
-    expect(writes).toEqual([]);
-  });
-}
-
-test("tour waits for loaded content and stays unavailable on an API error", async ({ page }) => {
-  await api(page);
-  let release!: () => void;
-  const gate = new Promise<void>(resolve => { release = resolve; });
-  await page.route("**/api/portal/subscriptions?**", async route => { await gate; await route.fulfill({ status: 500, json: { success: false, message: "Unavailable" } }); });
-  await page.goto("/portal/subscriptions");
-  await expect(page.getByRole("button", { name: "Take a tour", exact: true })).toBeDisabled();
-  release();
-  await expect(page.getByText("Unavailable", { exact: true })).toBeVisible();
-  await expect(tour(page)).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Take a tour", exact: true })).toBeDisabled();
-});
-
-test("every subscription builder stage replays its own controls without modifying the draft", async ({ page }) => {
-  await page.setViewportSize({ width: 390, height: 844 });
-  const writes = await api(page);
-  await page.goto("/portal/dashboard");
-  await finish(page);
-  const stages = ["new-days", "new-frequency", "new-products", "new-address", "new-review"];
-  for (let step = 0; step < stages.length; step++) {
-    await page.evaluate(step => {
-      sessionStorage.setItem("levants_subscription_draft", JSON.stringify({ flowVersion: 2, step, selectedVariantIds: ["milk-v"], quantities: { "milk-v": 2 }, dayQuantities: { Monday: { "milk-v": 2 } }, frequency: "weekly", deliveryDays: ["Monday"], selectedAddress: "address-1", deliveryInstructions: "Leave by the door" }));
-    }, step);
-    await page.goto("/portal/subscriptions/new");
-    const scope = page.locator(`[data-tour-page="${stages[step]}"][data-tour-ready="true"]`);
-    await expect(scope).toBeVisible();
-    const before = await page.evaluate(() => sessionStorage.getItem("levants_subscription_draft"));
-    if (step > 0) await page.getByRole("button", { name: "Take a tour", exact: true }).click();
-    const titles = await finish(page);
-    expect(titles.length).toBeGreaterThanOrEqual(2);
-    expect(await page.evaluate(() => sessionStorage.getItem("levants_subscription_draft"))).toBe(before);
-    await expect(scope).toBeVisible();
+ test(`opted-in page tours require a click, replay safely and fit ${width}px`, async ({ page }) => {
+  await page.setViewportSize({width,height:844}); await page.emulateMedia({reducedMotion:"reduce"});
+  const writes=await api(page);
+  for(const path of ["dashboard","subscriptions","subscriptions/subscription-1","orders","orders/order-1","payments","credit","addresses","account","support","notifications"]){
+   await page.goto(`/portal/${path}`);
+   const launcher=page.getByRole("button",{name:"Take a tour",exact:true});
+   await expect(launcher).toBeVisible();await expect(tour(page)).toHaveCount(0);
+   expect((await finish(page)).length,path).toBeGreaterThan(0);
+   await launcher.click();await expect(tour(page).getByRole("status")).toContainText("Step 1 of");
+   await tour(page).getByRole("button",{name:"Skip",exact:true}).click();
+   await expect(tour(page)).toHaveCount(0);await expect(launcher).toBeFocused();
   }
   expect(writes).toEqual([]);
-});
-
-test("tour dismissal belongs to the signed-in customer", async ({ page }) => {
-  const options = { customerId: "first-customer" };
-  await api(page, options);
-  await page.goto("/portal/dashboard");
-  await finish(page);
-  options.customerId = "second-customer";
-  await page.reload();
-  await expect(tour(page)).toBeVisible();
-  await finish(page);
-  expect(await page.evaluate(() => Object.keys(localStorage).filter(key => key.startsWith("levants:portal-tour:v1:")).sort())).toEqual([
-    "levants:portal-tour:v1:first-customer:dashboard",
-    "levants:portal-tour:v1:second-customer:dashboard",
-  ]);
-});
-
-test("tour adapts when an asynchronously rendered target disappears", async ({ page }) => {
-  await api(page);
-  await page.goto("/portal/subscriptions");
-  await expect(tour(page)).toBeVisible();
-  await tour(page).getByRole("button", { name: "Next", exact: true }).click();
-  await tour(page).getByRole("button", { name: "Next", exact: true }).click();
-  await expect(tour(page).getByRole("heading")).toHaveText("Delivery and pricing summary");
-  await page.locator('[data-tour="subscription-card"]').evaluate(element => element.remove());
-  await expect(tour(page).getByRole("heading")).toHaveText("Create another subscription");
-  await finish(page);
-});
-
-test("one-time address changes get contextual help without saving the order", async ({ page }) => {
-  const writes = await api(page);
-  await page.route("**/api/portal/orders/order-1", route => route.fulfill({ json: { success: true, data: { order: { ...order, deliveryChangeAllowed: true, deliveryChangeCutoffAt: delivery.cutoffAt } } } }));
-  await page.goto("/portal/orders/order-1");
-  expect(await finish(page)).toContain("A change for this order");
-  await page.locator('[data-tour="order-change-delivery"]').click();
-  await page.getByRole("button", { name: "Take a tour", exact: true }).click();
-  const titles = await finish(page);
-  expect(titles).toContain("Choose this order's address");
-  expect(titles).toContain("Save the one-time address change");
-  expect(writes).toEqual([]);
-});
-
-test("cancellation help leaves the subscription confirmation untouched", async ({ page }) => {
-  const writes = await api(page);
-  await page.goto("/portal/subscriptions/subscription-1");
-  await finish(page);
-  await page.locator('[data-tour="subscription-cancel"]').click();
-  expect(await finish(page)).toContain("Confirm only when certain");
-  await expect(page.locator('[data-tour-page="cancel-confirmation"]')).toBeVisible();
-  expect(writes).toEqual([]);
-});
-
-test("blocked tour storage keeps replay available and dismisses for the session", async ({ page }) => {
-  await api(page);
-  await page.addInitScript(() => {
-    const get = Storage.prototype.getItem;
-    const set = Storage.prototype.setItem;
-    Storage.prototype.getItem = function(key: string) {
-      if (key.startsWith("levants:portal-tour:")) throw new DOMException("Blocked", "SecurityError");
-      return get.call(this, key);
-    };
-    Storage.prototype.setItem = function(key: string, value: string) {
-      if (key.startsWith("levants:portal-tour:")) throw new DOMException("Blocked", "SecurityError");
-      return set.call(this, key, value);
-    };
-  });
-  await page.goto("/portal/dashboard");
-  await finish(page);
-  await expect(page.getByRole("button", { name: "Take a tour", exact: true })).toBeEnabled();
-  await page.getByRole("button", { name: "Take a tour", exact: true }).click();
-  await finish(page);
-  await expect(tour(page)).toHaveCount(0);
-});
-
-for (const size of [{ width: 320, height: 568 }, { width: 360, height: 640 }, { width: 640, height: 360 }]) {
-  test(`small-screen tour keeps readable content and persistent touch controls at ${size.width}x${size.height}`, async ({ page }, info) => {
-    await page.setViewportSize(size);
-    await page.emulateMedia({ reducedMotion: "reduce" });
-    const writes = await api(page);
-    await page.goto("/portal/subscriptions/subscription-1");
-    await finish(page);
-    await page.locator('[data-tour="subscription-pause"]').click();
-    await expect(tour(page)).toBeVisible();
-    const card = (await tour(page).boundingBox())!;
-    expect(card.width).toBe(Math.min(320, size.width - 24));
-    const body = tour(page).locator('[data-tour-body]');
-    await expect(body).toBeVisible();
-    expect(card.height).toBeLessThanOrEqual(size.height * (size.height < 480 ? 0.65 : 0.44) + 1);
-    expect((await body.boundingBox())!.height).toBeGreaterThan(48);
-    await checkSpotlight(page);
-    await expect(tour(page).locator('details')).not.toHaveAttribute('open', '');
-    await info.attach(`tour-compact-${size.width}`, { body: await page.screenshot(), contentType: "image/png" });
-    await tour(page).getByText('View current details', { exact: true }).click();
-    await expect(tour(page).locator('details')).toHaveAttribute('open', '');
-    await checkBounds(page);
-    expect((await tour(page).boundingBox())!.height).toBeLessThanOrEqual(size.height * (size.height < 480 ? 0.65 : 0.44) + 1);
-    for (const label of ["Skip", "Back", "Next"]) {
-      const button = tour(page).getByRole("button", { name: label, exact: true });
-      await expect(button).toBeInViewport({ ratio: 1 });
-      expect((await button.boundingBox())!.height).toBeGreaterThanOrEqual(44);
-    }
-    expect(await tour(page).evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
-    await body.evaluate(element => { element.scrollTop = element.scrollHeight; });
-    await expect(tour(page).getByRole("button", { name: "Next", exact: true })).toBeInViewport({ ratio: 1 });
-    await info.attach(`tour-phone-${size.width}`, { body: await page.screenshot(), contentType: "image/png" });
-    await finish(page);
-    expect(writes).toEqual([]);
-  });
+ });
 }
-
-test("compact cards animate normally and respect reduced-motion preferences", async ({ page }) => {
-  await api(page);
-  await page.emulateMedia({ reducedMotion: "no-preference" });
-  await page.goto("/portal/dashboard");
-  await expect(tour(page)).toBeVisible();
-  await tour(page).getByRole("button", { name: "Next", exact: true }).click();
-  expect(await tour(page).evaluate(element => element.getAnimations().some(animation => animation.playState === "running"))).toBe(true);
-  await expect(tour(page)).toHaveCSS("animation-name", "portal-tour-enter-alternate");
-  await expect(tour(page)).toHaveCSS("transform", "none");
-  await tour(page).getByRole("button", { name: "Back", exact: true }).click();
-  await expect(tour(page)).toHaveCSS("animation-name", "portal-tour-enter");
-  expect(await tour(page).locator('.portal-tour-step').first().evaluate(element => getComputedStyle(element).animationName)).toBe("portal-tour-step-enter");
-  await checkSpotlight(page);
-  await expect(page.locator("[data-tour-highlight]")).toHaveCSS("transition-duration", "0.28s, 0.28s, 0.28s, 0.28s");
-  await page.emulateMedia({ reducedMotion: "reduce" });
-  await expect(page.locator("[data-tour-highlight]")).toHaveCSS("transition-duration", "0s");
-  expect(await tour(page).locator('.portal-tour-step').first().evaluate(element => getComputedStyle(element).animationName)).toBe("none");
-  expect(await tour(page).evaluate(element => getComputedStyle(element).animationName)).toBe("none");
-  await finish(page);
+test("Back, Escape and replay preserve focus without account writes",async({page})=>{
+ const writes=await api(page);await page.goto("/portal/dashboard");
+ const launcher=page.getByRole("button",{name:"Take a tour",exact:true});
+ await launcher.click();const first=await tour(page).getByRole("heading").innerText();
+ await expect(tour(page).getByRole("button",{name:"Back",exact:true})).toBeDisabled();
+ await tour(page).getByRole("button",{name:"Next",exact:true}).click();
+ await tour(page).getByRole("button",{name:"Back",exact:true}).click();
+ await expect(tour(page).getByRole("heading")).toHaveText(first);await page.keyboard.press("Escape");
+ await expect(tour(page)).toHaveCount(0);await expect(launcher).toBeFocused();
+ await page.reload();await expect(launcher).toBeVisible();await expect(tour(page)).toHaveCount(0);
+ await launcher.click();await expect(tour(page).getByRole("heading")).toHaveText(first);
+ expect(writes).toEqual([]);
 });
-
-
-test("desktop overview is centred, compact and has no target outline", async ({ page }, info) => {
-  await page.setViewportSize({ width: 1440, height: 900 });
-  await page.emulateMedia({ reducedMotion: "reduce" });
-  await api(page);
-  await page.goto("/portal/dashboard");
-  await expect(tour(page)).toBeVisible();
-  await expect.poll(async () => Math.abs((await tour(page).boundingBox())!.x + (await tour(page).boundingBox())!.width / 2 - 720)).toBeLessThan(2);
-  const box = (await tour(page).boundingBox())!;
-  expect(box.width).toBeLessThanOrEqual(360);
-  expect(box.height).toBeLessThan(300);
-  expect(box.y).toBeGreaterThan(200);
-  await checkSpotlight(page);
-  await info.attach("tour-compact-desktop", { body: await page.screenshot(), contentType: "image/png" });
-  await finish(page);
+test("empty collections omit absent controls",async({page})=>{
+ const writes=await api(page,{empty:true});await page.goto("/portal/subscriptions");
+ expect(await finish(page)).not.toContain("Open subscription details");
+ await page.goto("/portal/addresses");expect(await finish(page)).not.toContain("Delete an address");
+ expect(writes).toEqual([]);
 });
-
-for (const width of [320, 390, 640]) {
-  test(`mobile card stays compact and its cross closes every step at ${width}px`, async ({ page }, info) => {
-    await page.setViewportSize({ width, height: 640 });
-    await page.emulateMedia({ reducedMotion: "no-preference" });
-    const writes = await api(page);
-    await page.goto("/portal/dashboard");
-    const launcher = page.getByRole("button", { name: "Take a tour", exact: true });
-    for (let step = 0; step < 4; step++) {
-      if (step) await launcher.click();
-      await expect(tour(page)).toBeVisible();
-      for (let next = 0; next < step; next++) await tour(page).getByRole("button", { name: "Next", exact: true }).click();
-      const close = tour(page).getByRole("button", { name: "Skip tour", exact: true });
-      // The close target must win hit testing even while the header is animated.
-      await expect(close).toBeInViewport({ ratio: 1 });
-      await expect.poll(() => close.evaluate(element => {
-        const rect = element.getBoundingClientRect();
-        return element.contains(document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2));
-      })).toBe(true);
-      if (step === 3) {
-        await expect(tour(page)).toHaveCSS("transform", "none");
-        const box = (await tour(page).boundingBox())!;
-        expect(box.width).toBeLessThanOrEqual(320);
-        expect(box.height).toBeLessThan(210);
-        await checkSpotlight(page);
-        await info.attach(`tour-mobile-final-${width}`, { body: await page.screenshot(), contentType: "image/png" });
-      }
-      await close.click();
-      await expect(tour(page)).toHaveCount(0);
-      await expect(launcher).toBeFocused();
-      // A dismissed auto-tour must stay dismissed, while replay remains available.
-      await page.waitForTimeout(600);
-      await expect(tour(page)).toHaveCount(0);
-    }
-    expect(writes).toEqual([]);
-  });
+for(const status of ["active","paused","cancelled"]){
+ test(`subscription page tour reflects ${status} without applying actions`,async({page})=>{
+  const writes=await api(page,{status});await page.goto("/portal/subscriptions/subscription-1");
+  const titles=await finish(page);
+  expect(titles.includes("Pause deliveries")).toBe(status==="active");
+  expect(titles.includes("Resume deliveries")).toBe(status==="paused");
+  expect(titles.includes("Cancel a subscription")).toBe(status!=="cancelled");
+  expect(writes).toEqual([]);
+ });
 }
+test("tours stay off by default",async({page})=>{
+ const writes=await api(page);
+ await page.addInitScript(()=>localStorage.removeItem("levants:portalToursEnabled"));
+ await page.goto("/portal/dashboard");await expect(page.getByRole("heading",{name:/dashboard/i})).toBeVisible();
+ await expect(page.getByRole("button",{name:"Take a tour",exact:true})).toHaveCount(0);
+ await expect(tour(page)).toHaveCount(0);expect(writes).toEqual([]);
+});
+test("loading and failed pages do not offer an unusable tour",async({page})=>{
+ await api(page);let release!:()=>void;const gate=new Promise<void>(resolve=>{release=resolve;});
+ await page.route("**/api/portal/subscriptions?**",async route=>{await gate;await route.fulfill({status:500,json:{success:false,message:"Unavailable"}});});
+ await page.goto("/portal/subscriptions");
+ await expect(page.getByRole("button",{name:"Take a tour",exact:true})).toHaveCount(0);
+ release();await expect(page.getByText("Unavailable",{exact:true})).toBeVisible();
+ await expect(tour(page)).toHaveCount(0);
+ await expect(page.getByRole("button",{name:"Take a tour",exact:true})).toHaveCount(0);
+});

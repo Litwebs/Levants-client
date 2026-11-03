@@ -1,10 +1,12 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import { afterEach, expect, test } from "vitest";
+import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import DeliveryReductionGuide from "@/portal/components/DeliveryReductionGuide";
 import SubscriptionGuidePage from "@/portal/pages/SubscriptionGuidePage";
 
-afterEach(cleanup);
+const originalScroll = HTMLElement.prototype.scrollIntoView;
+beforeEach(() => { HTMLElement.prototype.scrollIntoView = vi.fn(); });
+afterEach(() => { cleanup(); if (originalScroll) HTMLElement.prototype.scrollIntoView = originalScroll; else Reflect.deleteProperty(HTMLElement.prototype, "scrollIntoView"); });
 test("delivery help links to the dedicated one-delivery guide without account controls", () => {
   render(<MemoryRouter><DeliveryReductionGuide /></MemoryRouter>);
   expect(screen.getByRole("link", { name: "How delivery-only changes work" }).getAttribute("href")).toBe("/portal/subscription-guide#one-delivery");
