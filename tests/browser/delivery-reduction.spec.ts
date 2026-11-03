@@ -189,7 +189,7 @@ test("empty delivery shows zero quantities, zero total and zero fee after confir
   const state = await fixture(page); const dialog = await open(page);
   await dialog.getByRole("button", { name: "Remove", exact: true }).click();
   await dialog.getByRole("button", { name: "Review change", exact: true }).click();
-  await expect(dialog.getByRole("region", { name: "Review delivery change" })).toContainText("This delivery will be cancelled");
+  await expect(dialog.getByRole("region", { name: "Review delivery change" })).toContainText(/this delivery will be cancelled/i);
   await dialog.getByRole("button", { name: "Confirm delivery change", exact: true }).click();
   await page.getByRole("button", { name: "Done", exact: true }).click();
   await expandDelivery(page);

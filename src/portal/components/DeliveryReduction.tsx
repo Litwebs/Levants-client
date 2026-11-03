@@ -144,7 +144,7 @@ export default function DeliveryReduction({ customerId, subscriptionId, delivery
         const fallback = document.getElementById(`delivery-toggle-${delivery._id}`);
         if (fallback) { event.preventDefault(); fallback.focus(); }
       }
-    }} className="max-h-[calc(100dvh_-_2rem)] w-[calc(100%_-_2rem)] max-w-lg overflow-y-auto rounded-xl p-4 sm:p-6 [&>button:last-child]:right-1 [&>button:last-child]:top-1 [&>button:last-child]:min-w-8">
+    }} className="max-h-[calc(100dvh_-_2rem)] w-[calc(100%_-_2rem)] max-w-lg overflow-y-auto rounded-xl p-4 sm:p-6 [&>button:last-child]:right-1 [&>button:last-child]:top-1 [&>button:last-child]:min-w-8 [&>button:last-child]:min-h-8">
       <DialogHeader className="pr-8">
         <DialogTitle>{success ? "Delivery changed" : "Change this delivery only"}</DialogTitle>
         <DialogDescription>{success ? "Your regular subscription stays the same." : `Edit ${date(delivery.scheduledDate)} (UK time) only. Your regular subscription stays the same.`}</DialogDescription>
