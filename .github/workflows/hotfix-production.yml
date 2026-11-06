@@ -4,12 +4,13 @@ on:
     branches: [main]
 permissions:
   contents: write
+  pages: read
 concurrency:
   group: approved-production-storefront
   cancel-in-progress: false
 jobs:
   build:
-    if: ${{ github.event.before == '8f86a50454f81f2fbec5d59e2d18c503381fd951' && contains(github.event.head_commit.message, 'hotfix-status-service-bypass-20261102') }}
+    if: ${{ github.event.before == 'f6d8a7c249c6630814e79b00ee22c04e933b63f8' && contains(github.event.head_commit.message, 'hotfix-subscription-deliveries-20261106') }}
     runs-on: ubuntu-latest
     timeout-minutes: 12
     steps:
@@ -22,12 +23,19 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
-      - name: Build production assets without CI tests
+      - run: node --test tests/subscriptionDeliveryPage.test.mjs
+      - name: Build production assets
         env:
           VITE_API_BASE_URL: https://api.levantsdairy.co.uk/api
         run: |
           npm run build
           touch dist/.nojekyll
+      - name: Validate production environment and Pages source
+        env:
+          RELEASE_SHA: ${{ github.sha }}
+          GH_REPOSITORY: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/prepare-production.mjs
       - name: Stage exact hotfix assets for publishing
         run: |
           set -euo pipefail
