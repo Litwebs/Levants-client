@@ -57,7 +57,7 @@ import { ConfirmationModal, EmptyState } from "@/portal/components/PortalUI";
 import { ApiError } from "@/api/client";
 import { usePortalCustomer } from "@/portal/context/CustomerContext";
 import { useAddresses } from "@/portal/context/AddressesContext";
-import { selectSubscriptionDeliveryPage, type SubscriptionDeliveryPage } from "@/api/subscriptionDeliveryPage";
+import { readNewestSubscriptionDeliveryPage, type SubscriptionDeliveryPage } from "@/api/subscriptionDeliveryPage";
 import {
   portalSubscriptionsApi,
   type PortalSubscription,
@@ -415,7 +415,7 @@ const SubscriptionDetailPage: React.FC = () => {
   const [deliveries, setDeliveries] = useState<PortalSubscriptionDelivery[]>(
     [],
   );
-  const deliveryPage = useRef(0);
+  const deliveryPage = useRef(1);
   const [deliveryPages, setDeliveryPages] = useState({ page: 1, totalPages: 1 });
   const [deliveryPageLoading, setDeliveryPageLoading] = useState(false);
   const canModify = canModifySubscription(subscription);
@@ -535,12 +535,12 @@ const SubscriptionDetailPage: React.FC = () => {
       if (currentId.current !== id || serial !== loadGeneration.current) return;
       const firstPage: SubscriptionDeliveryPage = { deliveries: firstDeliveries,
         meta: delRes.data?.meta || { page: 1, pageSize: 10, total: firstDeliveries.length } };
-      const chosen = await selectSubscriptionDeliveryPage(firstPage, sub?.upcomingDeliveryDate || sub?.nextDeliveryDate,
+      const chosen = await readNewestSubscriptionDeliveryPage(firstPage, requestedPage,
         async page => {
           const response = await portalSubscriptionsApi.listDeliveries(id, { page, pageSize: 10 });
           if (!response.success || !response.data) throw new Error("Unable to load delivery history.");
           return response.data;
-        }, requestedPage);
+        });
 
       if (currentId.current !== id || serial !== loadGeneration.current) return;
 
@@ -595,7 +595,7 @@ const SubscriptionDetailPage: React.FC = () => {
   };
 
   useEffect(() => {
-    deliveryPage.current = 0;
+    deliveryPage.current = 1;
     void load();
   }, [id]);
 
@@ -2064,7 +2064,7 @@ const SubscriptionDetailPage: React.FC = () => {
                   </div></CollapsibleContent>
                 </Collapsible>;
               })}</div>}
-              {deliveryPages.totalPages>1 && <nav aria-label="Delivery history pages" className="mt-4 flex flex-wrap items-center justify-between gap-2 text-sm"><Button size="sm" variant="outline" disabled={deliveryPageLoading || deliveryPages.page<=1} onClick={()=>{void load(true,deliveryPages.page-1).catch(()=>{});}}>Older deliveries</Button><span className="text-xs text-muted-foreground">Page {deliveryPages.page} of {deliveryPages.totalPages}</span><Button size="sm" variant="outline" disabled={deliveryPageLoading || deliveryPages.page>=deliveryPages.totalPages} onClick={()=>{void load(true,deliveryPages.page+1).catch(()=>{});}}>Newer deliveries</Button></nav>}
+              {deliveryPages.totalPages>1 && <nav aria-label="Delivery history pages" className="mt-4 flex flex-wrap items-center justify-between gap-2 text-sm"><Button size="sm" variant="outline" disabled={deliveryPageLoading || deliveryPages.page>=deliveryPages.totalPages} onClick={()=>{void load(true,deliveryPages.page+1).catch(()=>{});}}>Older deliveries</Button><span className="text-xs text-muted-foreground">Page {deliveryPages.page} of {deliveryPages.totalPages}</span><Button size="sm" variant="outline" disabled={deliveryPageLoading || deliveryPages.page<=1} onClick={()=>{void load(true,deliveryPages.page-1).catch(()=>{});}}>Newer deliveries</Button></nav>}
               <div className="mt-4"><DeliveryReductionGuide/></div>
             </CardContent>
           </Card>
