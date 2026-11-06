@@ -31,6 +31,7 @@ import {
   type PortalSubscriptionCutoff,
   type PortalSubscriptionDelivery,
 } from "@/api/portalSubscriptions";
+import { findSubscriptionAddOnDelivery } from "@/api/subscriptionDeliveryPage";
 import { toast } from "sonner";
 import {
   formatCutoffDate,
@@ -105,33 +106,24 @@ const SubscriptionDeliveryAddOnPage: React.FC = () => {
         if (cancelled) return;
         const nextSubscription = subscriptionResponse.data?.subscription;
         const nextCutoff = subscriptionResponse.data?.cutoff || null;
-        const deliveries = (deliveriesResponse.data?.deliveries || []).filter(
-          (candidate) => {
-          const date = new Date(candidate.scheduledDate);
-          const today = new Date();
-          today.setHours(0, 0, 0, 0);
-          return (
-            (candidate.status === "scheduled" ||
-              (candidate.status === "generated" &&
-                candidate.order?.deliveryStatus === "ordered")) &&
-            date.getTime() >= today.getTime()
-          );
-          },
-        );
-        deliveries.sort(
-          (left, right) =>
-            new Date(left.scheduledDate).getTime() -
-            new Date(right.scheduledDate).getTime(),
-        );
         const pending = readPendingAddOn(id);
+        const firstPage = deliveriesResponse.data;
+        const nextDelivery = firstPage
+          ? await findSubscriptionAddOnDelivery(firstPage, async page => {
+              const response = await portalSubscriptionsApi.listDeliveries(id, {
+                page, pageSize: firstPage.meta.pageSize,
+              });
+              if (!response.data) throw new Error("Unable to load delivery history.");
+              return response.data;
+            }, new Date(), nextCutoff?.timeZone, pending)
+          : null;
+        if (cancelled) return;
         operationIdRef.current = pending?.operationId || null;
         setRetryLocked(Boolean(pending));
         setOriginalDeliveryDate(pending?.deliveryDate || null);
         setSelected(pending ? Object.fromEntries(pending.items.map(item => [item.variantId, item])) : {});
         setSubscription(nextSubscription || null);
-        setDelivery(pending
-          ? (deliveriesResponse.data?.deliveries || []).find(candidate => candidate._id === pending.deliveryId) || null
-          : deliveries[0] || null);
+        setDelivery(nextDelivery);
         setCutoff(nextCutoff);
       } catch (loadError) {
         if (cancelled) return;

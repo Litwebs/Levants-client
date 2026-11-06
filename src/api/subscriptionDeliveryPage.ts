@@ -31,3 +31,35 @@ export async function selectSubscriptionDeliveryPage(
   }
   return candidate || read(pages);
 }
+
+export async function findSubscriptionAddOnDelivery(
+  first: SubscriptionDeliveryPage,
+  readPage: (page: number) => Promise<SubscriptionDeliveryPage>,
+  now: Date,
+  timeZone = "Europe/London",
+  pending?: { deliveryId: string; deliveryDate: string } | null,
+): Promise<PortalSubscriptionDelivery | null> {
+  const day = new Intl.DateTimeFormat("sv-SE", {
+    timeZone, year: "numeric", month: "2-digit", day: "2-digit",
+  });
+  const today = day.format(now);
+  // Allow for the longest local day when locating the first relevant page.
+  const anchor = pending?.deliveryDate ?? new Date(now.getTime() - 26 * 60 * 60 * 1000).toISOString();
+  const start = await selectSubscriptionDeliveryPage(first, anchor, readPage);
+  const totalPages = Math.max(1, Math.ceil(first.meta.total / first.meta.pageSize));
+
+  for (let page = start.meta.page; page <= totalPages; page += 1) {
+    const { deliveries } = page === start.meta.page ? start : await readPage(page);
+    const match = deliveries.find(delivery => {
+      if (pending) return delivery._id === pending.deliveryId;
+      const scheduled = new Date(delivery.scheduledDate);
+      if (!Number.isFinite(scheduled.getTime()) || day.format(scheduled) < today) return false;
+      return delivery.status === "scheduled" ||
+        (delivery.status === "generated" &&
+          delivery.order?.deliveryStatus === "ordered" &&
+          ["paid", "partially_paid", "partially_refunded"].includes(delivery.order.status ?? ""));
+    });
+    if (match) return match;
+  }
+  return null;
+}

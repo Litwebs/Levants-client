@@ -37,3 +37,26 @@ test("a date beyond retained history falls back to the latest page", async () =>
 test("navigation is clamped when the number of pages changes", async () => {
   const f = fixture(21); assert.equal((await select(f.page(1), null, f.read, 99)).meta.page, 3);
 });
+
+const findAddOn = exports.findSubscriptionAddOnDelivery;
+
+test("add-ons find the upcoming delivery after a long history", async () => {
+  const f = fixture(35);
+  const result = await findAddOn(f.page(1), f.read, new Date("2030-01-25T20:00:00Z"));
+  assert.equal(result?._id, "24");
+  assert.ok(!f.reads.includes(1));
+});
+
+test("add-on recovery uses the original delivery on a later page", async () => {
+  const f = fixture(35);
+  const pending = { deliveryId: "21", deliveryDate: "2030-01-22T00:00:00Z" };
+  assert.equal((await findAddOn(f.page(1), f.read, new Date("2030-01-25T20:00:00Z"), "Europe/London", pending))?._id, "21");
+  assert.equal(await findAddOn(f.page(1), f.read, new Date("2030-01-25T20:00:00Z"), "Europe/London", { ...pending, deliveryId: "missing" }), null);
+});
+
+test("add-ons keep a delivery at UK midnight during British Summer Time", async () => {
+  const deliveries = [{ _id: "today", scheduledDate: "2026-07-11T23:00:00Z", status: "scheduled" }];
+  const first = { deliveries, meta: { page: 1, pageSize: 20, total: 1 } };
+  const result = await findAddOn(first, async () => assert.fail("No extra page expected"), new Date("2026-07-12T09:00:00Z"));
+  assert.equal(result?._id, "today");
+});
