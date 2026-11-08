@@ -10,7 +10,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   build:
-    if: ${{ github.event.before == '8a54016206fd10c4b57f08da29b5846f5d1a674e' && contains(github.event.head_commit.message, 'hotfix-payment-setup-20261108') }}
+    if: ${{ github.event.before == '7390a0c608a41a7c5fbace1021f4f0860b126a75' && contains(github.event.head_commit.message, 'hotfix-session-retry-20261108') }}
     runs-on: ubuntu-latest
     timeout-minutes: 12
     steps:
@@ -23,7 +23,7 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
-      - run: node --test tests/subscriptionPaymentSetup.test.mjs
+      - run: node --test tests/subscriptionSessionRetry.test.mjs
       - name: Build production assets
         env:
           VITE_API_BASE_URL: https://api.levantsdairy.co.uk/api
