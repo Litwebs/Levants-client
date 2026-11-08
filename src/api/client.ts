@@ -69,7 +69,6 @@ async function request<T>(endpoint: string, options: RequestOptions = {}): Promi
 
   const headers = new Headers(fetchOptions.headers);
   if (!headers.has('Accept')) headers.set('Accept', 'application/json');
-  const hasRetried = headers.get('x-auth-retry') === '1';
 
   const hasBody = fetchOptions.body !== undefined && fetchOptions.body !== null;
   const isFormData = fetchOptions.body instanceof FormData;
@@ -85,12 +84,10 @@ async function request<T>(endpoint: string, options: RequestOptions = {}): Promi
   });
   if (
     response.status === 401 &&
-    !hasRetried &&
     !endpoint.includes('/portal/auth/refresh')
   ) {
     const refreshed = await tryRefreshCustomerSession();
     if (refreshed) {
-      headers.set('x-auth-retry', '1');
       response = await fetch(url, {
         ...fetchOptions,
         headers,
