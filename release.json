@@ -1,11 +1,11 @@
 {
-  "sha": "7390a0c608a41a7c5fbace1021f4f0860b126a75",
+  "sha": "a3a3c4175993ab0683cfbb1732da446424c789bf",
   "environment": "production",
   "host": "levantsdairy.co.uk",
   "api": "https://api.levantsdairy.co.uk/api",
   "files": {
     ".nojekyll": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-    "404.html": "52b655644a9eb0564641ab38fa6669ece37817d9496b46cb49d18eec53dbf10f",
+    "404.html": "6cb06652c36affa184208a8d33a4cfcabbe49e66c6e11b343886cf4acb50ce74",
     "CNAME": "2131c6ed4473d22054e8bcc2f89972b0075c93be81ba16f7d1ae664b683c8f90",
     "Logo.jpg": "600e873fd32b62711ebe6fa9ed2cfaff2ba2747dba3f877c46eb8375a00631c3",
     "android-chrome-192x192.png": "514e0b88517d795dfd368a0196a9eb5c4bc35c67c852a936ecdbd4f6cd4e4178",
@@ -46,7 +46,7 @@
     "guides/subscriptions/reduce.png": "561d07e01dbdabbd2b8101497153803bc2dd01a5e0c8c3d87d0e1d115602e326",
     "guides/subscriptions/resume.png": "d77adc982f18245804c7e24c3686a4850908b117ea088bb156380b3c57b440fc",
     "guides/subscriptions/subscriptions.png": "6d679bf193e25b9d713b62c9ac504e32b497ed53a658893cc46299433c84748b",
-    "index.html": "52b655644a9eb0564641ab38fa6669ece37817d9496b46cb49d18eec53dbf10f",
+    "index.html": "6cb06652c36affa184208a8d33a4cfcabbe49e66c6e11b343886cf4acb50ce74",
     "placeholder.svg": "64badf7aabda0b9630b87020ffb6095cb858ccbcf66b355c2aa08b1063954d3b",
     "reviews/about/WhatsApp Image 2026-07-30 at 17.22.57 (1).jpeg": "7ec2cb93334a24e5d385b120ce5c8448892db93730ffe59201df47943d4c2953",
     "reviews/about/WhatsApp Image 2026-07-30 at 17.22.57 (2).jpeg": "44011a544f024677c3f171aa20aa2e89136ac7d5a2a3a8130b6e5ebba13302ed",
@@ -70,6 +70,6 @@
     "reviews/rev3.jpeg": "beee6178920de8d635e48aba206df18277ab922e4fc8e534048da068f5412b63",
     "robots.txt": "a3d27b3ca5ce32341fa9f96f01169b521b1657c05d1860c45d1e53a6258e9e8b",
     "site.webmanifest": "2208b06211221d2893b6c25371e27ce797206173a47211d43f12155b32064d0e",
-    "assets/index-B_GliLom.js": "7b383497f16b5be593c2c561ff433ab6aab2728325bf3ebec1c397dcf8319ff5"
+    "assets/index-BoTIW9C7.js": "33d2d0b064732141abe4dbf3a22dca47a3969e6c344009bae52d3ec4043a4737"
   }
 }
