@@ -1,11 +1,11 @@
 {
-  "sha": "5800e6100a5398166b05685e7bebd5b800efe025",
+  "sha": "7390a0c608a41a7c5fbace1021f4f0860b126a75",
   "environment": "production",
   "host": "levantsdairy.co.uk",
   "api": "https://api.levantsdairy.co.uk/api",
   "files": {
     ".nojekyll": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-    "404.html": "1bde5b1b5a358b1e07c9c748fb3efbe4fe8a4c0b40770bb8a3909a26c3c7288e",
+    "404.html": "52b655644a9eb0564641ab38fa6669ece37817d9496b46cb49d18eec53dbf10f",
     "CNAME": "2131c6ed4473d22054e8bcc2f89972b0075c93be81ba16f7d1ae664b683c8f90",
     "Logo.jpg": "600e873fd32b62711ebe6fa9ed2cfaff2ba2747dba3f877c46eb8375a00631c3",
     "android-chrome-192x192.png": "514e0b88517d795dfd368a0196a9eb5c4bc35c67c852a936ecdbd4f6cd4e4178",
@@ -13,7 +13,6 @@
     "apple-touch-icon.png": "f4e73b1ce29591dbefdc248cbf0d281ac1db6c25b02b092b58cb0280f147272d",
     "assets/hero-farm-Cxfdo4ch.jpg": "e49909f6339959ffe572bb65137843b097f5c2f0c8f45899ea30597684eb8557",
     "assets/index-Bv7qN8G9.css": "517b24e574015965062f53d232962be0ac22d27f6249fe8bcd64c664dfbe677c",
-    "assets/index-DH5rcrHp.js": "e19e9f027d9298811512c25e4fcc9d41d9f51977b62f291d138ab6d06f1da6c1",
     "assets/mark-BSbXTlZL.jpeg": "c25d5639e7972585f38df7c43d745e826714bae740f915a54836e3a552f3142f",
     "assets/product-milk-DBoJk55m.jpg": "43fb2d0909d32c272f7d599c764ec58c2f50c9d6d0494c9212f5dac48a6d273d",
     "delivery/WhatsApp Image 2026-07-30 at 17.10.11 (1).jpeg": "e1541d63ff0364b84c380b40ecb2e7bfd4344bec6cb59526102eba1983e79c1a",
@@ -47,7 +46,7 @@
     "guides/subscriptions/reduce.png": "561d07e01dbdabbd2b8101497153803bc2dd01a5e0c8c3d87d0e1d115602e326",
     "guides/subscriptions/resume.png": "d77adc982f18245804c7e24c3686a4850908b117ea088bb156380b3c57b440fc",
     "guides/subscriptions/subscriptions.png": "6d679bf193e25b9d713b62c9ac504e32b497ed53a658893cc46299433c84748b",
-    "index.html": "1bde5b1b5a358b1e07c9c748fb3efbe4fe8a4c0b40770bb8a3909a26c3c7288e",
+    "index.html": "52b655644a9eb0564641ab38fa6669ece37817d9496b46cb49d18eec53dbf10f",
     "placeholder.svg": "64badf7aabda0b9630b87020ffb6095cb858ccbcf66b355c2aa08b1063954d3b",
     "reviews/about/WhatsApp Image 2026-07-30 at 17.22.57 (1).jpeg": "7ec2cb93334a24e5d385b120ce5c8448892db93730ffe59201df47943d4c2953",
     "reviews/about/WhatsApp Image 2026-07-30 at 17.22.57 (2).jpeg": "44011a544f024677c3f171aa20aa2e89136ac7d5a2a3a8130b6e5ebba13302ed",
@@ -70,6 +69,7 @@
     "reviews/rev2.jpeg": "3a6b02512a04df5f8c14cd1d41b587aa02db0713b8e30fa34aaceabeb1b8b3d5",
     "reviews/rev3.jpeg": "beee6178920de8d635e48aba206df18277ab922e4fc8e534048da068f5412b63",
     "robots.txt": "a3d27b3ca5ce32341fa9f96f01169b521b1657c05d1860c45d1e53a6258e9e8b",
-    "site.webmanifest": "2208b06211221d2893b6c25371e27ce797206173a47211d43f12155b32064d0e"
+    "site.webmanifest": "2208b06211221d2893b6c25371e27ce797206173a47211d43f12155b32064d0e",
+    "assets/index-B_GliLom.js": "7b383497f16b5be593c2c561ff433ab6aab2728325bf3ebec1c397dcf8319ff5"
   }
 }
