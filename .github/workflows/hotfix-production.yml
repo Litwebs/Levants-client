@@ -10,7 +10,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   build:
-    if: ${{ github.event.before == 'f6d8a7c249c6630814e79b00ee22c04e933b63f8' && contains(github.event.head_commit.message, 'hotfix-subscription-deliveries-20261106') }}
+    if: ${{ github.event.before == '8a54016206fd10c4b57f08da29b5846f5d1a674e' && contains(github.event.head_commit.message, 'hotfix-payment-setup-20261108') }}
     runs-on: ubuntu-latest
     timeout-minutes: 12
     steps:
@@ -23,7 +23,7 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
-      - run: node --test tests/subscriptionDeliveryPage.test.mjs
+      - run: node --test tests/subscriptionPaymentSetup.test.mjs
       - name: Build production assets
         env:
           VITE_API_BASE_URL: https://api.levantsdairy.co.uk/api
@@ -45,5 +45,6 @@ jobs:
           git -C "$BUILD_DIR" switch -c "release/hotfix-build-${{ github.sha }}"
           rsync -a --delete --exclude=.git dist/ "$BUILD_DIR/"
           git -C "$BUILD_DIR" add --all
+          git -C "$BUILD_DIR" add -f release.json
           git -C "$BUILD_DIR" -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m "Production hotfix ${{ github.sha }}"
           git -C "$BUILD_DIR" push origin "HEAD:refs/heads/release/hotfix-build-${{ github.sha }}"
