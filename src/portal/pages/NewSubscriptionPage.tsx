@@ -779,6 +779,8 @@ const NewSubscriptionPage: React.FC = () => {
   // Whether the "add new" Stripe form is expanded
   const [showNewForm, setShowNewForm] = useState(false);
   const [setupLoading, setSetupLoading] = useState(true);
+  const [setupError, setSetupError] = useState<string | null>(null);
+  const [setupAttempt, setSetupAttempt] = useState(0);
   const [setupClientSecret, setSetupClientSecret] = useState<string | null>(
     null,
   );
@@ -810,7 +812,7 @@ const NewSubscriptionPage: React.FC = () => {
   useEffect(() => {
     const needsForm =
       (showNewForm || savedMethods.length === 0) && step === steps.length - 1;
-    if (!needsForm) return;
+    if (!needsForm || methodsLoading) return;
     if (setupClientSecret) return; // already loaded
 
     let cancelled = false;
@@ -818,26 +820,26 @@ const NewSubscriptionPage: React.FC = () => {
     const loadSetupIntent = async () => {
       try {
         setSetupLoading(true);
+        setSetupError(null);
         const res = await portalPaymentsApi.createSetupIntent();
         const data = res.data;
         const publishableKey = String(data?.publishableKey || "");
         const clientSecret = String(data?.clientSecret || "");
-        if (!publishableKey || !clientSecret) {
+        if (!res.success || !publishableKey || !clientSecret) {
           throw new Error("Stripe setup data missing");
         }
 
+        const stripe = await loadStripe(publishableKey);
+        if (!stripe) throw new Error("Stripe did not load");
+
         if (!cancelled) {
-          setStripePromise(loadStripe(publishableKey));
+          setStripePromise(Promise.resolve(stripe));
           setSetupClientSecret(clientSecret);
         }
-      } catch (err) {
+      } catch {
         if (!cancelled) {
-          const msg =
-            err instanceof ApiError
-              ? err.message
-              : "Failed to initialize payment options.";
-          setSubmitError(msg);
-      if (err instanceof ApiError && /stock|availab|quote|refresh/i.test(msg)) setQuoteRevision(value => value + 1);
+          setSetupError("We couldn’t load the secure payment form. Please try again. If this continues, contact us for help.");
+          setStripePromise(null);
           setSetupClientSecret(null);
         }
       } finally {
@@ -850,7 +852,7 @@ const NewSubscriptionPage: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, [showNewForm, savedMethods.length, step, setupClientSecret]);
+  }, [showNewForm, savedMethods.length, methodsLoading, step, setupClientSecret, setupAttempt]);
 
   // Fetch addresses on mount
   useEffect(() => {
@@ -1381,6 +1383,9 @@ const NewSubscriptionPage: React.FC = () => {
   };
 
   const refreshPaymentSetup = () => {
+    setSetupLoading(true);
+    setSetupError(null);
+    setSetupAttempt(attempt => attempt + 1);
     setSetupClientSecret(null);
     setStripePromise(null);
   };
@@ -2324,7 +2329,14 @@ const NewSubscriptionPage: React.FC = () => {
                       </span>
                     )}
                   </p>
-                  {setupLoading ? (
+                  {setupError ? (
+                    <div role="alert" className="space-y-3">
+                      <p className="text-sm text-destructive">{setupError}</p>
+                      <Button type="button" variant="outline" onClick={refreshPaymentSetup}>
+                        Try again
+                      </Button>
+                    </div>
+                  ) : setupLoading || methodsLoading ? (
                     <div className="flex items-center gap-2 text-sm text-muted-foreground py-3">
                       <Loader2 className="h-4 w-4 animate-spin" />
                       Preparing secure payment form…
