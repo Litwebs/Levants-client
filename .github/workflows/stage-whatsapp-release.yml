@@ -30,8 +30,7 @@ jobs:
         run: |
           npm run build
           touch dist/.nojekyll
-          rg -l 'https://wa.me/' dist/assets --glob '*.js'
-          rg -l '447494927688' dist/assets --glob '*.js'
+          node -e 'const fs=require("node:fs"), p="dist/assets/"; const sources=fs.readdirSync(p).filter(n=>n.endsWith(".js")).map(n=>fs.readFileSync(p+n,"utf8")); if(!sources.some(x=>x.includes("https://wa.me/")&&x.includes("447494927688")&&x.includes("WhatsApp")))process.exit(1)'
       - name: Validate production environment and Pages source
         env:
           RELEASE_SHA: e67ac75387b9329d48108def258d7e8dd236380a
