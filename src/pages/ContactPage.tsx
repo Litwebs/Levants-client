@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Mail, Clock, Send, MessageSquare, MapPin, Phone } from "lucide-react";
 import { useBusinessInfo } from "@/context/BusinessInfoContext";
+import { buildWhatsAppLink, WHATSAPP_DISPLAY_PHONE } from "@/lib/whatsapp";
 import { Input, Select, Textarea } from "@/components/common/FormControls";
 
 const ContactPage: React.FC = () => {
@@ -33,9 +34,9 @@ const ContactPage: React.FC = () => {
     },
     {
       icon: Phone,
-      label: "Phone",
-      value: businessInfo.phone,
-      link: `tel:${businessInfo.phone}`,
+      label: "WhatsApp",
+      value: WHATSAPP_DISPLAY_PHONE,
+      link: buildWhatsAppLink(),
     },
     ...(businessInfo.address
       ? [
