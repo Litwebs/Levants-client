@@ -1698,7 +1698,7 @@ const SubscriptionDetailPage: React.FC = () => {
         <Info size={17}/><AlertDescription><div className="flex flex-wrap items-center justify-between gap-3">
           <p className="min-w-0 flex-1">{subscription.renewalPaymentRecoveryNotice.message}</p>
           <Button size="sm" variant="outline" asChild><Link to="/portal/payments">Update payment card</Link></Button>
-          {subscription.renewalPaymentRecoveryNotice.retryAvailable && <Button size="sm" variant="outline" disabled={saving} onClick={handleRetryFailedRenewal}>Retry original renewal</Button>}
+          {subscription.renewalPaymentRecoveryNotice.retryAvailable && <Button size="sm" variant="outline" disabled={saving} onClick={handleRetryFailedRenewal}>{subscription.renewalPaymentRecoveryNotice.status === "future_resume" ? "Finish restarting future deliveries" : "Retry original renewal"}</Button>}
           {subscription.renewalPaymentRecoveryNotice.hostedInvoiceUrl && <Button size="sm" variant="outline" asChild><a href={subscription.renewalPaymentRecoveryNotice.hostedInvoiceUrl} target="_blank" rel="noopener noreferrer">View unpaid bill</a></Button>}
         </div></AlertDescription>
       </Alert>}
@@ -2167,7 +2167,9 @@ const SubscriptionDetailPage: React.FC = () => {
         open={resumeOpen}
         onOpenChange={setResumeOpen}
         title="Resume Subscription?"
-        description={subscription.renewalPaymentRecoveryNotice ? (subscription.renewalPaymentRecoveryNotice.status === "confirmation_pending" ? "Your renewal bill is already paid. Finish confirming its delivery dates without creating another bill." : `Retry your original unpaid renewal bill${subscription.renewalPaymentRecoveryNotice.amountMinor ? ` of ${formatMoney(subscription.renewalPaymentRecoveryNotice.amountMinor / 100)}` : ""} using your default card. Deliveries are confirmed only after payment succeeds. Another bill will not be created.`) : "Restart from the next eligible delivery. Your card may be charged to restore refunded or credited payments. Existing store credit is kept."}
+        description={subscription.renewalPaymentRecoveryNotice?.status === "future_resume"
+          ? "Restart future deliveries using your saved card. You will not be charged for missed deliveries or when you select Resume. Your next regular payment covers future deliveries only."
+          : subscription.renewalPaymentRecoveryNotice ? (subscription.renewalPaymentRecoveryNotice.status === "confirmation_pending" ? "Your renewal bill is already paid. Finish confirming its delivery dates without creating another bill." : `Retry your original unpaid renewal bill${subscription.renewalPaymentRecoveryNotice.amountMinor ? ` of ${formatMoney(subscription.renewalPaymentRecoveryNotice.amountMinor / 100)}` : ""} using your default card. Deliveries are confirmed only after payment succeeds. Another bill will not be created.`) : "Restart from the next eligible delivery. Your card may be charged to restore refunded or credited payments. Existing store credit is kept."}
         confirmLabel="Resume"
         onConfirm={handleResume}
       />
