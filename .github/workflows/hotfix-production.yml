@@ -10,7 +10,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   build:
-    if: ${{ github.event.before == '7390a0c608a41a7c5fbace1021f4f0860b126a75' && contains(github.event.head_commit.message, 'hotfix-session-retry-20261108') }}
+    if: ${{ github.event.before == 'e67ac75387b9329d48108def258d7e8dd236380a' && contains(github.event.head_commit.message, 'hotfix-future-resume-20261125') }}
     runs-on: ubuntu-latest
     timeout-minutes: 12
     steps:
